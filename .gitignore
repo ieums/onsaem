@@ -1,0 +1,30 @@
+# Spring Boot
+backend/.gradle/
+backend/build/
+backend/out/
+backend/.idea/
+backend/*.iml
+backend/HELP.md
+
+# Flutter
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/build/
+frontend/.idea/
+frontend/*.iml
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/key.properties
+frontend/ios/.symlinks/
+frontend/ios/Pods/
+
+# 공통
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
+!.env.example
+backend/src/main/resources/application-local.properties
