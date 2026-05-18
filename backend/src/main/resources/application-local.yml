@@ -8,3 +8,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create
+
+
+gemini:
+  api:
+    key: AIzaSyDmzD7sEEQyDL6Xawb7sEmBySZajzGcLvQ
