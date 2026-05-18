@@ -45,4 +45,6 @@ jobs:
           nohup java -jar /home/ubuntu/backend-0.0.1-SNAPSHOT.jar \
             --spring.datasource.url="${{ secrets.DB_URL }}" \
             --spring.datasource.username=${{ secrets.DB_USERNAME }} \
-            --spring.datasource.password=${{ secrets.DB_PASSWORD }} > app.log 2>&1 &
+            --spring.datasource.password=${{ secrets.DB_PASSWORD }} \
+            --cloud.aws.credentials.access-key=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --cloud.aws.credentials.secret-key=${{ secrets.AWS_SECRET_ACCESS_KEY }} > app.log 2>&1 &
