@@ -35,3 +35,12 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Image ###
+uploads/
+
+### yml ###
+application-local.yml
+application-prod.yml
+
+
