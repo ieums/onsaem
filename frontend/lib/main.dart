@@ -8,7 +8,7 @@ final dio = Dio(BaseOptions(
   // 웹 테스트: http://localhost:8080/api/v1
   // 안드로이드 에뮬레이터: http://10.0.2.2:8080/api/v1
   // 실제 기기: http://[본인PC_IP]:8080/api/v1
-  baseUrl: 'http://localhost:8080/api/v1', // 웹 테스트용(서버 열면 주소 수정)
+  baseUrl: 'http://127.0.0.1:8080/api/v1', // 웹 테스트용(서버 열면 주소 수정)
   connectTimeout: const Duration(seconds: 5),
   receiveTimeout: const Duration(seconds: 3),
 ));

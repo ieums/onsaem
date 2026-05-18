@@ -1,4 +1,8 @@
 package com.ieum.backend.domain.problem.repository;
 
-public interface ProblemRepository {
+import com.ieum.backend.domain.problem.entity.Problem;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ProblemRepository extends JpaRepository<Problem, Long> {
+
 }

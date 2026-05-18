@@ -1,4 +1,4 @@
-package com.ieum.backend.domain.problem.entity;
+package com.ieum.backend.domain.problem.entity.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
