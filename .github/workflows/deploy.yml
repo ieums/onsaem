@@ -34,6 +34,7 @@ jobs:
         target: "/home/ubuntu/"
         strip_components: 3
 
+
     - name: EC2에서 서버 재시작
       uses: appleboy/ssh-action@master
       with:
@@ -48,3 +49,5 @@ jobs:
             --spring.datasource.password=${{ secrets.DB_PASSWORD }} \
             --cloud.aws.credentials.access-key=${{ secrets.AWS_ACCESS_KEY_ID }} \
             --cloud.aws.credentials.secret-key=${{ secrets.AWS_SECRET_ACCESS_KEY }} > app.log 2>&1 &
+
+    
