@@ -61,7 +61,7 @@ public class Problem {
     private ProblemStatus status;
 
     @Column(length = 500)
-    private String userDescription;
+    private String studentDescription;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -72,7 +72,7 @@ public class Problem {
     public Problem(Long studentId, String imageUrl, String extractedText, String summary,
                    Subject subject, String primaryType, String secondaryType,
                    String grade, Difficulty difficulty, Integer totalDifficultyScore,
-                   ExamType examType, String userDescription) {
+                   ExamType examType, String studentDescription) {
         this.studentId = studentId;
         this.imageUrl = imageUrl;
         this.extractedText = extractedText;
@@ -84,7 +84,7 @@ public class Problem {
         this.difficulty = difficulty;
         this.totalDifficultyScore = totalDifficultyScore;
         this.examType = examType;
-        this.userDescription = userDescription;
+        this.studentDescription = studentDescription;
         this.status = ProblemStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }
