@@ -23,7 +23,13 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/health", "/api/v1/lesson/token", "/ws/**").permitAll()
+                        .requestMatchers(
+                                "/api/v1/health",
+                                "/api/v1/lesson/token",
+                                "/api/v1/lesson/*/images",
+                                "/api/v1/lesson/*/complete",
+                                "/ws/**"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 );
         return http.build();
