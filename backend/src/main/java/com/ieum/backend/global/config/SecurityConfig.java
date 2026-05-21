@@ -28,6 +28,8 @@ public class SecurityConfig {
                                 "/api/v1/lesson/token",
                                 "/api/v1/lesson/*/images",
                                 "/api/v1/lesson/*/complete",
+                                "/api/v1/lesson/*/recording/start",
+                                "/api/v1/lesson/*/recording/stop",
                                 "/ws/**"
                         ).permitAll()
                         .anyRequest().authenticated()

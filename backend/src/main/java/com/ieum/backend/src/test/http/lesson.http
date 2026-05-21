@@ -42,3 +42,9 @@ Content-Type: image/jpeg
 ### 수업 완료 테스트
 POST http://localhost:8080/api/v1/lesson/1/complete
 Content-Type: application/json
+
+### 녹화 시작 테스트
+POST http://localhost:8080/api/v1/lesson/1/recording/start
+
+### 녹화 중지 테스트
+POST http://localhost:8080/api/v1/lesson/1/recording/stop

@@ -1,6 +1,8 @@
 package com.ieum.backend.domain.lesson.controller;
 
 import com.ieum.backend.domain.lesson.dto.LessonImageResponseDto;
+import com.ieum.backend.domain.lesson.dto.RecordingStartResponseDto;
+import com.ieum.backend.domain.lesson.dto.RecordingStopResponseDto;
 import com.ieum.backend.domain.lesson.dto.TokenRequestDto;
 import com.ieum.backend.domain.lesson.dto.TokenResponseDto;
 import com.ieum.backend.domain.lesson.service.LessonService;
@@ -47,5 +49,23 @@ public class LessonController {
             @RequestParam(required = false) String recordingUrl) {
         lessonService.completeLesson(lessonId, recordingUrl);
         return ApiResponse.ok("수업이 완료되었습니다.", null);
+    }
+
+    /**
+     * 녹화 시작 (Agora Cloud Recording)
+     * POST /api/v1/lesson/{lessonId}/recording/start
+     */
+    @PostMapping("/{lessonId}/recording/start")
+    public ApiResponse<RecordingStartResponseDto> startRecording(@PathVariable Long lessonId) {
+        return ApiResponse.ok(lessonService.startRecording(lessonId));
+    }
+
+    /**
+     * 녹화 중지 (Agora Cloud Recording)
+     * POST /api/v1/lesson/{lessonId}/recording/stop
+     */
+    @PostMapping("/{lessonId}/recording/stop")
+    public ApiResponse<RecordingStopResponseDto> stopRecording(@PathVariable Long lessonId) {
+        return ApiResponse.ok(lessonService.stopRecording(lessonId));
     }
 }

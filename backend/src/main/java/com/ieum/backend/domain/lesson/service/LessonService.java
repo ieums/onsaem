@@ -1,10 +1,13 @@
 package com.ieum.backend.domain.lesson.service;
 
 import com.ieum.backend.domain.lesson.dto.LessonImageResponseDto;
+import com.ieum.backend.domain.lesson.dto.RecordingStartResponseDto;
+import com.ieum.backend.domain.lesson.dto.RecordingStopResponseDto;
 import com.ieum.backend.domain.lesson.dto.TokenRequestDto;
 import com.ieum.backend.domain.lesson.dto.TokenResponseDto;
 import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.domain.lesson.repository.LessonRepository;
+import com.ieum.backend.global.agora.AgoraRecordingService;
 import com.ieum.backend.global.agora.RtcTokenBuilder2;
 import com.ieum.backend.global.config.AgoraConfig;
 import com.ieum.backend.global.exception.BusinessException;
@@ -21,7 +24,11 @@ public class LessonService {
     private final AgoraConfig agoraConfig;
     private final LessonRepository lessonRepository;
     private final S3Service s3Service;
+    private final AgoraRecordingService agoraRecordingService;
 
+    /**
+     * Agora 토큰 발급 (채널이 없으면 자동 생성)
+     */
     @Transactional
     public TokenResponseDto generateToken(TokenRequestDto req) {
         lessonRepository.findByChannelName(req.getChannelName())
@@ -58,24 +65,48 @@ public class LessonService {
     }
 
     /**
-     * 수업 중 임시 이미지 업로드
+     * 수업 중 임시 이미지 S3 업로드
      */
     @Transactional(readOnly = true)
     public LessonImageResponseDto uploadTempImage(Long lessonId, MultipartFile file) {
-        lessonRepository.findById(lessonId)
-                .orElseThrow(() -> BusinessException.notFound("수업을 찾을 수 없습니다."));
+        findByIdOrThrow(lessonId);
         String imageUrl = s3Service.uploadTempImage(lessonId, file);
         return new LessonImageResponseDto(imageUrl);
     }
 
     /**
-     * 수업 완료: 엔티티 상태 변경 + 임시 이미지 전체 삭제
+     * 수업 완료: 상태 변경 + 임시 이미지 삭제
      */
     @Transactional
     public void completeLesson(Long lessonId, String recordingUrl) {
-        Lesson lesson = lessonRepository.findById(lessonId)
-                .orElseThrow(() -> BusinessException.notFound("수업을 찾을 수 없습니다."));
-        lesson.complete(recordingUrl);
+        Lesson lesson = findByIdOrThrow(lessonId);
+        lesson.complete(recordingUrl);  // recordingUrl null이면 기존 값 유지
         s3Service.deleteTempImages(lessonId);
+    }
+
+    /**
+     * 녹화 시작: Lesson 상태를 ACTIVE로, Agora Cloud Recording 시작
+     */
+    @Transactional
+    public RecordingStartResponseDto startRecording(Long lessonId) {
+        Lesson lesson = findByIdOrThrow(lessonId);
+        lesson.start();
+        return agoraRecordingService.startRecording(lesson);
+    }
+
+    /**
+     * 녹화 중지: Agora Cloud Recording 중지 + recordingUrl DB 저장
+     */
+    @Transactional
+    public RecordingStopResponseDto stopRecording(Long lessonId) {
+        Lesson lesson = findByIdOrThrow(lessonId);
+        return agoraRecordingService.stopRecording(lesson);
+    }
+
+    // ──────────── private 헬퍼 ────────────
+
+    private Lesson findByIdOrThrow(Long lessonId) {
+        return lessonRepository.findById(lessonId)
+                .orElseThrow(() -> BusinessException.notFound("수업을 찾을 수 없습니다."));
     }
 }

@@ -70,5 +70,7 @@ jobs:
           export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           export AGORA_APP_ID="${{ secrets.AGORA_APP_ID }}"
           export AGORA_APP_CERTIFICATE="${{ secrets.AGORA_APP_CERTIFICATE }}"
+          export AGORA_CUSTOMER_ID="${{ secrets.AGORA_CUSTOMER_ID }}"
+          export AGORA_CUSTOMER_SECRET="${{ secrets.AGORA_CUSTOMER_SECRET }}"
           nohup java -jar /home/ubuntu/backend-0.0.1-SNAPSHOT.jar \
             --spring.profiles.active=prod > app.log 2>&1 &

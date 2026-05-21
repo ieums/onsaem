@@ -11,4 +11,6 @@ public class AgoraConfig {
     private String appId;
     private String appCertificate;
     private int tokenExpirySeconds;
+    private String customerId;
+    private String customerSecret;
 }
