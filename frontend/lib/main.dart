@@ -1,80 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:dio/dio.dart';
-
-// API 기본 설정
-final dio = Dio(BaseOptions(
-  // 웹 테스트: http://localhost:8080/api/v1
-  // 안드로이드 에뮬레이터: http://10.0.2.2:8080/api/v1
-  // 실제 기기: http://[본인PC_IP]:8080/api/v1
-  baseUrl: 'http://3.35.10.251/api/v1', // 웹 테스트용(서버 열면 주소 수정)
-  connectTimeout: const Duration(seconds: 5),
-  receiveTimeout: const Duration(seconds: 3),
-));
-
-// 서버 연결 상태 Provider
-final healthProvider = FutureProvider<String>((ref) async {
-  final response = await dio.get('/health');
-  return response.data.toString();
-});
-
-// 라우터 설정
-final router = GoRouter(
-  routes: [
-    GoRoute(
-      path: '/',
-      builder: (context, state) => const HomePage(),
-    ),
-  ],
-);
+import 'package:ieum/core/network/health_provider.dart';
+import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/core/widgets/server_health_dialog.dart';
+import 'package:ieum/routes/app_router.dart';
 
 void main() {
   runApp(
     const ProviderScope(
-      child: IeumApp(),
+      child: OnsaemApp(),
     ),
   );
 }
 
-class IeumApp extends StatelessWidget {
-  const IeumApp({super.key});
+class OnsaemApp extends ConsumerStatefulWidget {
+  const OnsaemApp({super.key});
+
+  @override
+  ConsumerState<OnsaemApp> createState() => _OnsaemAppState();
+}
+
+class _OnsaemAppState extends ConsumerState<OnsaemApp> {
+  bool _healthCheckHandled = false;
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<String>>(healthProvider, (previous, next) {
+      if (_healthCheckHandled) return;
+      next.when(
+        data: (message) {
+          _healthCheckHandled = true;
+          debugPrint('[Onsaem] 서버 연결 성공: $message');
+        },
+        error: (error, _) {
+          _healthCheckHandled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final navContext =
+                appRouter.routerDelegate.navigatorKey.currentContext;
+            if (navContext == null || !navContext.mounted) return;
+            showServerHealthDialog(
+              navContext,
+              isSuccess: false,
+              message: error.toString(),
+            );
+          });
+        },
+        loading: () {},
+      );
+    });
+
+    ref.watch(healthProvider);
+
     return MaterialApp.router(
       title: '온샘',
-      routerConfig: router,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
-    );
-  }
-}
-
-class HomePage extends ConsumerWidget {
-  const HomePage({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final health = ref.watch(healthProvider);
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('온샘')),
-      body: Center(
-        child: health.when(
-          data: (message) => Text(
-            '서버 연결 상태: $message',
-            style: const TextStyle(fontSize: 18),
-          ),
-          loading: () => const CircularProgressIndicator(),
-          error: (e, _) => Text(
-            '서버 연결 실패: $e',
-            style: const TextStyle(color: Colors.red),
-          ),
-        ),
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      routerConfig: appRouter,
     );
   }
 }
