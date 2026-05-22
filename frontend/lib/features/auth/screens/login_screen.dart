@@ -242,7 +242,15 @@ class _SocialLoginButton extends StatelessWidget {
                 child: SizedBox(
                   width: iconSize ?? _LoginScreenState._socialIconSize,
                   height: iconSize ?? _LoginScreenState._socialIconSize,
-                  child: Image.asset(iconAsset, fit: BoxFit.contain),
+                  child: Image.asset(
+                    iconAsset,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.broken_image_outlined,
+                      size: iconSize ?? _LoginScreenState._socialIconSize,
+                      color: const Color(0xFF9AA3B2),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: _LoginScreenState._socialIconGap),
@@ -288,7 +296,7 @@ class _BrandTitle extends StatelessWidget {
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
-            letterSpacing: 1.5, // 기존 3 → 1.5로 자간 줄임
+            letterSpacing: 3,
             color: AppColors.primaryBlue,
           ),
         ),

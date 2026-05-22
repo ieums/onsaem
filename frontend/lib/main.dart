@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/network/health_provider.dart';
 import 'package:ieum/core/theme/app_theme.dart';
-import 'package:ieum/core/widgets/server_health_dialog.dart';
 import 'package:ieum/routes/app_router.dart';
 
 void main() {
@@ -24,6 +23,17 @@ class _OnsaemAppState extends ConsumerState<OnsaemApp> {
   bool _healthCheckHandled = false;
 
   @override
+  void initState() {
+    super.initState();
+    // 온보딩 첫 화면 이후에 health 체크 (시작 직후 팝업/깜빡임 방지)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) ref.read(healthProvider.future);
+      });
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<String>>(healthProvider, (previous, next) {
       if (_healthCheckHandled) return;
@@ -34,23 +44,11 @@ class _OnsaemAppState extends ConsumerState<OnsaemApp> {
         },
         error: (error, _) {
           _healthCheckHandled = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            final navContext =
-                appRouter.routerDelegate.navigatorKey.currentContext;
-            if (navContext == null || !navContext.mounted) return;
-            showServerHealthDialog(
-              navContext,
-              isSuccess: false,
-              message: error.toString(),
-            );
-          });
+          debugPrint('[Onsaem] 서버 연결 실패: $error');
         },
         loading: () {},
       );
     });
-
-    ref.watch(healthProvider);
 
     return MaterialApp.router(
       title: '온샘',
