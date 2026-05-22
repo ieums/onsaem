@@ -27,7 +27,7 @@ public class GeminiClient {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String GEMINI_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
     private static final String ANALYSIS_PROMPT = """
             당신은 한국 고등학교 학습 콘텐츠 분류 전문가입니다.

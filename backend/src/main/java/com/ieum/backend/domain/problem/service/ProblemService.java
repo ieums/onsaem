@@ -49,7 +49,7 @@ public class ProblemService {
                 .examType(request.getExamType() != null
                         ? request.getExamType()           // 학생이 직접 선택했으면 우선
                         : aiResult.getExamType())         // 아니면 AI 추측
-                .userDescription(request.getUserDescription())
+                .studentDescription(request.getStudentDescription())
                 .build();
 
         problemRepository.save(problem);

@@ -21,7 +21,7 @@ public class ProblemDetailResponse {
     private String imageUrl;
     private String extractedText;
     private String summary;
-    private String userDescription;
+    private String studentDescription;
 
     private Subject subject;
     private String subjectDisplayName;
@@ -47,7 +47,7 @@ public class ProblemDetailResponse {
                 .imageUrl(problem.getImageUrl())
                 .extractedText(problem.getExtractedText())
                 .summary(problem.getSummary())
-                .userDescription(problem.getUserDescription())
+                .studentDescription(problem.getStudentDescription())
                 .subject(problem.getSubject())
                 .subjectDisplayName(problem.getSubject().getDisplayName())
                 .primaryType(problem.getPrimaryType())

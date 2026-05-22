@@ -16,7 +16,7 @@ public class ProblemCreateRequest {
     private Long studentId;
 
     @Size(max = 500, message = "설명은 500자 이내로 입력해주세요")
-    private String userDescription;
+    private String studentDescription;
 
     private ExamType examType;
 }
