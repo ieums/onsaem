@@ -6,6 +6,7 @@ import 'package:ieum/features/auth/screens/signup_role_screen.dart';
 import 'package:ieum/features/auth/screens/student_signup_screen.dart';
 import 'package:ieum/features/auth/screens/tutor_signup_screen.dart';
 import 'package:ieum/features/onboarding/screens/onboarding_screen.dart';
+import 'package:ieum/features/tutor/screens/tutor_shell_screen.dart';
 
 final appRouter = GoRouter(
   navigatorKey: GlobalKey<NavigatorState>(),
@@ -30,6 +31,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.signupTutor,
       builder: (_, _) => const TutorSignupScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.tutorHome,
+      builder: (_, _) => const TutorShellScreen(),
     ),
   ],
   errorBuilder: (_, state) => Scaffold(
