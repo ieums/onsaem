@@ -19,7 +19,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    // 로그인 라우트는 fe-login PR에서 연결
+    _timer = Timer(const Duration(seconds: 3), _goToLogin);
   }
 
   void _goToLogin() {

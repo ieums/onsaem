@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/features/auth/screens/login_screen.dart';
+import 'package:ieum/features/auth/screens/signup_role_screen.dart';
+import 'package:ieum/features/auth/screens/student_signup_screen.dart';
+import 'package:ieum/features/auth/screens/tutor_signup_screen.dart';
 import 'package:ieum/features/onboarding/screens/onboarding_screen.dart';
 
 final appRouter = GoRouter(
@@ -10,6 +14,22 @@ final appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.onboarding,
       builder: (_, _) => const OnboardingScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.login,
+      builder: (_, _) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.signup,
+      builder: (_, _) => const SignupRoleScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.signupStudent,
+      builder: (_, _) => const StudentSignupScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.signupTutor,
+      builder: (_, _) => const TutorSignupScreen(),
     ),
   ],
   errorBuilder: (_, state) => Scaffold(
