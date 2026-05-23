@@ -31,7 +31,7 @@ public class LessonService {
      */
     @Transactional
     public TokenResponseDto generateToken(TokenRequestDto req) {
-        lessonRepository.findByChannelName(req.getChannelName())
+        Lesson lesson = lessonRepository.findByChannelName(req.getChannelName())
                 .orElseGet(() -> lessonRepository.save(new Lesson(req.getChannelName())));
 
         RtcTokenBuilder2.Role role = "SUBSCRIBER".equalsIgnoreCase(req.getRole())
@@ -61,7 +61,7 @@ public class LessonService {
         }
 
         long expireAt = System.currentTimeMillis() / 1000 + expireSeconds;
-        return new TokenResponseDto(token, req.getChannelName(), agoraConfig.getAppId(), expireAt);
+        return new TokenResponseDto(lesson.getId(), token, req.getChannelName(), agoraConfig.getAppId(), expireAt);
     }
 
     /**

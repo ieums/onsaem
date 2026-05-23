@@ -12,6 +12,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/ws-raw").setAllowedOriginPatterns("*"); // plain WebSocket for mobile
         registry.addEndpoint("/ws").setAllowedOriginPatterns("*").withSockJS();
     }
 

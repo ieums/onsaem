@@ -1,77 +1,169 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dio/dio.dart';
 
-// API 기본 설정
-final dio = Dio(BaseOptions(
-  // 웹 테스트: http://localhost:8080/api/v1
-  // 안드로이드 에뮬레이터: http://10.0.2.2:8080/api/v1
-  // 실제 기기: http://[본인PC_IP]:8080/api/v1
-  baseUrl: 'http://3.35.10.251:8080/api/v1', // 웹 테스트용(서버 열면 주소 수정)
-  connectTimeout: const Duration(seconds: 5),
-  receiveTimeout: const Duration(seconds: 3),
-));
+import 'core/theme/app_colors.dart';
+import 'features/lesson/presentation/lesson_screen.dart';
 
-// 서버 연결 상태 Provider
-final healthProvider = FutureProvider<String>((ref) async {
-  final response = await dio.get('/health');
-  return response.data.toString();
-});
-
-// 라우터 설정
-final router = GoRouter(
+final _router = GoRouter(
   routes: [
     GoRoute(
       path: '/',
-      builder: (context, state) => const HomePage(),
+      builder: (context, state) => const EntryScreen(),
+    ),
+    GoRoute(
+      path: '/lesson',
+      builder: (context, state) {
+        final params = state.extra as Map<String, dynamic>;
+        return LessonScreen(
+          channelName: params['channelName'] as String,
+          uid: params['uid'] as int,
+          isTutor: params['isTutor'] as bool,
+        );
+      },
     ),
   ],
 );
 
 void main() {
   runApp(
-    const ProviderScope(
-      child: IeumApp(),
-    ),
+    const ProviderScope(child: OnsaemApp()),
   );
 }
 
-class IeumApp extends StatelessWidget {
-  const IeumApp({super.key});
+class OnsaemApp extends StatelessWidget {
+  const OnsaemApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: '온샘',
-      routerConfig: router,
+      routerConfig: _router,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
         useMaterial3: true,
       ),
     );
   }
 }
 
-class HomePage extends ConsumerWidget {
-  const HomePage({super.key});
+// ─── 입장 화면 ─────────────────────────────────────────────────────────────────
+
+class EntryScreen extends StatefulWidget {
+  const EntryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final health = ref.watch(healthProvider);
+  State<EntryScreen> createState() => _EntryScreenState();
+}
 
+class _EntryScreenState extends State<EntryScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _channelCtrl = TextEditingController();
+  final _uidCtrl = TextEditingController(text: '1');
+  bool _isTutor = true;
+
+  @override
+  void dispose() {
+    _channelCtrl.dispose();
+    _uidCtrl.dispose();
+    super.dispose();
+  }
+
+  void _enter() {
+    if (!_formKey.currentState!.validate()) return;
+    final uid = int.tryParse(_uidCtrl.text.trim());
+    if (uid == null) return;
+    context.go('/lesson', extra: {
+      'channelName': _channelCtrl.text.trim(),
+      'uid': uid,
+      'isTutor': _isTutor,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('온샘')),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('온샘'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+      ),
       body: Center(
-        child: health.when(
-          data: (message) => Text(
-            '서버 연결 상태: $message',
-            style: const TextStyle(fontSize: 18),
-          ),
-          loading: () => const CircularProgressIndicator(),
-          error: (e, _) => Text(
-            '서버 연결 실패: $e',
-            style: const TextStyle(color: Colors.red),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '수업 입장',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                TextFormField(
+                  controller: _channelCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '채널명',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.meeting_room_outlined),
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? '채널명을 입력해주세요' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _uidCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'UID (숫자)',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (v) =>
+                      (v == null || int.tryParse(v.trim()) == null)
+                          ? '숫자를 입력해주세요'
+                          : null,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    const Text('역할:',
+                        style: TextStyle(color: AppColors.textSecondary)),
+                    const SizedBox(width: 12),
+                    SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(value: true, label: Text('튜터(강사)')),
+                        ButtonSegment(value: false, label: Text('학생')),
+                      ],
+                      selected: {_isTutor},
+                      onSelectionChanged: (s) =>
+                          setState(() => _isTutor = s.first),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: _enter,
+                  child: const Text('수업 입장',
+                      style: TextStyle(fontSize: 16)),
+                ),
+              ],
+            ),
           ),
         ),
       ),
