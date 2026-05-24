@@ -7,7 +7,6 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-
 cloud:
   aws:
     credentials:

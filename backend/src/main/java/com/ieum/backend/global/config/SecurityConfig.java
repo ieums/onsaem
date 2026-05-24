@@ -23,6 +23,7 @@ public class SecurityConfig {
                 }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/health").permitAll()
+                        .requestMatchers("/api/v1/problems/**").permitAll()
                         .anyRequest().authenticated()
                 );
         return http.build();
