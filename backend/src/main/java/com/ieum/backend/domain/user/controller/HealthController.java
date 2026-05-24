@@ -10,6 +10,6 @@ public class HealthController {
 
     @GetMapping("/health")
     public String health() {
-        return "이음 서버 연결 성공!";
+        return "온샘 서버 연결 성공!";
     }
 }

@@ -8,7 +8,7 @@ final dio = Dio(BaseOptions(
   // 웹 테스트: http://localhost:8080/api/v1
   // 안드로이드 에뮬레이터: http://10.0.2.2:8080/api/v1
   // 실제 기기: http://[본인PC_IP]:8080/api/v1
-  baseUrl: 'http://127.0.0.1:8080/api/v1', // 웹 테스트용(서버 열면 주소 수정)
+  baseUrl: 'http://3.35.10.251/api/v1', // 웹 테스트용(서버 열면 주소 수정)
   connectTimeout: const Duration(seconds: 5),
   receiveTimeout: const Duration(seconds: 3),
 ));
@@ -43,7 +43,7 @@ class IeumApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: '이음',
+      title: '온샘',
       routerConfig: router,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
@@ -61,7 +61,7 @@ class HomePage extends ConsumerWidget {
     final health = ref.watch(healthProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('이음')),
+      appBar: AppBar(title: const Text('온샘')),
       body: Center(
         child: health.when(
           data: (message) => Text(
