@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/problems")
 @RequiredArgsConstructor
@@ -20,26 +22,25 @@ public class ProblemController {
     private final ProblemService problemService;
 
     /**
-     * 문제 등록 (이미지 + 메타데이터)
-     * POST /api/v1/problems
+     * 문제 등록 (이미지 1~N장)
+     * multipart/form-data
+     *   - images: List<MultipartFile>
+     *   - data:   ProblemCreateRequest (JSON)
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProblemCreateResponse> createProblem(
-            @RequestPart("image") MultipartFile image,
+            @RequestPart("images") List<MultipartFile> images,
             @RequestPart("data") @Valid ProblemCreateRequest request) {
 
-        ProblemCreateResponse response = problemService.createProblem(image, request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(problemService.createProblem(images, request));
     }
 
     /**
-     * 문제 상세 조회
-     * GET /api/v1/problems/{id}
+     * 문제 단건 조회
      */
     @GetMapping("/{id}")
     public ResponseEntity<ProblemDetailResponse> getProblem(@PathVariable Long id) {
-        ProblemDetailResponse response = problemService.getProblem(id);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(problemService.getProblem(id));
     }
 
     /**
