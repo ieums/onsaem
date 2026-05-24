@@ -22,7 +22,7 @@ public class SecurityConfig {
                     return config;
                 }))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/health", "/api/v1/ai-tutor/**").permitAll()
+                        .requestMatchers("/api/v1/health", "/api/v1/ai-tutor/**", "/error").permitAll()
                         .anyRequest().authenticated()
                 );
         return http.build();
