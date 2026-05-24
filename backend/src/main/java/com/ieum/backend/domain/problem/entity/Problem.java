@@ -8,6 +8,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "problems")
@@ -22,46 +24,47 @@ public class Problem {
     @Column(nullable = false)
     private Long studentId;
 
-    @Column(nullable = false, length = 500)
-    private String imageUrl;
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "problem_images",
+            joinColumns = @JoinColumn(name = "problem_id")
+    )
+    @Column(name = "image_url", length = 500)
+    @OrderColumn(name = "page_order")
+    private List<String> imageUrls = new ArrayList<>();
 
     @Column(columnDefinition = "TEXT")
     private String extractedText;
 
-    @Column(length = 300)
+    @Column(length = 500)
     private String summary;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
     private Subject subject;
 
-    @Column(length = 100)
-    private String primaryType; //1차 유형(미적분, 수1)
+    @Column(length = 50)
+    private String primaryType;
 
-    @Column(length = 100)
-    private String secondaryType; //2차 유형
-
-    @Column(length = 10)
-    private String grade;
+    @Column(length = 50)
+    private String secondaryType;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20)
+    @Column(length = 10)
     private Difficulty difficulty;
+
+    private Integer totalDifficultyScore;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 30)
     private ExamType examType;
 
-    // 난이도 종합 점수
-    private Integer totalDifficultyScore;
-
-    // 매칭 상태
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ProblemStatus status;
 
-    @Column(length = 500)
-    private String studentDescription;
+    @Column(columnDefinition = "TEXT")
+    private String userDescription;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -69,46 +72,45 @@ public class Problem {
     private LocalDateTime resolvedAt;
 
     @Builder
-    public Problem(Long studentId, String imageUrl, String extractedText, String summary,
-                   Subject subject, String primaryType, String secondaryType,
-                   String grade, Difficulty difficulty, Integer totalDifficultyScore,
-                   ExamType examType, String studentDescription) {
+    public Problem(Long studentId, List<String> imageUrls, String extractedText,
+                   String summary, Subject subject, String primaryType,
+                   String secondaryType, Difficulty difficulty,
+                   Integer totalDifficultyScore, ExamType examType,
+                   String userDescription) {
         this.studentId = studentId;
-        this.imageUrl = imageUrl;
+        this.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
         this.extractedText = extractedText;
         this.summary = summary;
         this.subject = subject;
         this.primaryType = primaryType;
         this.secondaryType = secondaryType;
-        this.grade = grade;
         this.difficulty = difficulty;
         this.totalDifficultyScore = totalDifficultyScore;
         this.examType = examType;
-        this.studentDescription = studentDescription;
+        this.userDescription = userDescription;
         this.status = ProblemStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }
 
-    public void match() {
-        this.status = ProblemStatus.MATCHED;
+    // 학생이 분류 수정
+    public void updateClassification(Subject subject, String primaryType,
+                                     String secondaryType, Difficulty difficulty,
+                                     ExamType examType) {
+        if (subject != null) this.subject = subject;
+        if (primaryType != null) this.primaryType = primaryType;
+        if (secondaryType != null) this.secondaryType = secondaryType;
+        if (difficulty != null) this.difficulty = difficulty;
+        if (examType != null) this.examType = examType;
     }
 
-    public void resolve() {
+    // 문제 해결됨
+    public void markResolved() {
         this.status = ProblemStatus.RESOLVED;
         this.resolvedAt = LocalDateTime.now();
     }
 
+    // 문제 등록 취소
     public void cancel() {
         this.status = ProblemStatus.CANCELED;
-    }
-
-    public void updateClassification(Subject subject, String primaryType,
-                                     String secondaryType, Difficulty difficulty,
-                                     ExamType examType) {
-        this.subject = subject;
-        this.primaryType = primaryType;
-        this.secondaryType = secondaryType;
-        this.difficulty = difficulty;
-        if (examType != null) this.examType = examType;
     }
 }

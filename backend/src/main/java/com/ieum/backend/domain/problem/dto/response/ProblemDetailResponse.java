@@ -1,6 +1,6 @@
 package com.ieum.backend.domain.problem.dto.response;
 
-import com.ieum.backend.domain.problem.entity.*;
+import com.ieum.backend.domain.problem.entity.Problem;
 import com.ieum.backend.domain.problem.entity.enums.Difficulty;
 import com.ieum.backend.domain.problem.entity.enums.ExamType;
 import com.ieum.backend.domain.problem.entity.enums.ProblemStatus;
@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
@@ -18,25 +19,17 @@ public class ProblemDetailResponse {
 
     private Long id;
     private Long studentId;
-    private String imageUrl;
+    private List<String> imageUrls;
     private String extractedText;
     private String summary;
-    private String studentDescription;
-
     private Subject subject;
-    private String subjectDisplayName;
     private String primaryType;
     private String secondaryType;
-
-    private String grade;
     private Difficulty difficulty;
-    private String difficultyDisplayName;
     private Integer totalDifficultyScore;
     private ExamType examType;
-    private String examTypeDisplayName;
-
     private ProblemStatus status;
-    private String statusDisplayName;
+    private String studentDescription;
     private LocalDateTime createdAt;
     private LocalDateTime resolvedAt;
 
@@ -44,26 +37,17 @@ public class ProblemDetailResponse {
         return ProblemDetailResponse.builder()
                 .id(problem.getId())
                 .studentId(problem.getStudentId())
-                .imageUrl(problem.getImageUrl())
+                .imageUrls(problem.getImageUrls())
                 .extractedText(problem.getExtractedText())
                 .summary(problem.getSummary())
-                .studentDescription(problem.getStudentDescription())
                 .subject(problem.getSubject())
-                .subjectDisplayName(problem.getSubject().getDisplayName())
                 .primaryType(problem.getPrimaryType())
                 .secondaryType(problem.getSecondaryType())
-                .grade(problem.getGrade())
                 .difficulty(problem.getDifficulty())
-                .difficultyDisplayName(
-                        problem.getDifficulty() != null ? problem.getDifficulty().getDisplayName() : null
-                )
                 .totalDifficultyScore(problem.getTotalDifficultyScore())
                 .examType(problem.getExamType())
-                .examTypeDisplayName(
-                        problem.getExamType() != null ? problem.getExamType().getDisplayName() : null
-                )
                 .status(problem.getStatus())
-                .statusDisplayName(problem.getStatus().getDisplayName())
+                .studentDescription(problem.getUserDescription())
                 .createdAt(problem.getCreatedAt())
                 .resolvedAt(problem.getResolvedAt())
                 .build();
