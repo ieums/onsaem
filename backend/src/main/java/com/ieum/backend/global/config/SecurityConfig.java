@@ -30,7 +30,8 @@ public class SecurityConfig {
                                 "/api/v1/lesson/*/complete",
                                 "/api/v1/lesson/*/recording/start",
                                 "/api/v1/lesson/*/recording/stop",
-                                "/ws/**"
+                                "/ws/**",
+                                "/ws-raw"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );

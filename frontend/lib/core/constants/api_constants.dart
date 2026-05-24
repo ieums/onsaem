@@ -13,7 +13,7 @@ abstract final class ApiConstants {
   }
 
   static String get wsUrl {
-    if (isProduction) return 'ws://3.35.10.251/ws-raw';
+    if (isProduction) return 'ws://3.35.10.251:8080/ws-raw';
     if (kIsWeb) return 'ws://localhost:8080/ws-raw';
     if (Platform.isIOS) return 'ws://localhost:8080/ws-raw';
     return 'ws://10.0.2.2:8080/ws-raw';
