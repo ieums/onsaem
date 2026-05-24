@@ -22,6 +22,8 @@ class LessonState {
   final int? remoteUid;
   final bool localCameraEnabled;
 
+  final Color currentPenColor;
+
   final bool isRecording;
   final String? recordingUrl;
 
@@ -44,6 +46,7 @@ class LessonState {
     this.isInChannel = false,
     this.remoteUid,
     this.localCameraEnabled = true,
+    this.currentPenColor = Colors.black,
     this.isRecording = false,
     this.recordingUrl,
     this.strokes = const [],
@@ -65,6 +68,7 @@ class LessonState {
     bool? isInChannel,
     Object? remoteUid = _sentinel,
     bool? localCameraEnabled,
+    Color? currentPenColor,
     bool? isRecording,
     Object? recordingUrl = _sentinel,
     List<DrawingStroke>? strokes,
@@ -85,6 +89,7 @@ class LessonState {
       isInChannel: isInChannel ?? this.isInChannel,
       remoteUid: remoteUid == _sentinel ? this.remoteUid : remoteUid as int?,
       localCameraEnabled: localCameraEnabled ?? this.localCameraEnabled,
+      currentPenColor: currentPenColor ?? this.currentPenColor,
       isRecording: isRecording ?? this.isRecording,
       recordingUrl:
           recordingUrl == _sentinel ? this.recordingUrl : recordingUrl as String?,
@@ -167,11 +172,9 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
       // 4. 오디오/비디오 활성화
       await _engine!.enableAudio();
-      if (isTutor) {
-        await _engine!.enableVideo();
-      } else {
-        // 학생: 비디오 캡처 비활성화, 마이크만 활성화
-        await _engine!.enableLocalVideo(false);
+      await _engine!.enableVideo(); // 원격 영상 수신에도 필요하므로 모든 역할에서 활성화
+      if (!isTutor) {
+        await _engine!.enableLocalVideo(false); // 학생: 로컬 캡처만 비활성화
       }
 
       // 5. 채널 입장
@@ -204,16 +207,20 @@ class LessonNotifier extends StateNotifier<LessonState> {
   Future<void> toggleCamera() async {
     if (_engine == null) return;
     final next = !state.localCameraEnabled;
-    await _engine!.muteLocalVideoStream(!next);
+    await _engine!.enableLocalVideo(next);
     state = state.copyWith(localCameraEnabled: next);
   }
 
   // ─── 화이트보드 드로잉 ──────────────────────────────────────────────────────
 
+  void setPenColor(Color color) {
+    state = state.copyWith(currentPenColor: color);
+  }
+
   void onPanStart(Offset position) {
     final stroke = DrawingStroke(
       points: [position],
-      color: colorFromHex(AppConstants.defaultPenColor),
+      color: state.currentPenColor,
       width: AppConstants.defaultPenWidth,
     );
     state = state.copyWith(currentStroke: stroke);
@@ -248,7 +255,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         type: DrawType.draw,
         x: position.dx,
         y: position.dy,
-        color: AppConstants.defaultPenColor,
+        color: colorToHex(state.currentPenColor),
         strokeWidth: AppConstants.defaultPenWidth,
       ),
     );

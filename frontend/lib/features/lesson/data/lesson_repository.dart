@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 
@@ -50,7 +51,6 @@ class LessonRepository {
     final response = await _dio.post(
       '/lesson/$lessonId/images',
       data: formData,
-      options: Options(contentType: 'multipart/form-data'),
     );
     return ImageUploadResponse.fromJson(
         response.data['data'] as Map<String, dynamic>);
@@ -95,8 +95,9 @@ class LessonRepository {
             },
           );
         },
-        onWebSocketError: (error) {},
-        onStompError: (frame) {},
+        reconnectDelay: const Duration(seconds: 3),
+        onWebSocketError: (error) => debugPrint('[STOMP] WebSocket error: $error'),
+        onStompError: (frame) => debugPrint('[STOMP] STOMP error: ${frame.body}'),
       ),
     );
     _stomp!.activate();

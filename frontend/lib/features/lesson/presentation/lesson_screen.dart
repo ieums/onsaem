@@ -193,34 +193,78 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
 
   // ─── 하단 액션 바 ───────────────────────────────────────────────────────────
 
+  static const _penColors = [
+    Colors.black,
+    Colors.red,
+    Colors.blue,
+    Colors.green,
+    Colors.orange,
+  ];
+
   Widget _buildActionBar(LessonState state) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _ActionButton(
-            icon: Icons.image_outlined,
-            label: '이미지',
-            onTap: () => _pickAndUploadImage(),
-          ),
-          _ActionButton(
-            icon: Icons.check_circle_outline,
-            label: '수업완료',
-            color: AppColors.buttonDanger,
-            onTap: () => _confirmComplete(),
-          ),
-          _ActionButton(
-            icon: state.localCameraEnabled
-                ? Icons.videocam_outlined
-                : Icons.videocam_off_outlined,
-            label: state.localCameraEnabled ? '카메라 끄기' : '카메라 켜기',
-            onTap: () =>
-                ref.read(lessonProvider.notifier).toggleCamera(),
+          _buildColorPalette(state),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _ActionButton(
+                icon: Icons.image_outlined,
+                label: '이미지',
+                onTap: () => _pickAndUploadImage(),
+              ),
+              _ActionButton(
+                icon: Icons.check_circle_outline,
+                label: '수업완료',
+                color: AppColors.buttonDanger,
+                onTap: () => _confirmComplete(),
+              ),
+              _ActionButton(
+                icon: state.localCameraEnabled
+                    ? Icons.videocam_outlined
+                    : Icons.videocam_off_outlined,
+                label: state.localCameraEnabled ? '카메라 끄기' : '카메라 켜기',
+                onTap: () =>
+                    ref.read(lessonProvider.notifier).toggleCamera(),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildColorPalette(LessonState state) {
+    final notifier = ref.read(lessonProvider.notifier);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: _penColors.map((color) {
+        final isSelected = state.currentPenColor == color;
+        return GestureDetector(
+          onTap: () => notifier.setPenColor(color),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 6),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? Colors.black87 : Colors.transparent,
+                width: 2.5,
+              ),
+              boxShadow: isSelected
+                  ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 4)]
+                  : null,
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

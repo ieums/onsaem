@@ -174,3 +174,6 @@ Color colorFromHex(String hex) {
   buffer.write(hex.replaceFirst('#', ''));
   return Color(int.parse(buffer.toString(), radix: 16));
 }
+
+String colorToHex(Color color) =>
+    '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
