@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [ develop ]
+    branches: [ develop, feature/fe-video-lesson ]
 
 jobs:
   deploy:
@@ -33,7 +33,7 @@ jobs:
       run: |
         cd frontend
         flutter pub get
-        flutter build web --release
+        flutter build web --release --dart-define=PRODUCTION=true
 
     - name: EC2에 백엔드 jar 전송
       uses: appleboy/scp-action@master
