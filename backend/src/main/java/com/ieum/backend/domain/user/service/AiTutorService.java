@@ -1,7 +1,9 @@
 package com.ieum.backend.domain.user.service;
 
 import com.ieum.backend.domain.user.controller.CreateSessionResponse;
+import com.ieum.backend.domain.user.controller.MessageItemResponse;
 import com.ieum.backend.domain.user.controller.SendMessageResponse;
+import com.ieum.backend.domain.user.controller.SessionListItemResponse;
 import com.ieum.backend.domain.user.entity.AiTutorMessage;
 import com.ieum.backend.domain.user.entity.AiTutorMessageRole;
 import com.ieum.backend.domain.user.entity.AiTutorSession;
@@ -94,6 +96,37 @@ public class AiTutorService {
                 aiMessage.getContent(),
                 aiMessage.getCreatedAt()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<SessionListItemResponse> listSessions(Long studentId) {
+        return sessionRepository.findByStudentIdOrderByUpdatedAtDesc(studentId)
+                .stream()
+                .map(s -> new SessionListItemResponse(
+                        s.getId(),
+                        s.getProblemId(),
+                        s.getTitle(),
+                        s.getStatus().name(),
+                        s.getCreatedAt(),
+                        s.getUpdatedAt()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MessageItemResponse> getMessages(Long studentId, Long sessionId) {
+        // 소유권 검증 — 남의 세션 메시지는 못 보게
+        sessionRepository.findByIdAndStudentId(sessionId, studentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "세션을 찾을 수 없습니다."));
+
+        return messageRepository.findBySessionIdOrderByIdAsc(sessionId)
+                .stream()
+                .map(m -> new MessageItemResponse(
+                        m.getId(),
+                        m.getRole().name(),
+                        m.getContent(),
+                        m.getCreatedAt()))
+                .toList();
     }
 
     private String buildTitle(ProblemContext context) {

@@ -6,6 +6,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import org.springframework.web.bind.annotation.GetMapping;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/ai-tutor")
@@ -31,5 +34,16 @@ public class AiTutorController {
         SendMessageResponse response =
                 tutorService.sendMessage(studentId, sessionId, request.content());
         return ResponseEntity.ok(response);
+    }
+    @GetMapping("/sessions")
+    public ResponseEntity<List<SessionListItemResponse>> listSessions(
+            @RequestHeader("X-Student-Id") Long studentId) {
+        return ResponseEntity.ok(tutorService.listSessions(studentId));
+    }
+    @GetMapping("/sessions/{sessionId}/messages")
+    public ResponseEntity<List<MessageItemResponse>> getMessages(
+            @RequestHeader("X-Student-Id") Long studentId,
+            @PathVariable Long sessionId) {
+        return ResponseEntity.ok(tutorService.getMessages(studentId, sessionId));
     }
 }

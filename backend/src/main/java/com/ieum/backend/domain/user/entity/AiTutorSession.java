@@ -83,4 +83,9 @@ public class AiTutorSession {
     public void close() {
         this.status = AiTutorSessionStatus.CLOSED;
     }
+
+    /** 세션 활동(메시지 송수신) 시 호출 — updatedAt 갱신해서 목록 최근순 정렬에 반영 */
+    public void touch() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
