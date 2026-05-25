@@ -216,8 +216,8 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     final notifier = ref.read(lessonProvider.notifier);
 
     return Expanded(
-      child: ClipRect(
-        clipBehavior: Clip.none, // 시각 클리핑 비활성화 — 이미지가 경계에서 잘리지 않음
+      child: ClipPath(
+        clipper: const _WhiteboardClipper(), // 위쪽(카메라)만 차단, 좌우·아래 overflow 허용
         child: Container(
           color: AppColors.whiteboardBackground,
           child: GestureDetector(
@@ -227,6 +227,10 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             onScaleStart: (d) {
               final s = ref.read(lessonProvider);
               if (s.isImageEditMode) {
+                // 이전 드로잉 제스처 잔재 정리 (드로잉 중 이미지 편집 모드 진입 시 대비)
+                if (_isDrawingGesture) notifier.cancelCurrentStroke();
+                _isDrawingGesture = false;
+                _wasZoomGesture = false;
                 // 이미지 편집 모드: 드래그/핀치로 이미지 조작
                 _imageBaseX = s.imageX;
                 _imageBaseY = s.imageY;
@@ -308,6 +312,8 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                   notifier.sendImageMove();
                 }
                 _imageDidMove = false;
+                _isDrawingGesture = false; // 이미지 편집 종료 후 드로잉 상태 초기화
+                _wasZoomGesture = false;   // 줌 상태도 초기화
                 return;
               }
               if (_isDrawingGesture) {
@@ -588,4 +594,25 @@ class _ActionButton extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── 화이트보드 overflow 클리퍼 ────────────────────────────────────────────────
+
+/// 위쪽(카메라 방향) overflow만 차단하는 CustomClipper.
+/// - 로컬 y < 0 영역(카메라 영역)은 클리핑하여 침범 방지
+/// - 좌우·아래 overflow는 허용하여 줌아웃 시 캔버스 전체가 표시됨
+class _WhiteboardClipper extends CustomClipper<Path> {
+  const _WhiteboardClipper();
+
+  @override
+  Path getClip(Size size) => Path()
+    ..addRect(Rect.fromLTRB(
+      -size.width * 100,  // 좌측 overflow 허용
+      0,                   // 위쪽 경계 — y < 0 클리핑 (카메라 영역 침범 방지)
+      size.width * 100,   // 우측 overflow 허용
+      size.height * 100,  // 아래 overflow 허용 (액션바가 덮어줌)
+    ));
+
+  @override
+  bool shouldReclip(_WhiteboardClipper oldClipper) => false;
 }
