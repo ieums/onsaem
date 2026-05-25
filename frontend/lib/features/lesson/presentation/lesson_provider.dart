@@ -391,6 +391,12 @@ class LessonNotifier extends StateNotifier<LessonState> {
     );
   }
 
+  /// 진행 중인 스트로크를 strokes에 추가하지 않고 즉시 폐기 (두 손가락 줌 시작 시 점 방지)
+  void cancelCurrentStroke() {
+    if (state.currentStroke == null) return;
+    state = state.copyWith(currentStroke: null);
+  }
+
   void _sendDrawPoint(
     Offset position, {
     DrawType type = DrawType.draw,
@@ -466,7 +472,16 @@ class LessonNotifier extends StateNotifier<LessonState> {
         state = state.copyWith(remoteCameraEnabled: true);
       case DrawType.cameraOff:
         state = state.copyWith(remoteCameraEnabled: false);
+      case DrawType.lessonEnd:
+        _applyRemoteComplete();
     }
+  }
+
+  /// 상대방이 LESSON_END를 전송했을 때 로컬 정리만 수행 (API 재호출·STOMP 재전송 없음)
+  void _applyRemoteComplete() {
+    _repo.disconnectStomp(); // 추가 이벤트 수신 방지
+    _engine?.leaveChannel(); // fire-and-forget (dispose에서도 호출됨)
+    state = state.copyWith(isCompleted: true); // 화면 → '/' 이동 트리거
   }
 
   void _applyRemoteDrawPoint(DrawEvent event) {
@@ -731,6 +746,20 @@ class LessonNotifier extends StateNotifier<LessonState> {
       }
 
       await _repo.completeLesson(lessonId, recordingUrl: recordingUrl);
+
+      // LESSON_END 브로드캐스트 — 상대방도 자동 종료
+      final channelName = state.channelName;
+      if (channelName != null) {
+        _repo.sendDraw(
+          channelName,
+          DrawEvent(
+            senderId: _repo.sessionId,
+            type: DrawType.lessonEnd,
+          ),
+        );
+        await Future.delayed(const Duration(milliseconds: 200)); // flush 대기
+      }
+
       await _engine?.leaveChannel();
       _repo.disconnectStomp();
 

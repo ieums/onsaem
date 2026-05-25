@@ -275,7 +275,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               if (d.pointerCount >= 2) {
                 // 두 손가락: 줌 + 팬
                 if (_isDrawingGesture) {
-                  notifier.onPanEnd(); // 진행 중인 드로잉 스트로크 마무리
+                  notifier.cancelCurrentStroke(); // 두 손가락 감지 시 즉시 폐기 (점 방지)
                   _isDrawingGesture = false;
                 }
                 _wasZoomGesture = true;
