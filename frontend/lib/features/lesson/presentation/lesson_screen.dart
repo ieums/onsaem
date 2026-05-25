@@ -333,6 +333,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                 height: 5000,
                 child: Stack(
                   fit: StackFit.expand,
+                  clipBehavior: Clip.none, // 이미지가 캔버스 경계 밖으로 이동해도 전체 클리핑 방지
                   children: [
                     if (state.backgroundImageUrl != null)
                       state.imageWidth > 0
