@@ -217,6 +217,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
 
     return Expanded(
       child: ClipRect(
+        clipBehavior: Clip.none, // 시각 클리핑 비활성화 — 이미지가 경계에서 잘리지 않음
         child: Container(
           color: AppColors.whiteboardBackground,
           child: GestureDetector(
