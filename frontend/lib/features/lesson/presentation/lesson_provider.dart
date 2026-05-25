@@ -26,6 +26,7 @@ class LessonState {
   final bool isInChannel;
   final int? remoteUid;
   final bool localCameraEnabled;
+  final bool remoteCameraEnabled; // 원격 측(강사)의 카메라 상태
 
   final Color currentPenColor;
   final bool isEraserMode;
@@ -55,6 +56,7 @@ class LessonState {
     this.isInChannel = false,
     this.remoteUid,
     this.localCameraEnabled = true,
+    this.remoteCameraEnabled = true,
     this.currentPenColor = Colors.black,
     this.isEraserMode = false,
     this.isRecording = false,
@@ -80,6 +82,7 @@ class LessonState {
     bool? isInChannel,
     Object? remoteUid = _sentinel,
     bool? localCameraEnabled,
+    bool? remoteCameraEnabled,
     Color? currentPenColor,
     bool? isEraserMode,
     bool? isRecording,
@@ -104,6 +107,7 @@ class LessonState {
       isInChannel: isInChannel ?? this.isInChannel,
       remoteUid: remoteUid == _sentinel ? this.remoteUid : remoteUid as int?,
       localCameraEnabled: localCameraEnabled ?? this.localCameraEnabled,
+      remoteCameraEnabled: remoteCameraEnabled ?? this.remoteCameraEnabled,
       currentPenColor: currentPenColor ?? this.currentPenColor,
       isEraserMode: isEraserMode ?? this.isEraserMode,
       isRecording: isRecording ?? this.isRecording,
@@ -133,6 +137,7 @@ const _sentinel = Object();
 class LessonNotifier extends StateNotifier<LessonState> {
   final LessonRepository _repo;
   RtcEngine? _engine;
+  String? _currentStrokeId; // 현재 그리는 스트로크의 고유 ID
 
   LessonNotifier(this._repo) : super(const LessonState());
 
@@ -227,6 +232,17 @@ class LessonNotifier extends StateNotifier<LessonState> {
     final next = !state.localCameraEnabled;
     await _engine!.enableLocalVideo(next);
     state = state.copyWith(localCameraEnabled: next);
+    // 카메라 상태를 STOMP로 브로드캐스트 → 학생 화면에서도 video 영역 동기화
+    final channelName = state.channelName;
+    if (channelName != null) {
+      _repo.sendDraw(
+        channelName,
+        DrawEvent(
+          senderId: _repo.sessionId,
+          type: next ? DrawType.cameraOn : DrawType.cameraOff,
+        ),
+      );
+    }
   }
 
   // ─── 펜 도구 ───────────────────────────────────────────────────────────────
@@ -248,9 +264,18 @@ class LessonNotifier extends StateNotifier<LessonState> {
     final width = isEraser ? _eraserWidth : AppConstants.defaultPenWidth;
     final type = isEraser ? DrawType.erase : DrawType.draw;
 
-    final stroke = DrawingStroke(points: [position], color: color, width: width);
+    // 스트로크마다 고유 ID 생성 → Undo 동기화에 사용
+    _currentStrokeId = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+
+    final stroke = DrawingStroke(
+      id: _currentStrokeId!,
+      points: [position],
+      color: color,
+      width: width,
+      isEraser: isEraser,
+    );
     state = state.copyWith(currentStroke: stroke);
-    _sendDrawPoint(position, type: type, isStart: true);
+    _sendDrawPoint(position, type: type, isStart: true, strokeId: _currentStrokeId);
   }
 
   void onPanUpdate(Offset position) {
@@ -282,6 +307,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
     Offset position, {
     DrawType type = DrawType.draw,
     bool isStart = false,
+    String? strokeId,
   }) {
     final channelName = state.channelName;
     if (channelName == null) return;
@@ -296,6 +322,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         color: colorToHex(isEraser ? Colors.white : state.currentPenColor),
         strokeWidth: isEraser ? _eraserWidth : AppConstants.defaultPenWidth,
         isStart: isStart ? true : null,
+        strokeId: strokeId, // isStart:true 일 때만 전달됨
       ),
     );
   }
@@ -328,9 +355,13 @@ class LessonNotifier extends StateNotifier<LessonState> {
           );
         }
       case DrawType.undo:
-        _applyRemoteUndo();
+        _applyRemoteUndo(event);
       case DrawType.redo:
         _applyRemoteRedo();
+      case DrawType.cameraOn:
+        state = state.copyWith(remoteCameraEnabled: true);
+      case DrawType.cameraOff:
+        state = state.copyWith(remoteCameraEnabled: false);
     }
   }
 
@@ -354,7 +385,13 @@ class LessonNotifier extends StateNotifier<LessonState> {
       state = state.copyWith(
         strokes: confirmed,
         undoHistory: newUndo,
-        remoteStroke: DrawingStroke(points: [point], color: color, width: width),
+        remoteStroke: DrawingStroke(
+          id: event.strokeId ?? '',
+          points: [point],
+          color: color,
+          width: width,
+          isEraser: event.type == DrawType.erase,
+        ),
       );
     } else {
       state = state.copyWith(
@@ -366,8 +403,12 @@ class LessonNotifier extends StateNotifier<LessonState> {
   // ─── Undo / Redo ────────────────────────────────────────────────────────────
 
   void undo() {
+    if (state.undoHistory.isEmpty) return;
+    final last = state.undoHistory.last;
     _doUndo();
-    _sendUndoRedo(DrawType.undo);
+    // StrokeAction이면 strokeId 포함해서 전송 → 상대방이 동일 스트로크 제거 가능
+    final strokeId = last is StrokeAction ? last.stroke.id : null;
+    _sendUndoRedo(DrawType.undo, strokeId: strokeId);
   }
 
   void redo() {
@@ -375,8 +416,27 @@ class LessonNotifier extends StateNotifier<LessonState> {
     _sendUndoRedo(DrawType.redo);
   }
 
-  /// 원격에서 받은 UNDO — STOMP 재전송 없음 (무한루프 방지)
-  void _applyRemoteUndo() => _doUndo();
+  /// 원격에서 받은 UNDO — strokeId 기반으로 정확히 해당 스트로크 제거 (무한루프 방지)
+  void _applyRemoteUndo(DrawEvent event) {
+    final sid = event.strokeId;
+    if (sid != null && sid.isNotEmpty) {
+      // ID로 정확히 해당 스트로크 제거
+      final newStrokes = state.strokes.where((s) => s.id != sid).toList();
+      final newRemote =
+          (state.remoteStroke?.id == sid) ? null : state.remoteStroke;
+      // undoHistory에서 해당 StrokeAction 제거 (있으면)
+      final newUndo = state.undoHistory
+          .where((a) => !(a is StrokeAction && a.stroke.id == sid))
+          .toList();
+      state = state.copyWith(
+        strokes: newStrokes,
+        remoteStroke: newRemote,
+        undoHistory: newUndo,
+      );
+    } else {
+      _doUndo(); // strokeId 없는 경우 fallback: 마지막 항목 제거
+    }
+  }
 
   /// 원격에서 받은 REDO — STOMP 재전송 없음
   void _applyRemoteRedo() => _doRedo();
@@ -435,12 +495,12 @@ class LessonNotifier extends StateNotifier<LessonState> {
     }
   }
 
-  void _sendUndoRedo(DrawType type) {
+  void _sendUndoRedo(DrawType type, {String? strokeId}) {
     final channelName = state.channelName;
     if (channelName == null) return;
     _repo.sendDraw(
       channelName,
-      DrawEvent(senderId: _repo.sessionId, type: type),
+      DrawEvent(senderId: _repo.sessionId, type: type, strokeId: strokeId),
     );
   }
 

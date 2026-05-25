@@ -129,8 +129,10 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   // ─── 영상 영역 ──────────────────────────────────────────────────────────────
 
   Widget _buildVideoArea(LessonState state) {
-    // 튜터가 카메라를 끄면 높이 0으로 축소, 학생은 항상 표시
-    final showVideo = !widget.isTutor || state.localCameraEnabled;
+    // 튜터: 자신의 카메라 상태 기준 / 학생: 강사의 카메라 상태(STOMP 동기화) 기준
+    final showVideo = widget.isTutor
+        ? state.localCameraEnabled
+        : state.remoteCameraEnabled;
     final videoHeight =
         showVideo ? MediaQuery.of(context).size.height * 0.22 : 0.0;
 
@@ -323,13 +325,14 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                 color: AppColors.buttonDanger,
                 onTap: () => _confirmComplete(),
               ),
-              _ActionButton(
-                icon: state.localCameraEnabled
-                    ? Icons.videocam_outlined
-                    : Icons.videocam_off_outlined,
-                label: state.localCameraEnabled ? '카메라 끄기' : '카메라 켜기',
-                onTap: () => notifier.toggleCamera(),
-              ),
+              if (widget.isTutor)
+                _ActionButton(
+                  icon: state.localCameraEnabled
+                      ? Icons.videocam_outlined
+                      : Icons.videocam_off_outlined,
+                  label: state.localCameraEnabled ? '카메라 끄기' : '카메라 켜기',
+                  onTap: () => notifier.toggleCamera(),
+                ),
             ],
           ),
         ],
@@ -401,7 +404,12 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   }
 
   Future<void> _pickAndUploadImage() async {
-    final file = await _imagePicker.pickImage(source: ImageSource.gallery);
+    final file = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 1080,
+      imageQuality: 80,
+    );
     if (file == null) return;
     await ref.read(lessonProvider.notifier).uploadImage(file);
   }

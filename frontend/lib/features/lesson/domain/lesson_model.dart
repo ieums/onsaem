@@ -84,7 +84,9 @@ enum DrawType {
   clear,
   imageAdd,
   undo,
-  redo;
+  redo,
+  cameraOn,
+  cameraOff;
 
   String get value {
     switch (this) {
@@ -100,6 +102,10 @@ enum DrawType {
         return 'UNDO';
       case DrawType.redo:
         return 'REDO';
+      case DrawType.cameraOn:
+        return 'CAMERA_ON';
+      case DrawType.cameraOff:
+        return 'CAMERA_OFF';
     }
   }
 
@@ -117,6 +123,10 @@ enum DrawType {
         return DrawType.undo;
       case 'REDO':
         return DrawType.redo;
+      case 'CAMERA_ON':
+        return DrawType.cameraOn;
+      case 'CAMERA_OFF':
+        return DrawType.cameraOff;
       default:
         return DrawType.draw;
     }
@@ -131,7 +141,8 @@ class DrawEvent {
   final String? color;
   final double? strokeWidth;
   final String? imageUrl;
-  final bool? isStart; // 새 스트로크의 시작점 여부 (원격 스트로크 끊김 버그 수정용)
+  final bool? isStart;    // 새 스트로크 시작 여부 (원격 스트로크 끊김 버그 수정용)
+  final String? strokeId; // Undo 동기화용 스트로크 고유 ID
 
   DrawEvent({
     required this.senderId,
@@ -142,6 +153,7 @@ class DrawEvent {
     this.strokeWidth,
     this.imageUrl,
     this.isStart,
+    this.strokeId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -153,6 +165,7 @@ class DrawEvent {
         if (strokeWidth != null) 'strokeWidth': strokeWidth,
         if (imageUrl != null) 'imageUrl': imageUrl,
         if (isStart == true) 'isStart': true,
+        if (strokeId != null) 'strokeId': strokeId,
       };
 
   factory DrawEvent.fromJson(Map<String, dynamic> json) => DrawEvent(
@@ -164,22 +177,32 @@ class DrawEvent {
         strokeWidth: (json['strokeWidth'] as num?)?.toDouble(),
         imageUrl: json['imageUrl'] as String?,
         isStart: json['isStart'] as bool?,
+        strokeId: json['strokeId'] as String?,
       );
 }
 
 class DrawingStroke {
+  final String id;       // Undo 동기화용 고유 ID
   final List<Offset> points;
   final Color color;
   final double width;
+  final bool isEraser;   // WhiteboardPainter에서 BlendMode.clear 적용 여부
 
   const DrawingStroke({
+    required this.id,
     required this.points,
     required this.color,
     required this.width,
+    this.isEraser = false,
   });
 
-  DrawingStroke copyWithPoints(List<Offset> points) =>
-      DrawingStroke(points: points, color: color, width: width);
+  DrawingStroke copyWithPoints(List<Offset> points) => DrawingStroke(
+        id: id,
+        points: points,
+        color: color,
+        width: width,
+        isEraser: isEraser,
+      );
 }
 
 // ─── Undo/Redo 히스토리 아이템 ────────────────────────────────────────────────
