@@ -82,7 +82,9 @@ enum DrawType {
   draw,
   erase,
   clear,
-  imageAdd;
+  imageAdd,
+  undo,
+  redo;
 
   String get value {
     switch (this) {
@@ -94,6 +96,10 @@ enum DrawType {
         return 'CLEAR';
       case DrawType.imageAdd:
         return 'IMAGE_ADD';
+      case DrawType.undo:
+        return 'UNDO';
+      case DrawType.redo:
+        return 'REDO';
     }
   }
 
@@ -107,6 +113,10 @@ enum DrawType {
         return DrawType.clear;
       case 'IMAGE_ADD':
         return DrawType.imageAdd;
+      case 'UNDO':
+        return DrawType.undo;
+      case 'REDO':
+        return DrawType.redo;
       default:
         return DrawType.draw;
     }
@@ -121,6 +131,7 @@ class DrawEvent {
   final String? color;
   final double? strokeWidth;
   final String? imageUrl;
+  final bool? isStart; // 새 스트로크의 시작점 여부 (원격 스트로크 끊김 버그 수정용)
 
   DrawEvent({
     required this.senderId,
@@ -130,6 +141,7 @@ class DrawEvent {
     this.color,
     this.strokeWidth,
     this.imageUrl,
+    this.isStart,
   });
 
   Map<String, dynamic> toJson() => {
@@ -140,6 +152,7 @@ class DrawEvent {
         if (color != null) 'color': color,
         if (strokeWidth != null) 'strokeWidth': strokeWidth,
         if (imageUrl != null) 'imageUrl': imageUrl,
+        if (isStart == true) 'isStart': true,
       };
 
   factory DrawEvent.fromJson(Map<String, dynamic> json) => DrawEvent(
@@ -150,6 +163,7 @@ class DrawEvent {
         color: json['color'] as String?,
         strokeWidth: (json['strokeWidth'] as num?)?.toDouble(),
         imageUrl: json['imageUrl'] as String?,
+        isStart: json['isStart'] as bool?,
       );
 }
 
@@ -167,6 +181,22 @@ class DrawingStroke {
   DrawingStroke copyWithPoints(List<Offset> points) =>
       DrawingStroke(points: points, color: color, width: width);
 }
+
+// ─── Undo/Redo 히스토리 아이템 ────────────────────────────────────────────────
+
+sealed class CanvasAction {}
+
+class StrokeAction extends CanvasAction {
+  final DrawingStroke stroke;
+  StrokeAction(this.stroke);
+}
+
+class ImageAction extends CanvasAction {
+  final String? prevUrl; // undo 시 복원할 이전 URL
+  ImageAction({required this.prevUrl});
+}
+
+// ─── 색상 유틸 ────────────────────────────────────────────────────────────────
 
 Color colorFromHex(String hex) {
   final buffer = StringBuffer();
