@@ -93,6 +93,13 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
 
     final state = ref.watch(lessonProvider);
 
+    // 영상 영역 높이 — build() 에서 한 번만 계산해 Spacer와 Positioned 양쪽에 재사용
+    final showVideo = widget.isTutor
+        ? state.localCameraEnabled
+        : state.remoteCameraEnabled;
+    final videoHeight =
+        showVideo ? MediaQuery.of(context).size.height * 0.22 : 0.0;
+
     if (state.isLoading) {
       return const Scaffold(
         backgroundColor: AppColors.background,
@@ -132,11 +139,29 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _buildVideoArea(state),
-            _buildWhiteboard(state),
-            _buildActionBar(state),
+            // ① Column: 레이아웃 전담 — 화이트보드 좌표계(_toCanvas) 유지
+            Column(
+              children: [
+                // 영상 영역 높이만큼 공간 예약 (실제 내용은 Positioned가 렌더링)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  height: videoHeight,
+                ),
+                _buildWhiteboard(state), // ClipRect 없음 — overflow 허용
+                _buildActionBar(state),  // Column 3순위 paint → 하단 overflow 자동 차단
+              ],
+            ),
+            // ② 영상 영역: Stack 마지막 자식 → paint 최후 → z-index 최상
+            //    화이트보드 upward overflow를 영상 영역 배경(검정)이 가림
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _buildVideoArea(state, showVideo, videoHeight),
+            ),
           ],
         ),
       ),
@@ -145,14 +170,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
 
   // ─── 영상 영역 ──────────────────────────────────────────────────────────────
 
-  Widget _buildVideoArea(LessonState state) {
-    // 튜터: 자신의 카메라 상태 기준 / 학생: 강사의 카메라 상태(STOMP 동기화) 기준
-    final showVideo = widget.isTutor
-        ? state.localCameraEnabled
-        : state.remoteCameraEnabled;
-    final videoHeight =
-        showVideo ? MediaQuery.of(context).size.height * 0.22 : 0.0;
-
+  Widget _buildVideoArea(LessonState state, bool showVideo, double videoHeight) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -216,10 +234,9 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     final notifier = ref.read(lessonProvider.notifier);
 
     return Expanded(
-      child: ClipRect(
-        child: Container(
-          color: AppColors.whiteboardBackground,
-          child: GestureDetector(
+      child: Container(
+        color: AppColors.whiteboardBackground,
+        child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             // onScaleStart/Update/End으로 단일 손가락(드로잉)과
             // 멀티 손가락(줌+팬)을 하나의 recognizer로 처리 → 충돌 없음
@@ -368,7 +385,6 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             ),
           ),
         ),
-      ),
     );
   }
 
