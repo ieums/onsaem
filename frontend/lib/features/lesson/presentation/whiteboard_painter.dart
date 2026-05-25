@@ -15,9 +15,10 @@ class WhiteboardPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // BlendMode.clear가 올바르게 동작하려면 항상 saveLayer로 격리해야 한다.
-    // 조건부로 사용하면 부모 Stack의 clipBehavior에 따라 clear 범위가 달라져
-    // 전체 캔버스가 지워지는 버그가 발생할 수 있다.
-    canvas.saveLayer(Offset.zero & size, Paint());
+    // bounds=null: 현재 디바이스 clip(화면) 범위를 레이어 bounds로 사용.
+    // Offset.zero & size([0,0,5000,5000]) 고정 시 캔버스 밖 스트로크가 클리핑되므로
+    // null을 사용해 ClipPath가 허용하는 확장 영역까지 드로잉을 포함한다.
+    canvas.saveLayer(null, Paint());
 
     final all = <DrawingStroke>[
       ...strokes,
