@@ -86,7 +86,8 @@ enum DrawType {
   undo,
   redo,
   cameraOn,
-  cameraOff;
+  cameraOff,
+  zoom;
 
   String get value {
     switch (this) {
@@ -106,6 +107,8 @@ enum DrawType {
         return 'CAMERA_ON';
       case DrawType.cameraOff:
         return 'CAMERA_OFF';
+      case DrawType.zoom:
+        return 'ZOOM';
     }
   }
 
@@ -127,6 +130,8 @@ enum DrawType {
         return DrawType.cameraOn;
       case 'CAMERA_OFF':
         return DrawType.cameraOff;
+      case 'ZOOM':
+        return DrawType.zoom;
       default:
         return DrawType.draw;
     }
@@ -143,6 +148,9 @@ class DrawEvent {
   final String? imageUrl;
   final bool? isStart;    // 새 스트로크 시작 여부 (원격 스트로크 끊김 버그 수정용)
   final String? strokeId; // Undo 동기화용 스트로크 고유 ID
+  final double? scale;    // 줌 동기화 — 배율
+  final double? offsetX;  // 줌 동기화 — pan offset X
+  final double? offsetY;  // 줌 동기화 — pan offset Y
 
   DrawEvent({
     required this.senderId,
@@ -154,6 +162,9 @@ class DrawEvent {
     this.imageUrl,
     this.isStart,
     this.strokeId,
+    this.scale,
+    this.offsetX,
+    this.offsetY,
   });
 
   Map<String, dynamic> toJson() => {
@@ -166,6 +177,9 @@ class DrawEvent {
         if (imageUrl != null) 'imageUrl': imageUrl,
         if (isStart == true) 'isStart': true,
         if (strokeId != null) 'strokeId': strokeId,
+        if (scale != null) 'scale': scale,
+        if (offsetX != null) 'offsetX': offsetX,
+        if (offsetY != null) 'offsetY': offsetY,
       };
 
   factory DrawEvent.fromJson(Map<String, dynamic> json) => DrawEvent(
@@ -178,6 +192,9 @@ class DrawEvent {
         imageUrl: json['imageUrl'] as String?,
         isStart: json['isStart'] as bool?,
         strokeId: json['strokeId'] as String?,
+        scale: (json['scale'] as num?)?.toDouble(),
+        offsetX: (json['offsetX'] as num?)?.toDouble(),
+        offsetY: (json['offsetY'] as num?)?.toDouble(),
       );
 }
 

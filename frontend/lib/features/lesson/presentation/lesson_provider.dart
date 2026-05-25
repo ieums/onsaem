@@ -27,6 +27,9 @@ class LessonState {
   final int? remoteUid;
   final bool localCameraEnabled;
   final bool remoteCameraEnabled; // 원격 측(강사)의 카메라 상태
+  final double remoteScale;       // 원격 측의 줌 배율
+  final double remoteOffsetX;     // 원격 측의 pan offset X
+  final double remoteOffsetY;     // 원격 측의 pan offset Y
 
   final Color currentPenColor;
   final bool isEraserMode;
@@ -57,6 +60,9 @@ class LessonState {
     this.remoteUid,
     this.localCameraEnabled = true,
     this.remoteCameraEnabled = true,
+    this.remoteScale = 1.0,
+    this.remoteOffsetX = 0.0,
+    this.remoteOffsetY = 0.0,
     this.currentPenColor = Colors.black,
     this.isEraserMode = false,
     this.isRecording = false,
@@ -83,6 +89,9 @@ class LessonState {
     Object? remoteUid = _sentinel,
     bool? localCameraEnabled,
     bool? remoteCameraEnabled,
+    double? remoteScale,
+    double? remoteOffsetX,
+    double? remoteOffsetY,
     Color? currentPenColor,
     bool? isEraserMode,
     bool? isRecording,
@@ -108,6 +117,9 @@ class LessonState {
       remoteUid: remoteUid == _sentinel ? this.remoteUid : remoteUid as int?,
       localCameraEnabled: localCameraEnabled ?? this.localCameraEnabled,
       remoteCameraEnabled: remoteCameraEnabled ?? this.remoteCameraEnabled,
+      remoteScale: remoteScale ?? this.remoteScale,
+      remoteOffsetX: remoteOffsetX ?? this.remoteOffsetX,
+      remoteOffsetY: remoteOffsetY ?? this.remoteOffsetY,
       currentPenColor: currentPenColor ?? this.currentPenColor,
       isEraserMode: isEraserMode ?? this.isEraserMode,
       isRecording: isRecording ?? this.isRecording,
@@ -138,6 +150,8 @@ class LessonNotifier extends StateNotifier<LessonState> {
   final LessonRepository _repo;
   RtcEngine? _engine;
   String? _currentStrokeId; // 현재 그리는 스트로크의 고유 ID
+  // 원격 Undo로 제거된 스트로크 보관 → 원격 Redo 수신 시 복원에 사용
+  final Map<String, DrawingStroke> _deletedStrokes = {};
 
   LessonNotifier(this._repo) : super(const LessonState());
 
@@ -243,6 +257,23 @@ class LessonNotifier extends StateNotifier<LessonState> {
         ),
       );
     }
+  }
+
+  // ─── 줌 동기화 ─────────────────────────────────────────────────────────────
+
+  void sendZoom(double scale, Offset offset) {
+    final channelName = state.channelName;
+    if (channelName == null) return;
+    _repo.sendDraw(
+      channelName,
+      DrawEvent(
+        senderId: _repo.sessionId,
+        type: DrawType.zoom,
+        scale: scale,
+        offsetX: offset.dx,
+        offsetY: offset.dy,
+      ),
+    );
   }
 
   // ─── 펜 도구 ───────────────────────────────────────────────────────────────
@@ -357,7 +388,15 @@ class LessonNotifier extends StateNotifier<LessonState> {
       case DrawType.undo:
         _applyRemoteUndo(event);
       case DrawType.redo:
-        _applyRemoteRedo();
+        _applyRemoteRedo(event);
+      case DrawType.zoom:
+        if (event.scale != null) {
+          state = state.copyWith(
+            remoteScale: event.scale!.clamp(0.5, 4.0),
+            remoteOffsetX: event.offsetX ?? 0.0,
+            remoteOffsetY: event.offsetY ?? 0.0,
+          );
+        }
       case DrawType.cameraOn:
         state = state.copyWith(remoteCameraEnabled: true);
       case DrawType.cameraOff:
@@ -412,14 +451,24 @@ class LessonNotifier extends StateNotifier<LessonState> {
   }
 
   void redo() {
+    if (state.redoHistory.isEmpty) return;
+    final last = state.redoHistory.last;
     _doRedo();
-    _sendUndoRedo(DrawType.redo);
+    // StrokeAction이면 strokeId 포함해서 전송 → 상대방이 동일 스트로크 복원 가능
+    final strokeId = last is StrokeAction ? last.stroke.id : null;
+    _sendUndoRedo(DrawType.redo, strokeId: strokeId);
   }
 
   /// 원격에서 받은 UNDO — strokeId 기반으로 정확히 해당 스트로크 제거 (무한루프 방지)
   void _applyRemoteUndo(DrawEvent event) {
     final sid = event.strokeId;
     if (sid != null && sid.isNotEmpty) {
+      // 제거 전 스트로크 데이터 보존 → 이후 remote Redo에서 복원 가능
+      final inStrokes = state.strokes.where((s) => s.id == sid);
+      if (inStrokes.isNotEmpty) _deletedStrokes[sid] = inStrokes.first;
+      if (state.remoteStroke?.id == sid) {
+        _deletedStrokes[sid] = state.remoteStroke!;
+      }
       // ID로 정확히 해당 스트로크 제거
       final newStrokes = state.strokes.where((s) => s.id != sid).toList();
       final newRemote =
@@ -438,8 +487,35 @@ class LessonNotifier extends StateNotifier<LessonState> {
     }
   }
 
-  /// 원격에서 받은 REDO — STOMP 재전송 없음
-  void _applyRemoteRedo() => _doRedo();
+  /// 원격에서 받은 REDO — strokeId 기반으로 정확히 해당 스트로크 복원
+  void _applyRemoteRedo(DrawEvent event) {
+    final sid = event.strokeId;
+    if (sid != null && sid.isNotEmpty) {
+      // 1순위: 로컬 redoHistory에서 strokeId로 찾기
+      final idx = state.redoHistory
+          .indexWhere((a) => a is StrokeAction && a.stroke.id == sid);
+      if (idx >= 0) {
+        final action = state.redoHistory[idx] as StrokeAction;
+        final newRedo = [...state.redoHistory]..removeAt(idx);
+        state = state.copyWith(
+          strokes: [...state.strokes, action.stroke],
+          redoHistory: newRedo,
+          undoHistory: _appendToHistory(state.undoHistory, action),
+        );
+        return;
+      }
+      // 2순위: remote Undo로 제거된 스트로크 맵에서 복원
+      if (_deletedStrokes.containsKey(sid)) {
+        final stroke = _deletedStrokes.remove(sid)!;
+        state = state.copyWith(
+          strokes: [...state.strokes, stroke],
+          undoHistory: _appendToHistory(state.undoHistory, StrokeAction(stroke)),
+        );
+        return;
+      }
+    }
+    _doRedo(); // strokeId 없거나 찾지 못한 경우 fallback
+  }
 
   void _doUndo() {
     if (state.undoHistory.isEmpty) return;

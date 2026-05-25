@@ -36,6 +36,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   Offset _baseFocal = Offset.zero;
   Offset _baseOffset = Offset.zero;
   bool _isDrawingGesture = false;
+  bool _wasZoomGesture = false;
 
   /// 화면 좌표 → 캔버스 좌표 변환
   /// Transform = T(offset) * S(scale) 이므로
@@ -71,6 +72,15 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     ref.listen<LessonState>(lessonProvider, (prev, next) {
       if (next.isCompleted && !(prev?.isCompleted ?? false)) {
         context.go('/');
+      }
+      // 원격 줌 동기화: 상대방이 핀치줌/팬하면 내 화면에도 반영
+      if (prev?.remoteScale != next.remoteScale ||
+          prev?.remoteOffsetX != next.remoteOffsetX ||
+          prev?.remoteOffsetY != next.remoteOffsetY) {
+        setState(() {
+          _scale = next.remoteScale;
+          _offset = Offset(next.remoteOffsetX, next.remoteOffsetY);
+        });
       }
     });
 
@@ -209,6 +219,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             onScaleStart: (d) {
               // 시작은 항상 1 pointer (추가 pointer는 onScaleUpdate에서 감지)
               _isDrawingGesture = true;
+              _wasZoomGesture = false;
               _baseScale = _scale;
               _baseFocal = d.localFocalPoint;
               _baseOffset = _offset;
@@ -221,6 +232,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                   notifier.onPanEnd(); // 진행 중인 드로잉 스트로크 마무리
                   _isDrawingGesture = false;
                 }
+                _wasZoomGesture = true;
                 final newScale = (_baseScale * d.scale).clamp(0.5, 4.0);
                 // 시작 focal 아래의 캔버스 점이 현재 focal 아래에 유지되도록 offset 계산
                 final focalCanvas = (_baseFocal - _baseOffset) / _baseScale;
@@ -237,6 +249,11 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               if (_isDrawingGesture) {
                 notifier.onPanEnd();
                 _isDrawingGesture = false;
+              }
+              if (_wasZoomGesture) {
+                // gesture 종료 시점에 한 번만 전송 → STOMP 과부하 방지
+                notifier.sendZoom(_scale, _offset);
+                _wasZoomGesture = false;
               }
             },
             child: Transform(

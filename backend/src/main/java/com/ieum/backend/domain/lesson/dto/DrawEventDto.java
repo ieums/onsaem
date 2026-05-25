@@ -22,4 +22,10 @@ public class DrawEventDto {
     private Boolean isStart;
     /** Undo 동기화용 스트로크 고유 ID */
     private String strokeId;
+    /** 줌 동기화 — 배율 */
+    private Double scale;
+    /** 줌 동기화 — pan offset X */
+    private Double offsetX;
+    /** 줌 동기화 — pan offset Y */
+    private Double offsetY;
 }
