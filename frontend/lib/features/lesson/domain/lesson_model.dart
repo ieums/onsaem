@@ -87,7 +87,8 @@ enum DrawType {
   redo,
   cameraOn,
   cameraOff,
-  zoom;
+  zoom,
+  imageMove;
 
   String get value {
     switch (this) {
@@ -109,6 +110,8 @@ enum DrawType {
         return 'CAMERA_OFF';
       case DrawType.zoom:
         return 'ZOOM';
+      case DrawType.imageMove:
+        return 'IMAGE_MOVE';
     }
   }
 
@@ -132,6 +135,8 @@ enum DrawType {
         return DrawType.cameraOff;
       case 'ZOOM':
         return DrawType.zoom;
+      case 'IMAGE_MOVE':
+        return DrawType.imageMove;
       default:
         return DrawType.draw;
     }
@@ -151,6 +156,8 @@ class DrawEvent {
   final double? scale;    // 줌 동기화 — 배율
   final double? offsetX;  // 줌 동기화 — pan offset X
   final double? offsetY;  // 줌 동기화 — pan offset Y
+  final double? width;    // 이미지 너비 (imageAdd / imageMove)
+  final double? height;   // 이미지 높이
 
   DrawEvent({
     required this.senderId,
@@ -165,6 +172,8 @@ class DrawEvent {
     this.scale,
     this.offsetX,
     this.offsetY,
+    this.width,
+    this.height,
   });
 
   Map<String, dynamic> toJson() => {
@@ -180,6 +189,8 @@ class DrawEvent {
         if (scale != null) 'scale': scale,
         if (offsetX != null) 'offsetX': offsetX,
         if (offsetY != null) 'offsetY': offsetY,
+        if (width != null) 'width': width,
+        if (height != null) 'height': height,
       };
 
   factory DrawEvent.fromJson(Map<String, dynamic> json) => DrawEvent(
@@ -195,6 +206,8 @@ class DrawEvent {
         scale: (json['scale'] as num?)?.toDouble(),
         offsetX: (json['offsetX'] as num?)?.toDouble(),
         offsetY: (json['offsetY'] as num?)?.toDouble(),
+        width: (json['width'] as num?)?.toDouble(),
+        height: (json['height'] as num?)?.toDouble(),
       );
 }
 

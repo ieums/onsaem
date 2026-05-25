@@ -11,6 +11,8 @@ import '../domain/lesson_model.dart';
 
 const _eraserWidth = 16.0;
 const _maxUndoHistory = 50;
+const _kDefaultImageWidth = 400.0;
+const _kDefaultImageHeight = 300.0;
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +43,11 @@ class LessonState {
   final DrawingStroke? currentStroke;
   final DrawingStroke? remoteStroke;
   final String? backgroundImageUrl;
+  final double imageX;          // 이미지 캔버스 left (0이면 미배치)
+  final double imageY;          // 이미지 캔버스 top
+  final double imageWidth;      // 0이면 미배치 → BoxFit.contain 폴백
+  final double imageHeight;
+  final bool isImageEditMode;   // 이미지 편집 모드 여부
 
   final List<CanvasAction> undoHistory;
   final List<CanvasAction> redoHistory;
@@ -71,6 +78,11 @@ class LessonState {
     this.currentStroke,
     this.remoteStroke,
     this.backgroundImageUrl,
+    this.imageX = 0.0,
+    this.imageY = 0.0,
+    this.imageWidth = 0.0,
+    this.imageHeight = 0.0,
+    this.isImageEditMode = false,
     this.undoHistory = const [],
     this.redoHistory = const [],
     this.isLoading = false,
@@ -100,6 +112,11 @@ class LessonState {
     Object? currentStroke = _sentinel,
     Object? remoteStroke = _sentinel,
     Object? backgroundImageUrl = _sentinel,
+    double? imageX,
+    double? imageY,
+    double? imageWidth,
+    double? imageHeight,
+    bool? isImageEditMode,
     List<CanvasAction>? undoHistory,
     List<CanvasAction>? redoHistory,
     bool? isLoading,
@@ -133,6 +150,11 @@ class LessonState {
       backgroundImageUrl: backgroundImageUrl == _sentinel
           ? this.backgroundImageUrl
           : backgroundImageUrl as String?,
+      imageX: imageX ?? this.imageX,
+      imageY: imageY ?? this.imageY,
+      imageWidth: imageWidth ?? this.imageWidth,
+      imageHeight: imageHeight ?? this.imageHeight,
+      isImageEditMode: isImageEditMode ?? this.isImageEditMode,
       undoHistory: undoHistory ?? this.undoHistory,
       redoHistory: redoHistory ?? this.redoHistory,
       isLoading: isLoading ?? this.isLoading,
@@ -276,15 +298,50 @@ class LessonNotifier extends StateNotifier<LessonState> {
     );
   }
 
+  // ─── 이미지 편집 ────────────────────────────────────────────────────────────
+
+  void updateImageBounds({
+    required double x,
+    required double y,
+    required double width,
+    required double height,
+  }) {
+    state = state.copyWith(imageX: x, imageY: y, imageWidth: width, imageHeight: height);
+  }
+
+  void toggleImageEditMode() {
+    state = state.copyWith(isImageEditMode: !state.isImageEditMode);
+  }
+
+  void exitImageEditMode() {
+    state = state.copyWith(isImageEditMode: false);
+  }
+
+  void sendImageMove() {
+    final channelName = state.channelName;
+    if (channelName == null) return;
+    _repo.sendDraw(
+      channelName,
+      DrawEvent(
+        senderId: _repo.sessionId,
+        type: DrawType.imageMove,
+        x: state.imageX,
+        y: state.imageY,
+        width: state.imageWidth,
+        height: state.imageHeight,
+      ),
+    );
+  }
+
   // ─── 펜 도구 ───────────────────────────────────────────────────────────────
 
   void setPenColor(Color color) {
-    // 색상 선택 시 지우개 모드 자동 해제
-    state = state.copyWith(currentPenColor: color, isEraserMode: false);
+    // 색상 선택 시 지우개·이미지 편집 모드 자동 해제
+    state = state.copyWith(currentPenColor: color, isEraserMode: false, isImageEditMode: false);
   }
 
   void toggleEraser() {
-    state = state.copyWith(isEraserMode: !state.isEraserMode);
+    state = state.copyWith(isEraserMode: !state.isEraserMode, isImageEditMode: false);
   }
 
   // ─── 화이트보드 드로잉 ──────────────────────────────────────────────────────
@@ -375,14 +432,22 @@ class LessonNotifier extends StateNotifier<LessonState> {
         );
       case DrawType.imageAdd:
         if (event.imageUrl != null) {
-          final newUndo = _appendToHistory(
-            state.undoHistory,
-            ImageAction(prevUrl: state.backgroundImageUrl),
-          );
+          // 원격 이미지 추가 — undoHistory/redoHistory에 영향 없음
           state = state.copyWith(
             backgroundImageUrl: event.imageUrl,
-            undoHistory: newUndo,
-            redoHistory: const [],
+            imageX: event.x ?? 0.0,
+            imageY: event.y ?? 0.0,
+            imageWidth: event.width ?? _kDefaultImageWidth,
+            imageHeight: event.height ?? _kDefaultImageHeight,
+          );
+        }
+      case DrawType.imageMove:
+        if (event.width != null) {
+          state = state.copyWith(
+            imageX: event.x ?? state.imageX,
+            imageY: event.y ?? state.imageY,
+            imageWidth: event.width!,
+            imageHeight: event.height ?? state.imageHeight,
           );
         }
       case DrawType.undo:
@@ -414,16 +479,13 @@ class LessonNotifier extends StateNotifier<LessonState> {
     final forceNew = event.isStart == true; // isStart 플래그로 강제 새 스트로크
 
     if (current == null || forceNew || current.color != color || current.width != width) {
-      // 이전 원격 스트로크 확정 후 새 스트로크 시작
+      // 이전 원격 스트로크 확정 (strokes에만 추가 — undoHistory에는 추가하지 않음)
       List<DrawingStroke> confirmed = state.strokes;
-      List<CanvasAction> newUndo = state.undoHistory;
       if (current != null) {
         confirmed = [...confirmed, current];
-        newUndo = _appendToHistory(newUndo, StrokeAction(current));
       }
       state = state.copyWith(
         strokes: confirmed,
-        undoHistory: newUndo,
         remoteStroke: DrawingStroke(
           id: event.strokeId ?? '',
           points: [point],
@@ -487,11 +549,18 @@ class LessonNotifier extends StateNotifier<LessonState> {
     }
   }
 
-  /// 원격에서 받은 REDO — strokeId 기반으로 정확히 해당 스트로크 복원
+  /// 원격에서 받은 REDO — strokeId 기반으로 해당 스트로크만 복원
+  /// 원격 스트로크는 로컬 undoHistory에 추가하지 않음 (자신의 스트로크만 undo/redo)
   void _applyRemoteRedo(DrawEvent event) {
     final sid = event.strokeId;
     if (sid != null && sid.isNotEmpty) {
-      // 1순위: 로컬 redoHistory에서 strokeId로 찾기
+      // 1순위: remote Undo로 제거된 스트로크 맵에서 복원
+      if (_deletedStrokes.containsKey(sid)) {
+        final stroke = _deletedStrokes.remove(sid)!;
+        state = state.copyWith(strokes: [...state.strokes, stroke]);
+        return;
+      }
+      // 2순위: redoHistory에서 찾기 (예외적 케이스)
       final idx = state.redoHistory
           .indexWhere((a) => a is StrokeAction && a.stroke.id == sid);
       if (idx >= 0) {
@@ -500,21 +569,12 @@ class LessonNotifier extends StateNotifier<LessonState> {
         state = state.copyWith(
           strokes: [...state.strokes, action.stroke],
           redoHistory: newRedo,
-          undoHistory: _appendToHistory(state.undoHistory, action),
-        );
-        return;
-      }
-      // 2순위: remote Undo로 제거된 스트로크 맵에서 복원
-      if (_deletedStrokes.containsKey(sid)) {
-        final stroke = _deletedStrokes.remove(sid)!;
-        state = state.copyWith(
-          strokes: [...state.strokes, stroke],
-          undoHistory: _appendToHistory(state.undoHistory, StrokeAction(stroke)),
+          // undoHistory 없음 — 원격 스트로크는 로컬 undo stack에 추가하지 않음
         );
         return;
       }
     }
-    _doRedo(); // strokeId 없거나 찾지 못한 경우 fallback
+    // fallback 없음: 원격 redo로 로컬 스택 조작하지 않음
   }
 
   void _doUndo() {
@@ -605,6 +665,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
       );
       state = state.copyWith(
         backgroundImageUrl: response.imageUrl,
+        imageX: 0.0,
+        imageY: 0.0,
+        imageWidth: _kDefaultImageWidth,
+        imageHeight: _kDefaultImageHeight,
         undoHistory: newUndo,
         redoHistory: const [],
       );
@@ -614,6 +678,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
           senderId: _repo.sessionId,
           type: DrawType.imageAdd,
           imageUrl: response.imageUrl,
+          x: 0.0,
+          y: 0.0,
+          width: _kDefaultImageWidth,
+          height: _kDefaultImageHeight,
         ),
       );
     } catch (e) {

@@ -14,8 +14,12 @@ class WhiteboardPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // saveLayer는 BlendMode.clear가 화면 전체를 지우는 것을 방지함
-    canvas.saveLayer(Offset.zero & size, Paint());
+    // 지우개 스트로크가 있을 때만 saveLayer 사용 (BlendMode.clear 적용 + 성능 최적화)
+    final hasEraser = strokes.any((s) => s.isEraser) ||
+        currentStroke?.isEraser == true ||
+        remoteStroke?.isEraser == true;
+
+    if (hasEraser) canvas.saveLayer(Offset.zero & size, Paint());
 
     final all = <DrawingStroke>[
       ...strokes,
@@ -52,7 +56,7 @@ class WhiteboardPainter extends CustomPainter {
       canvas.drawPath(path, paint);
     }
 
-    canvas.restore();
+    if (hasEraser) canvas.restore();
   }
 
   @override

@@ -38,6 +38,13 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   bool _isDrawingGesture = false;
   bool _wasZoomGesture = false;
 
+  // ─── 이미지 편집 모드 상태 ────────────────────────────────────────────────
+  double _imageBaseX = 0;
+  double _imageBaseY = 0;
+  double _imageBaseWidth = 0;
+  double _imageBaseHeight = 0;
+  bool _imageDidMove = false;
+
   /// 화면 좌표 → 캔버스 좌표 변환
   /// Transform = T(offset) * S(scale) 이므로
   /// screenPos = scale * canvasPos + offset → canvasPos = (screenPos - offset) / scale
@@ -217,7 +224,19 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             // onScaleStart/Update/End으로 단일 손가락(드로잉)과
             // 멀티 손가락(줌+팬)을 하나의 recognizer로 처리 → 충돌 없음
             onScaleStart: (d) {
-              // 시작은 항상 1 pointer (추가 pointer는 onScaleUpdate에서 감지)
+              final s = ref.read(lessonProvider);
+              if (s.isImageEditMode) {
+                // 이미지 편집 모드: 드래그/핀치로 이미지 조작
+                _imageBaseX = s.imageX;
+                _imageBaseY = s.imageY;
+                _imageBaseWidth = s.imageWidth;
+                _imageBaseHeight = s.imageHeight;
+                _imageDidMove = false;
+                _baseFocal = d.localFocalPoint;
+                _baseScale = 1.0;
+                return;
+              }
+              // 일반 드로잉/줌 모드
               _isDrawingGesture = true;
               _wasZoomGesture = false;
               _baseScale = _scale;
@@ -226,6 +245,33 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               notifier.onPanStart(_toCanvas(d.localFocalPoint));
             },
             onScaleUpdate: (d) {
+              final s = ref.read(lessonProvider);
+              if (s.isImageEditMode) {
+                _imageDidMove = true;
+                if (d.pointerCount >= 2) {
+                  // 핀치: 이미지 중심 고정 리사이즈
+                  final newW = (_imageBaseWidth * d.scale).clamp(50.0, 3000.0);
+                  final newH = (_imageBaseHeight * d.scale).clamp(50.0, 3000.0);
+                  final cx = _imageBaseX + _imageBaseWidth / 2;
+                  final cy = _imageBaseY + _imageBaseHeight / 2;
+                  notifier.updateImageBounds(
+                    x: cx - newW / 2,
+                    y: cy - newH / 2,
+                    width: newW,
+                    height: newH,
+                  );
+                } else {
+                  // 드래그: 캔버스 좌표 delta로 이동
+                  final canvasDelta = (d.localFocalPoint - _baseFocal) / _scale;
+                  notifier.updateImageBounds(
+                    x: _imageBaseX + canvasDelta.dx,
+                    y: _imageBaseY + canvasDelta.dy,
+                    width: s.imageWidth,
+                    height: s.imageHeight,
+                  );
+                }
+                return;
+              }
               if (d.pointerCount >= 2) {
                 // 두 손가락: 줌 + 팬
                 if (_isDrawingGesture) {
@@ -246,6 +292,23 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               }
             },
             onScaleEnd: (_) {
+              final s = ref.read(lessonProvider);
+              if (s.isImageEditMode) {
+                if (!_imageDidMove) {
+                  // 탭 감지: 이미지 밖이면 편집 모드 종료
+                  final p = _toCanvas(_baseFocal);
+                  final outside = p.dx < s.imageX ||
+                      p.dx > s.imageX + s.imageWidth ||
+                      p.dy < s.imageY ||
+                      p.dy > s.imageY + s.imageHeight;
+                  if (outside) notifier.exitImageEditMode();
+                } else {
+                  // 드래그/리사이즈 종료: STOMP 전송
+                  notifier.sendImageMove();
+                }
+                _imageDidMove = false;
+                return;
+              }
               if (_isDrawingGesture) {
                 notifier.onPanEnd();
                 _isDrawingGesture = false;
@@ -258,25 +321,49 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             },
             child: Transform(
               transform: _buildMatrix(),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (state.backgroundImageUrl != null)
-                    Image.network(
-                      state.backgroundImageUrl!,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const SizedBox.shrink(),
+              child: SizedBox(
+                width: 5000,
+                height: 5000,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (state.backgroundImageUrl != null)
+                      state.imageWidth > 0
+                          ? Positioned(
+                              left: state.imageX,
+                              top: state.imageY,
+                              width: state.imageWidth,
+                              height: state.imageHeight,
+                              child: DecoratedBox(
+                                decoration: state.isImageEditMode
+                                    ? BoxDecoration(
+                                        border: Border.all(
+                                            color: Colors.blue, width: 2))
+                                    : const BoxDecoration(),
+                                child: Image.network(
+                                  state.backgroundImageUrl!,
+                                  fit: BoxFit.fill,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const SizedBox.shrink(),
+                                ),
+                              ),
+                            )
+                          : Image.network(
+                              state.backgroundImageUrl!,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const SizedBox.shrink(),
+                            ),
+                    CustomPaint(
+                      painter: WhiteboardPainter(
+                        strokes: state.strokes,
+                        currentStroke: state.currentStroke,
+                        remoteStroke: state.remoteStroke,
+                      ),
+                      child: const SizedBox.expand(),
                     ),
-                  CustomPaint(
-                    painter: WhiteboardPainter(
-                      strokes: state.strokes,
-                      currentStroke: state.currentStroke,
-                      remoteStroke: state.remoteStroke,
-                    ),
-                    child: const SizedBox.expand(),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -336,6 +423,15 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                 label: '이미지',
                 onTap: () => _pickAndUploadImage(),
               ),
+              if (state.backgroundImageUrl != null)
+                _ActionButton(
+                  icon: Icons.open_with,
+                  label: state.isImageEditMode ? '편집 완료' : '이미지 편집',
+                  color: state.isImageEditMode
+                      ? Colors.blue
+                      : AppColors.textPrimary,
+                  onTap: () => notifier.toggleImageEditMode(),
+                ),
               _ActionButton(
                 icon: Icons.check_circle_outline,
                 label: '수업완료',

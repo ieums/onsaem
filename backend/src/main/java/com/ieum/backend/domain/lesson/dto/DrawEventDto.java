@@ -28,4 +28,8 @@ public class DrawEventDto {
     private Double offsetX;
     /** 줌 동기화 — pan offset Y */
     private Double offsetY;
+    /** 이미지 너비 — imageAdd / imageMove 공용 */
+    private Double width;
+    /** 이미지 높이 — imageAdd / imageMove 공용 */
+    private Double height;
 }
