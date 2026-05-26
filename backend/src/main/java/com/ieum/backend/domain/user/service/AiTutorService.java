@@ -12,6 +12,7 @@ import com.ieum.backend.domain.user.repository.AiTutorMessageRepository;
 import com.ieum.backend.domain.user.repository.AiTutorSessionRepository;
 import com.ieum.backend.domain.user.repository.ProblemQueryRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiTutorService {
@@ -80,7 +82,15 @@ public class AiTutorService {
 
         // 3) 전체 히스토리(방금 저장한 학생 메시지 포함)로 Gemini 호출
         List<AiTutorMessage> history = messageRepository.findBySessionIdOrderByIdAsc(sessionId);
-        String aiText = geminiClient.generate(systemInstruction, history);
+
+        // 4) Gemini 호출 — 실패하면 fallback 메시지로 대체
+        String aiText;
+        try {
+            aiText = geminiClient.generate(systemInstruction, history);
+        } catch (Exception e) {
+            log.error("Gemini 호출 최종 실패. fallback 메시지로 응답합니다.", e);
+            aiText = "AI 튜터가 잠시 응답할 수 없어요. 잠시 후 다시 질문해주세요.";
+        }
 
         // 4) AI 응답 저장
         AiTutorMessage aiMessage = AiTutorMessage.builder()

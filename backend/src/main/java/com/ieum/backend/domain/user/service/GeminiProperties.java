@@ -7,7 +7,10 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record GeminiProperties(
         String apiKey,
         @DefaultValue("gemini-2.5-flash") String model,
+        @DefaultValue("gemini-flash-latest") String fallbackModel,
         @DefaultValue("https://generativelanguage.googleapis.com/v1beta") String baseUrl,
-        @DefaultValue("30") int timeoutSeconds
+        @DefaultValue("30") int timeoutSeconds,
+        @DefaultValue("2") int maxRetries,
+        @DefaultValue("1000") long retryDelayMs
 ) {
 }
