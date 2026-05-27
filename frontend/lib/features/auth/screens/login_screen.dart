@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.primaryBlue,
+                              color: Color(0xFF1A1D26),
                             ),
                           ),
                         ),
@@ -145,9 +145,10 @@ class _LoginScreenState extends State<LoginScreen> {
       child: FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primaryBlue,
-          foregroundColor: AppColors.white,
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1A1D26),
           elevation: 0,
+          side: const BorderSide(color: Color(0xFFE0E0E0), width: 1),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
@@ -242,7 +243,15 @@ class _SocialLoginButton extends StatelessWidget {
                 child: SizedBox(
                   width: iconSize ?? _LoginScreenState._socialIconSize,
                   height: iconSize ?? _LoginScreenState._socialIconSize,
-                  child: Image.asset(iconAsset, fit: BoxFit.contain),
+                  child: Image.asset(
+                    iconAsset,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.broken_image_outlined,
+                      size: iconSize ?? _LoginScreenState._socialIconSize,
+                      color: const Color(0xFF9AA3B2),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: _LoginScreenState._socialIconGap),
@@ -277,7 +286,7 @@ class _BrandTitle extends StatelessWidget {
           style: TextStyle(
             fontSize: 36,
             fontWeight: FontWeight.bold,
-            color: AppColors.primaryBlue,
+            color: Color(0xFF1A1D26),
             height: 1.1,
           ),
         ),
@@ -288,8 +297,8 @@ class _BrandTitle extends StatelessWidget {
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
-            letterSpacing: 1.5, // 기존 3 → 1.5로 자간 줄임
-            color: AppColors.primaryBlue,
+            letterSpacing: 3,
+            color: Color(0xFF1A1D26),
           ),
         ),
       ],

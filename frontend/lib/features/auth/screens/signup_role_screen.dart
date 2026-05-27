@@ -10,8 +10,6 @@ class SignupRoleScreen extends StatelessWidget {
   static const _backgroundColor = Color(0xFFF8F9FD);
   static const _titleColor = Color(0xFF1A1D26);
   static const _subtitleColor = Color(0xFF6B7280);
-  static const _tutorAccent = Color(0xFFFF7A6E);
-  static const _tutorBorder = Color(0xFFFFB4AD);
 
   @override
   Widget build(BuildContext context) {
@@ -62,8 +60,8 @@ class SignupRoleScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 40),
                           _RoleCard(
-                            iconBackgroundColor: AppColors.primaryBlue,
-                            borderColor: AppColors.primaryBlue.withValues(alpha: 0.35),
+                            iconBackgroundColor: AppColors.roleStudentAccent,
+                            borderColor: AppColors.roleStudentBorder,
                             leadingIcon: const Icon(
                               Icons.school_rounded,
                               color: Colors.white,
@@ -75,8 +73,8 @@ class SignupRoleScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                           _RoleCard(
-                            iconBackgroundColor: _tutorAccent,
-                            borderColor: _tutorBorder,
+                            iconBackgroundColor: AppColors.primaryBlue,
+                            borderColor: AppColors.primaryBlue.withValues(alpha: 0.35),
                             leadingIcon: const _WhiteboardIcon(),
                             title: '강사로 회원가입하기',
                             description: '학생들의 질문에 답하고 수익을 창출해요',
@@ -140,7 +138,7 @@ class _WhiteboardIcon extends StatelessWidget {
       width: width,
       height: 2.5,
       decoration: BoxDecoration(
-        color: SignupRoleScreen._tutorAccent.withValues(alpha: 0.45),
+        color: AppColors.primaryBlue.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(2),
       ),
     );
@@ -208,7 +206,7 @@ class _RoleCard extends StatelessWidget {
                       Text(
                         description,
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: 12,
                           color: Color(0xFF6B7280),
                           height: 1.35,
                         ),
