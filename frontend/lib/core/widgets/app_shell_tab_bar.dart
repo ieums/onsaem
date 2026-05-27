@@ -10,12 +10,9 @@ class AppShellTabBar extends StatelessWidget {
     required this.tabs,
   });
 
-  static const _barColor = Colors.white;
-  static const _inactiveColor = Color(0xFF7C7C7C);
-  static const _barHeight = 62.0;
+  static const _barHeight = 64.0;
   static const _iconSize = 24.0;
   static const _labelSize = 12.0;
-  static const _nudgeDown = 3.0;
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -23,37 +20,44 @@ class AppShellTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Transform.translate(
-      offset: const Offset(0, _nudgeDown),
-      child: NavigationBar(
-        height: _barHeight,
-        selectedIndex: selectedIndex,
-        onDestinationSelected: onDestinationSelected,
-        backgroundColor: _barColor,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        indicatorColor: Colors.transparent,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          return TextStyle(
-            fontSize: _labelSize,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            color: selected ? AppColors.primaryBlue : _inactiveColor,
-          );
-        }),
-        destinations: [
-          for (final t in tabs)
-            NavigationDestination(
-              icon: Icon(t.icon, size: _iconSize, color: _inactiveColor),
-              selectedIcon: Icon(
-                t.activeIcon,
-                size: _iconSize,
-                color: AppColors.primaryBlue,
+    final scheme = Theme.of(context).colorScheme;
+    final barColor = Theme.of(context).navigationBarTheme.backgroundColor ??
+        scheme.surface;
+
+    return ColoredBox(
+      color: barColor,
+      child: SafeArea(
+        top: false,
+        child: NavigationBar(
+          height: _barHeight,
+          selectedIndex: selectedIndex,
+          onDestinationSelected: onDestinationSelected,
+          backgroundColor: barColor,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          indicatorColor: Colors.transparent,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return TextStyle(
+              fontSize: _labelSize,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? AppColors.primaryBlue : scheme.onSurfaceVariant,
+            );
+          }),
+          destinations: [
+            for (final t in tabs)
+              NavigationDestination(
+                icon: Icon(t.icon, size: _iconSize, color: scheme.onSurfaceVariant),
+                selectedIcon: Icon(
+                  t.activeIcon,
+                  size: _iconSize,
+                  color: AppColors.primaryBlue,
+                ),
+                label: t.label,
               ),
-              label: t.label,
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
