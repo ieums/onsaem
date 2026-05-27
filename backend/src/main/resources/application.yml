@@ -18,6 +18,7 @@ file:
 gemini:
   api:
     key: ${GEMINI_API_KEY:none}
+
 cloud:
   aws:
     region:
