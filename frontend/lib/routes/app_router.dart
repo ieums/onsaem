@@ -31,7 +31,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: RoutePaths.signupTutor,
-      builder: (_, _) => const TutorSignupScreen(),
+      builder: (_, state) => TutorSignupScreen(
+        isEditMode: state.uri.queryParameters['edit'] == 'true',
+      ),
     ),
     GoRoute(
       path: RoutePaths.studentHome,

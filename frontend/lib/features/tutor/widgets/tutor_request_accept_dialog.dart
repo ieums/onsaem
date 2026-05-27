@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/utils/won_format_util.dart';
 import 'package:ieum/features/tutor/data/tutor_request_list_dummy_data.dart';
 
 /// 문제 신청/새 질문 **수락** 확인 모달.
@@ -17,9 +18,9 @@ Future<bool?> showTutorRequestAcceptDialog(
     barrierDismissible: true,
     builder: (dialogContext) {
       final width = math.min(MediaQuery.sizeOf(dialogContext).width - 48, 360.0);
+      final scheme = Theme.of(dialogContext).colorScheme;
 
       return Dialog(
-        backgroundColor: Colors.white,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -32,23 +33,23 @@ Future<bool?> showTutorRequestAcceptDialog(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
+                Text(
                   '질문을 수락하시겠어요?',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1D26),
+                    color: scheme.onSurface,
                     height: 1.35,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   '수락하면 학생과 매칭됩니다',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF9AA3B2),
+                    color: scheme.onSurfaceVariant,
                     height: 1.35,
                   ),
                 ),
@@ -61,7 +62,7 @@ Future<bool?> showTutorRequestAcceptDialog(
                       child: TextButton(
                         onPressed: () => Navigator.pop(dialogContext, false),
                         style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF1A1D26),
+                          foregroundColor: scheme.onSurface,
                           minimumSize: const Size.fromHeight(44),
                         ),
                         child: const Text(
@@ -79,7 +80,9 @@ Future<bool?> showTutorRequestAcceptDialog(
                         onPressed: () => Navigator.pop(dialogContext, true),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.primaryBlue,
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.onPrimaryFill(
+                            Theme.of(dialogContext).brightness,
+                          ),
                           elevation: 0,
                           minimumSize: const Size.fromHeight(44),
                           shape: RoundedRectangleBorder(
@@ -111,22 +114,13 @@ class _AcceptModalDetailBox extends StatelessWidget {
 
   final TutorRequestListItem item;
 
-  static const _hintColor = Color(0xFF9AA3B2);
-  static const _labelColor = Color(0xFF1A1D26);
-  static const _detailBoxColor = Color(0xFFF3F4F8);
-
-  static const _subjectValueStyle = TextStyle(
-    fontSize: 13,
-    fontWeight: FontWeight.w500,
-    color: _labelColor,
-  );
-
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        color: _detailBoxColor,
+        color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -137,7 +131,7 @@ class _AcceptModalDetailBox extends StatelessWidget {
           const SizedBox(height: 10),
           _InfoRow(
             label: '예상 금액',
-            value: _formatWon(item.priceWon),
+            value: formatWon(item.priceWon),
             valueColor: AppColors.primaryBlue,
             valueBold: true,
           ),
@@ -146,17 +140,6 @@ class _AcceptModalDetailBox extends StatelessWidget {
     );
   }
 
-  static String _formatWon(int value) {
-    final text = value.toString();
-    final buffer = StringBuffer();
-    for (var i = 0; i < text.length; i++) {
-      if (i > 0 && (text.length - i) % 3 == 0) {
-        buffer.write(',');
-      }
-      buffer.write(text[i]);
-    }
-    return '$buffer원';
-  }
 }
 
 class _SubjectSection extends StatelessWidget {
@@ -166,14 +149,21 @@ class _SubjectSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final valueStyle = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+      color: scheme.onSurface,
+    );
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           '과목',
           style: TextStyle(
             fontSize: 13,
-            color: _AcceptModalDetailBox._hintColor,
+            color: scheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(width: 12),
@@ -184,7 +174,7 @@ class _SubjectSection extends StatelessWidget {
               Text(
                 item.detailSubject,
                 textAlign: TextAlign.right,
-                style: _AcceptModalDetailBox._subjectValueStyle,
+                style: valueStyle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -193,7 +183,7 @@ class _SubjectSection extends StatelessWidget {
                 Text(
                   item.chapter,
                   textAlign: TextAlign.right,
-                  style: _AcceptModalDetailBox._subjectValueStyle,
+                  style: valueStyle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -221,13 +211,14 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: _AcceptModalDetailBox._hintColor,
+            color: scheme.onSurfaceVariant,
           ),
         ),
         const Spacer(),
@@ -236,7 +227,7 @@ class _InfoRow extends StatelessWidget {
           style: TextStyle(
             fontSize: 14,
             fontWeight: valueBold ? FontWeight.w700 : FontWeight.w500,
-            color: valueColor ?? _AcceptModalDetailBox._labelColor,
+            color: valueColor ?? scheme.onSurface,
           ),
         ),
       ],

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/utils/won_format_util.dart';
+import 'package:ieum/core/utils/date_format_util.dart';
 import 'package:ieum/features/tutor/data/tutor_settlement_dummy_data.dart';
 
 enum _ChartPeriod { weekly, monthly, yearly }
@@ -9,6 +11,146 @@ enum _ChartPeriod { weekly, monthly, yearly }
 enum _HistoryFilter { all, deposit, withdrawal }
 
 enum _CalendarPickerStep { dayGrid, yearPick, monthPick }
+
+/// 입출금 달력 — 화면 크기별 글자·셀 스케일
+class _CalendarLayout {
+  const _CalendarLayout({
+    required this.cellHeight,
+    required this.weekdayHeaderHeight,
+    required this.dayFontSize,
+    required this.weekdayFontSize,
+    required this.amountFontSize,
+    required this.amountCellWidth,
+    required this.amountSlotHeight,
+    required this.amountLineGap,
+    required this.dayBadgeSize,
+    required this.monthTitleFontSize,
+    required this.detailTimeFontSize,
+    required this.detailPanelMaxHeight,
+  });
+
+  final double cellHeight;
+  final double weekdayHeaderHeight;
+  final double dayFontSize;
+  final double weekdayFontSize;
+  final double amountFontSize;
+  final double amountCellWidth;
+  final double amountSlotHeight;
+  final double amountLineGap;
+  final double dayBadgeSize;
+  final double monthTitleFontSize;
+  final double detailTimeFontSize;
+  final double detailPanelMaxHeight;
+
+  static double _sheetPaddingHorizontal(double screenWidth) {
+    if (screenWidth < 360) return 16;
+    if (screenWidth < 420) return 14;
+    return 12;
+  }
+
+  static double _dayCellInnerWidth(Size size) {
+    final pad = _sheetPaddingHorizontal(size.width);
+    return (size.width - pad * 2) / 7;
+  }
+
+  static double _amountSlotHeight(double fontSize) => fontSize * 1.08;
+
+  /// 셀 너비·화면 크기에 따라 입출금 글자 크기 연속 스케일
+  static double _scaledAmountFontSize({
+    required Size screenSize,
+    required double cellWidth,
+    required bool detailVisible,
+  }) {
+    const refCellWidth = 52.0;
+    const refFontSize = 10.0;
+
+    // 셀 안에 "+123,456원"이 들어가도록 너비 비례
+    final cellBased = cellWidth * (refFontSize / refCellWidth);
+
+    // 기기 가로(390 기준): 작은 폰 축소 · 큰 폰·태블릿 확대
+    final deviceScale = (screenSize.width / 390).clamp(0.78, 1.22);
+
+    // 세로가 낮거나 상세 패널이 열리면 한 단계 축소
+    final heightScale = switch (screenSize.height) {
+      < 640 => 0.88,
+      < 720 => detailVisible ? 0.9 : 0.95,
+      _ => detailVisible && screenSize.height < 800 ? 0.94 : 1.0,
+    };
+
+    return (cellBased * deviceScale * heightScale).clamp(6.0, 12.5);
+  }
+
+  factory _CalendarLayout.fromScreen(Size size, {required bool detailVisible}) {
+    final h = size.height;
+    final w = size.width;
+    final amountCellWidth = _dayCellInnerWidth(size);
+    final tight = detailVisible && h < 740;
+    final compact = h < 720 || w < 380 || tight;
+    final tiny = h < 640 || w < 340 || (detailVisible && h < 680);
+
+    if (tiny) {
+      final amountFontSize = _scaledAmountFontSize(
+        screenSize: size,
+        cellWidth: amountCellWidth,
+        detailVisible: detailVisible,
+      );
+      return _CalendarLayout(
+        cellHeight: detailVisible ? 60 : 62,
+        weekdayHeaderHeight: 22,
+        dayFontSize: 16,
+        weekdayFontSize: 11,
+        amountFontSize: amountFontSize,
+        amountCellWidth: amountCellWidth,
+        amountSlotHeight: _amountSlotHeight(amountFontSize),
+        amountLineGap: 1,
+        dayBadgeSize: 28,
+        monthTitleFontSize: 14,
+        detailTimeFontSize: 10,
+        detailPanelMaxHeight: h * 0.36,
+      );
+    }
+    if (compact) {
+      final amountFontSize = _scaledAmountFontSize(
+        screenSize: size,
+        cellWidth: amountCellWidth,
+        detailVisible: detailVisible,
+      );
+      return _CalendarLayout(
+        cellHeight: detailVisible ? 68 : 70,
+        weekdayHeaderHeight: 24,
+        dayFontSize: 17,
+        weekdayFontSize: 12,
+        amountFontSize: amountFontSize,
+        amountCellWidth: amountCellWidth,
+        amountSlotHeight: _amountSlotHeight(amountFontSize),
+        amountLineGap: 1.5,
+        dayBadgeSize: 30,
+        monthTitleFontSize: 15,
+        detailTimeFontSize: 11,
+        detailPanelMaxHeight: h * 0.38,
+      );
+    }
+    final amountFontSize = _scaledAmountFontSize(
+      screenSize: size,
+      cellWidth: amountCellWidth,
+      detailVisible: detailVisible,
+    );
+    return _CalendarLayout(
+      cellHeight: detailVisible ? 72 : 80,
+      weekdayHeaderHeight: 28,
+      dayFontSize: 19,
+      weekdayFontSize: 14,
+      amountFontSize: amountFontSize,
+      amountCellWidth: amountCellWidth,
+      amountSlotHeight: _amountSlotHeight(amountFontSize),
+      amountLineGap: 2,
+      dayBadgeSize: 34,
+      monthTitleFontSize: 16,
+      detailTimeFontSize: 12,
+      detailPanelMaxHeight: 260,
+    );
+  }
+}
 
 class _SettlementHistoryItem {
   const _SettlementHistoryItem({
@@ -50,17 +192,7 @@ class _CalendarTransaction {
 
   bool get isDeposit => amount > 0;
 
-  String get fullDateTimeLabel => _formatFullDateTime(date);
-}
-
-String _formatFullDateTime(DateTime date) {
-  final year = date.year;
-  final month = date.month.toString().padLeft(2, '0');
-  final day = date.day.toString().padLeft(2, '0');
-  final hour = date.hour.toString().padLeft(2, '0');
-  final minute = date.minute.toString().padLeft(2, '0');
-  final second = date.second.toString().padLeft(2, '0');
-  return '$year.$month.$day $hour:$minute:$second';
+  String get fullDateTimeLabel => formatDotDateTime(date);
 }
 
 class TutorSettlementScreen extends StatefulWidget {
@@ -71,12 +203,11 @@ class TutorSettlementScreen extends StatefulWidget {
 }
 
 class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
-  static const _backgroundColor = Color(0xFFF8F9FD);
-  static const _labelColor = Color(0xFF1A1D26);
-  static const _hintColor = Color(0xFF9AA3B2);
-  static const _borderColor = Color(0xFFE0E0E0);
-  static const _incomeColor = Color(0xFF2E9E6A);
-  static const _expenseColor = Color(0xFFE53935);
+  /// 포인트 컬러(#BFA2DB)와 어울리는 입금(녹색)·출금(붉은) 톤
+  static const _incomeColor = AppColors.incomeGreen;
+  static const _expenseColor = Color(0xFFD46878);
+
+  ColorScheme _scheme(BuildContext context) => Theme.of(context).colorScheme;
 
   static const _weekLabels = ['월', '화', '수', '목', '금', '토', '일'];
   static const _yearLabels = [
@@ -313,22 +444,22 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
+              _buildHeader(context),
               const SizedBox(height: 16),
-              _buildWithdrawCard(),
+              _buildWithdrawCard(context),
               const SizedBox(height: 12),
-              _buildLastMonthCard(),
+              _buildLastMonthCard(context),
               const SizedBox(height: 20),
-              _buildChartSection(),
+              _buildChartSection(context),
               const SizedBox(height: 24),
-              _buildHistorySection(),
+              _buildHistorySection(context),
             ],
           ),
         ),
@@ -336,25 +467,26 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
+    final scheme = _scheme(context);
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Text(
             '정산',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: _labelColor,
+              color: scheme.onSurface,
             ),
           ),
         ),
         IconButton(
-          onPressed: _showCalendarPopup,
-          icon: const Icon(
+          onPressed: _showCalendarBottomSheet,
+          icon: Icon(
             Icons.calendar_today_outlined,
             size: 24,
-            color: _labelColor,
+            color: scheme.onSurface,
           ),
         ),
       ],
@@ -391,37 +523,17 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
 
   String _formatSignedWon(int amount) {
     final sign = amount >= 0 ? '+' : '-';
-    return '$sign${_formatWon(amount.abs())}';
+    return '$sign${formatWon(amount.abs())}';
   }
 
-  static const _calendarCellHeight = 80.0;
-
-  static const _calendarWeekdayHeaderHeight = 28.0;
   static const _calendarYearPickerBodyHeight = 280.0;
   static const _calendarMonthPickerBodyHeight = 200.0;
   static const _calendarDetailExpandLimit = 4;
-  static const _calendarDetailHeaderSectionHeight = 41.0;
-  static const _calendarDetailRowBlockHeight = 50.0;
-  static const _calendarDetailListVerticalPadding = 20.0;
-  static const _calendarDetailMaxPanelHeight = 260.0;
 
   /// 개발 단계용 넉넉한 연도 범위. 출시 시 입출금 min/max 연도 기준으로 좁히면 됨.
   static const _calendarYearLookback = 10;
   static const _calendarYearLookahead = 5;
-  static const _calendarDialogMaxWidth = 800.0;
-
-  /// 달력 다이얼로그·그리드 좌우 여백 (좁은 화면일수록 넓게).
-  static double _calendarDialogInsetHorizontal(double screenWidth) {
-    if (screenWidth < 360) return 24;
-    if (screenWidth < 420) return 20;
-    return 16;
-  }
-
-  static double _calendarContentPaddingHorizontal(double screenWidth) {
-    if (screenWidth < 360) return 12;
-    if (screenWidth < 420) return 10;
-    return 8;
-  }
+  static const _calendarDetailAmountWidth = 92.0;
 
   (int, int) _calendarYearRange() {
     final nowYear = DateTime.now().year;
@@ -435,37 +547,44 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     return (minYear, maxYear);
   }
 
-  double _calendarBodyHeight(DateTime month) {
+  double _calendarBodyHeight(DateTime month, _CalendarLayout layout) {
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
     final leadingEmpty = DateTime(month.year, month.month, 1).weekday - 1;
     final rowCount = ((leadingEmpty + daysInMonth) / 7).ceil();
-    return _calendarWeekdayHeaderHeight + rowCount * _calendarCellHeight;
+    return layout.weekdayHeaderHeight + rowCount * layout.cellHeight;
   }
 
   int _yearPickerIndex(int year, int firstYear, int lastYear) {
     return (year - firstYear).clamp(0, lastYear - firstYear);
   }
 
-  double? _calendarDetailPanelHeight(List<_CalendarTransaction> transactions) {
+  double? _calendarDetailPanelHeight(
+    List<_CalendarTransaction> transactions,
+    _CalendarLayout layout,
+  ) {
     if (transactions.isEmpty) return null;
     if (transactions.length <= _calendarDetailExpandLimit) {
-      return _calendarDetailHeaderSectionHeight +
-          _calendarDetailListVerticalPadding +
-          transactions.length * _calendarDetailRowBlockHeight +
-          4;
+      // 행 높이는 시각·폰트에 따라 달라져 고정값 대신 내용 높이에 맡김
+      return null;
     }
-    return _calendarDetailMaxPanelHeight;
+    return layout.detailPanelMaxHeight;
   }
 
-  void _showCalendarPopup() {
+  void _showCalendarBottomSheet() {
     _ensureCalendarCache();
     final today = _dateOnly(_chartReferenceDate);
     final (firstYear, lastYear) = _calendarYearRange();
 
-    showDialog<void>(
+    showModalBottomSheet<void>(
       context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) {
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        final scheme = Theme.of(sheetContext).colorScheme;
         DateTime? detailDate;
         var displayMonth = DateTime(today.year, today.month);
         var pickerStep = _CalendarPickerStep.dayGrid;
@@ -474,186 +593,202 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
           initialItem: _yearPickerIndex(today.year, firstYear, lastYear),
         );
 
-        final screenSize = MediaQuery.of(dialogContext).size;
-        final insetH = _calendarDialogInsetHorizontal(screenSize.width);
-        final contentPadH = _calendarContentPaddingHorizontal(screenSize.width);
-        final dialogWidth = math.min(
-          screenSize.width - insetH * 2,
-          _calendarDialogMaxWidth,
-        );
-        final maxDialogHeight = screenSize.height * 0.92;
+        final screenSize = MediaQuery.sizeOf(sheetContext);
+        final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
+        final contentPadH =
+            _CalendarLayout._sheetPaddingHorizontal(screenSize.width);
+        final maxSheetHeight = screenSize.height * 0.92;
 
-        return Dialog(
-          backgroundColor: Colors.white,
-          insetPadding: EdgeInsets.symmetric(horizontal: insetH, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: StatefulBuilder(
-            builder: (context, setDialogState) {
-              void selectDay(DateTime day) {
-                setDialogState(() => detailDate = _dateOnly(day));
-              }
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            void selectDay(DateTime day) {
+              setSheetState(() => detailDate = _dateOnly(day));
+            }
 
-              void changeMonth(int delta) {
-                setDialogState(() {
-                  displayMonth = DateTime(
-                    displayMonth.year,
-                    displayMonth.month + delta,
+            void changeMonth(int delta) {
+              setSheetState(() {
+                displayMonth = DateTime(
+                  displayMonth.year,
+                  displayMonth.month + delta,
+                );
+              });
+            }
+
+            void jumpYearWheel(int year) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (yearScrollController.hasClients) {
+                  yearScrollController.jumpToItem(
+                    _yearPickerIndex(year, firstYear, lastYear),
                   );
-                });
-              }
+                }
+              });
+            }
 
-              void jumpYearWheel(int year) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (yearScrollController.hasClients) {
-                    yearScrollController.jumpToItem(
-                      _yearPickerIndex(year, firstYear, lastYear),
-                    );
-                  }
-                });
-              }
+            final showDetail =
+                detailDate != null && pickerStep == _CalendarPickerStep.dayGrid;
+            final selectedDayTransactions = showDetail
+                ? (_transactionsOnDay(detailDate!)
+                  ..sort((a, b) => a.date.compareTo(b.date)))
+                : <_CalendarTransaction>[];
 
-              final showDetail =
-                  detailDate != null && pickerStep == _CalendarPickerStep.dayGrid;
-              final selectedDayTransactions = showDetail
-                  ? (_transactionsOnDay(detailDate!)
-                    ..sort((a, b) => a.date.compareTo(b.date)))
-                  : <_CalendarTransaction>[];
+            final layout = _CalendarLayout.fromScreen(
+              screenSize,
+              detailVisible: showDetail,
+            );
 
-              final bodyHeight = switch (pickerStep) {
-                _CalendarPickerStep.dayGrid =>
-                  _calendarBodyHeight(displayMonth),
-                _CalendarPickerStep.yearPick => _calendarYearPickerBodyHeight,
-                _CalendarPickerStep.monthPick => _calendarMonthPickerBodyHeight,
-              };
+            final bodyHeight = switch (pickerStep) {
+              _CalendarPickerStep.dayGrid =>
+                _calendarBodyHeight(displayMonth, layout),
+              _CalendarPickerStep.yearPick => _calendarYearPickerBodyHeight,
+              _CalendarPickerStep.monthPick => _calendarMonthPickerBodyHeight,
+            };
 
-              Widget body;
-              switch (pickerStep) {
-                case _CalendarPickerStep.dayGrid:
-                  body = _buildCalendarDayGrid(
-                    displayMonth: displayMonth,
-                    selectedDate: detailDate,
-                    onDaySelected: selectDay,
-                  );
-                case _CalendarPickerStep.yearPick:
-                  body = _buildCalendarYearPicker(
-                    firstYear: firstYear,
-                    lastYear: lastYear,
-                    selectedYear: pendingYear ?? displayMonth.year,
-                    scrollController: yearScrollController,
-                    bodyHeight: bodyHeight,
-                    onYearChanged: (year) =>
-                        setDialogState(() => pendingYear = year),
-                    onConfirm: () => setDialogState(
-                      () => pickerStep = _CalendarPickerStep.monthPick,
-                    ),
-                    confirmLabel:
-                        '${pendingYear ?? displayMonth.year}년 월 선택',
-                  );
-                case _CalendarPickerStep.monthPick:
-                  body = _buildCalendarMonthPicker(
-                    selectedMonth: displayMonth.month,
-                    bodyHeight: bodyHeight,
-                    onMonthSelected: (month) => setDialogState(() {
-                      displayMonth = DateTime(pendingYear!, month);
-                      pickerStep = _CalendarPickerStep.dayGrid;
-                      pendingYear = null;
-                    }),
-                  );
-              }
+            Widget body;
+            switch (pickerStep) {
+              case _CalendarPickerStep.dayGrid:
+                body = _buildCalendarDayGrid(
+                  displayMonth: displayMonth,
+                  selectedDate: detailDate,
+                  onDaySelected: selectDay,
+                  layout: layout,
+                );
+              case _CalendarPickerStep.yearPick:
+                body = _buildCalendarYearPicker(
+                  firstYear: firstYear,
+                  lastYear: lastYear,
+                  selectedYear: pendingYear ?? displayMonth.year,
+                  scrollController: yearScrollController,
+                  bodyHeight: bodyHeight,
+                  onYearChanged: (year) =>
+                      setSheetState(() => pendingYear = year),
+                  onConfirm: () => setSheetState(
+                    () => pickerStep = _CalendarPickerStep.monthPick,
+                  ),
+                  confirmLabel:
+                      '${pendingYear ?? displayMonth.year}년 월 선택',
+                );
+              case _CalendarPickerStep.monthPick:
+                body = _buildCalendarMonthPicker(
+                  selectedMonth: displayMonth.month,
+                  bodyHeight: bodyHeight,
+                  onMonthSelected: (month) => setSheetState(() {
+                    displayMonth = DateTime(pendingYear!, month);
+                    pickerStep = _CalendarPickerStep.dayGrid;
+                    pendingYear = null;
+                  }),
+                );
+            }
 
-              final dialogContent = Padding(
-                padding: EdgeInsets.symmetric(horizontal: contentPadH),
+            return Padding(
+              padding: EdgeInsets.only(bottom: bottomInset),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxSheetHeight),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 2, 0, 0),
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              '입출금 달력',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                color: _labelColor,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            icon: const Icon(Icons.close, size: 18),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 28,
-                              minHeight: 28,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: scheme.outline,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                    if (pickerStep == _CalendarPickerStep.dayGrid)
-                      _buildCalendarMonthHeader(
-                        title: _formatKoreanYearMonth(displayMonth),
-                        onTitleTap: () {
-                          final year = displayMonth.year;
-                          setDialogState(() {
-                            pickerStep = _CalendarPickerStep.yearPick;
-                            pendingYear = year;
-                          });
-                          jumpYearWheel(year);
-                        },
-                        onPrevious: () => changeMonth(-1),
-                        onNext: () => changeMonth(1),
-                      )
-                    else if (pickerStep == _CalendarPickerStep.yearPick)
-                      _buildCalendarStepHeader(
-                        title: '연도 선택',
-                        onBack: () => setDialogState(
-                          () => pickerStep = _CalendarPickerStep.dayGrid,
+                    const SizedBox(height: 14),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(horizontal: contentPadH),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(4, 0, 0, 0),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '입출금 달력',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                        color: scheme.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () =>
+                                        Navigator.pop(sheetContext),
+                                    icon: Icon(
+                                      Icons.close,
+                                      size: 20,
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 32,
+                                      minHeight: 32,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (pickerStep == _CalendarPickerStep.dayGrid)
+                              _buildCalendarMonthHeader(
+                                title: _formatKoreanYearMonth(displayMonth),
+                                titleFontSize: layout.monthTitleFontSize,
+                                onTitleTap: () {
+                                  final year = displayMonth.year;
+                                  setSheetState(() {
+                                    pickerStep = _CalendarPickerStep.yearPick;
+                                    pendingYear = year;
+                                  });
+                                  jumpYearWheel(year);
+                                },
+                                onPrevious: () => changeMonth(-1),
+                                onNext: () => changeMonth(1),
+                              )
+                            else if (pickerStep == _CalendarPickerStep.yearPick)
+                              _buildCalendarStepHeader(
+                                title: '연도 선택',
+                                onBack: () => setSheetState(
+                                  () => pickerStep = _CalendarPickerStep.dayGrid,
+                                ),
+                              )
+                            else
+                              _buildCalendarStepHeader(
+                                title:
+                                    '${pendingYear ?? displayMonth.year}년 월 선택',
+                                onBack: () {
+                                  final year = pendingYear ?? displayMonth.year;
+                                  setSheetState(() {
+                                    pickerStep = _CalendarPickerStep.yearPick;
+                                  });
+                                  jumpYearWheel(year);
+                                },
+                              ),
+                            SizedBox(height: bodyHeight, child: body),
+                            if (showDetail) ...[
+                              const SizedBox(height: 10),
+                              _buildCalendarDetailPanel(
+                                date: detailDate!,
+                                transactions: selectedDayTransactions,
+                                layout: layout,
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                          ],
                         ),
-                      )
-                    else
-                      _buildCalendarStepHeader(
-                        title: '${pendingYear ?? displayMonth.year}년 월 선택',
-                        onBack: () {
-                          final year = pendingYear ?? displayMonth.year;
-                          setDialogState(() {
-                            pickerStep = _CalendarPickerStep.yearPick;
-                          });
-                          jumpYearWheel(year);
-                        },
                       ),
-                    SizedBox(height: bodyHeight, child: body),
-                    if (showDetail) ...[
-                      const SizedBox(height: 8),
-                      _buildCalendarDetailPanel(
-                        date: detailDate!,
-                        transactions: selectedDayTransactions,
-                      ),
-                    ],
-                    const SizedBox(height: 8),
+                    ),
                   ],
                 ),
-              );
-
-              return ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: dialogWidth,
-                  maxHeight: maxDialogHeight,
-                ),
-                child: SizedBox(
-                  width: dialogWidth,
-                  child: SingleChildScrollView(
-                    child: dialogContent,
-                  ),
-                ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -661,6 +796,7 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
 
   Widget _buildCalendarMonthHeader({
     required String title,
+    required double titleFontSize,
     required VoidCallback onTitleTap,
     required VoidCallback onPrevious,
     required VoidCallback onNext,
@@ -669,7 +805,11 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
       children: [
         IconButton(
           onPressed: onPrevious,
-          icon: const Icon(Icons.chevron_left, size: 22, color: _labelColor),
+          icon: Icon(
+            Icons.chevron_left,
+            size: 22,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
         ),
@@ -682,21 +822,29 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 16,
+                  style: TextStyle(
+                    fontSize: titleFontSize,
                     fontWeight: FontWeight.w700,
-                    color: _labelColor,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(width: 2),
-                const Icon(Icons.arrow_drop_down, size: 20, color: _hintColor),
+                Icon(
+                  Icons.arrow_drop_down,
+                  size: titleFontSize + 4,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ],
             ),
           ),
         ),
         IconButton(
           onPressed: onNext,
-          icon: const Icon(Icons.chevron_right, size: 22, color: _labelColor),
+          icon: Icon(
+            Icons.chevron_right,
+            size: 22,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
         ),
@@ -712,7 +860,11 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
       children: [
         IconButton(
           onPressed: onBack,
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: _labelColor),
+          icon: Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         ),
@@ -720,10 +872,10 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
           child: Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: _labelColor,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ),
@@ -736,6 +888,7 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     required DateTime displayMonth,
     required DateTime? selectedDate,
     required ValueChanged<DateTime> onDaySelected,
+    required _CalendarLayout layout,
   }) {
     const weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
     final daysInMonth =
@@ -745,14 +898,16 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     final today = _dateOnly(_chartReferenceDate);
     final cellCount = leadingEmpty + daysInMonth;
     final rowCount = (cellCount / 7).ceil();
-    const cellHeight = _calendarCellHeight;
+    final cellHeight = layout.cellHeight;
     final gridHeight = rowCount * cellHeight;
+    final topGap = layout.cellHeight < 70 ? 2.0 : 3.0;
+    final amountTopGap = layout.cellHeight < 70 ? 1.0 : 2.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: _calendarWeekdayHeaderHeight,
+          height: layout.weekdayHeaderHeight,
           child: Row(
             children: weekdayLabels
                 .map(
@@ -760,10 +915,10 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
                     child: Center(
                       child: Text(
                         label,
-                        style: const TextStyle(
-                          fontSize: 14,
+                        style: TextStyle(
+                          fontSize: layout.weekdayFontSize,
                           fontWeight: FontWeight.w600,
-                          color: _hintColor,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -776,7 +931,7 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
           height: gridHeight,
           child: GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 7,
             mainAxisSpacing: 0,
             crossAxisSpacing: 0,
@@ -799,13 +954,11 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
               child: SizedBox(
                 height: cellHeight,
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 6),
+                    SizedBox(height: topGap),
                     Container(
-                      width: 32,
-                      height: 32,
+                      width: layout.dayBadgeSize,
+                      height: layout.dayBadgeSize,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isSelected
@@ -822,44 +975,43 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
                       child: Text(
                         '$day',
                         style: TextStyle(
-                          fontSize: 17,
+                          fontSize: layout.dayFontSize,
                           fontWeight: FontWeight.w600,
                           color: isSelected
-                              ? Colors.white
+                              ? AppColors.onPrimaryFill(
+                                  Theme.of(context).brightness,
+                                )
                               : isToday
                                   ? AppColors.primaryBlue
-                                  : _labelColor,
+                                  : Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    if (depositTotal > 0)
-                      Text(
-                        _formatSignedWon(depositTotal),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _incomeColor,
-                          height: 1.1,
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: amountTopGap),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (depositTotal > 0)
+                              _buildCalendarDayAmountLine(
+                                layout: layout,
+                                text: _formatSignedWon(depositTotal),
+                                color: _incomeColor,
+                              ),
+                            if (depositTotal > 0 && withdrawalTotal < 0)
+                              SizedBox(height: layout.amountLineGap),
+                            if (withdrawalTotal < 0)
+                              _buildCalendarDayAmountLine(
+                                layout: layout,
+                                text: _formatSignedWon(withdrawalTotal),
+                                color: _expenseColor,
+                              ),
+                          ],
                         ),
                       ),
-                    if (withdrawalTotal < 0) ...[
-                      if (depositTotal > 0) const SizedBox(height: 2),
-                      Text(
-                        _formatSignedWon(withdrawalTotal),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _expenseColor,
-                          height: 1.1,
-                        ),
-                      ),
-                    ],
-                    const Spacer(),
+                    ),
                   ],
                 ),
               ),
@@ -868,6 +1020,34 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// 달력 셀 입·출금 한 줄 (있는 것만 위에서부터 표시)
+  Widget _buildCalendarDayAmountLine({
+    required _CalendarLayout layout,
+    required String text,
+    required Color color,
+  }) {
+    return SizedBox(
+      height: layout.amountSlotHeight,
+      width: layout.amountCellWidth,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: Text(
+          text,
+          maxLines: 1,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: layout.amountFontSize,
+            fontWeight: FontWeight.w500,
+            color: color,
+            height: 1.0,
+            letterSpacing: -0.3,
+          ),
+        ),
+      ),
     );
   }
 
@@ -896,7 +1076,10 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
                   height: 40,
                   margin: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0F2FF),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -924,7 +1107,9 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
                                 : FontWeight.w500,
                             color: isSelected
                                 ? AppColors.primaryBlue
-                                : _hintColor,
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
                           ),
                         ),
                       );
@@ -943,7 +1128,9 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
                 onPressed: onConfirm,
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primaryBlue,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.onPrimaryFill(
+                    Theme.of(context).brightness,
+                  ),
                   padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -1023,7 +1210,7 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? AppColors.primaryBlue
-                        : const Color(0xFFF5F6FA),
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -1031,7 +1218,9 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: isSelected ? Colors.white : _labelColor,
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.onPrimary
+                          : Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),
@@ -1046,29 +1235,32 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
   Widget _buildCalendarDetailPanel({
     required DateTime date,
     required List<_CalendarTransaction> transactions,
+    required _CalendarLayout layout,
   }) {
-    final panelHeight = _calendarDetailPanelHeight(transactions);
+    final scheme = Theme.of(context).colorScheme;
+    final panelHeight = _calendarDetailPanelHeight(transactions, layout);
     final useScroll = transactions.length > _calendarDetailExpandLimit;
     final isEmpty = transactions.isEmpty;
 
     Widget body;
     if (isEmpty) {
-      body = const Padding(
-        padding: EdgeInsets.fromLTRB(14, 12, 14, 16),
+      body = Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
         child: Text(
           '해당 날짜의 입출금 내역이 없습니다.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: _hintColor),
+          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
         ),
       );
     } else if (useScroll) {
-      body = Expanded(
-        child: ListView.separated(
-          padding: const EdgeInsets.all(10),
-          itemCount: transactions.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 6),
-          itemBuilder: (context, index) =>
-              _buildCalendarDetailRow(transactions[index]),
+      body = ListView.separated(
+        padding: const EdgeInsets.all(10),
+        itemCount: transactions.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 6),
+        itemBuilder: (context, index) => _buildCalendarDetailRow(
+          transactions[index],
+          timeFontSize: layout.detailTimeFontSize,
+          amountFontSize: layout.detailTimeFontSize + 1,
         ),
       );
     } else {
@@ -1080,7 +1272,11 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
           children: [
             for (var i = 0; i < transactions.length; i++) ...[
               if (i > 0) const SizedBox(height: 6),
-              _buildCalendarDetailRow(transactions[i]),
+              _buildCalendarDetailRow(
+                transactions[i],
+                timeFontSize: layout.detailTimeFontSize,
+                amountFontSize: layout.detailTimeFontSize + 1,
+              ),
             ],
           ],
         ),
@@ -1089,11 +1285,11 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
 
     return Container(
       height: panelHeight,
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+      margin: EdgeInsets.zero,
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FD),
+        color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE8EBF0)),
+        border: Border.all(color: scheme.outline),
       ),
       child: Column(
         mainAxisSize:
@@ -1104,30 +1300,35 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
             child: Text(
               _formatKoreanDayTitle(date),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: _labelColor,
+                color: scheme.onSurface,
               ),
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFE8EBF0)),
-          body,
+          Divider(height: 1, color: scheme.outline),
+          if (useScroll && panelHeight != null) Expanded(child: body) else body,
         ],
       ),
     );
   }
 
-  Widget _buildCalendarDetailRow(_CalendarTransaction item) {
+  Widget _buildCalendarDetailRow(
+    _CalendarTransaction item, {
+    required double timeFontSize,
+    required double amountFontSize,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
     final isDeposit = item.isDeposit;
     final amountColor = isDeposit ? _incomeColor : _expenseColor;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFEDEFF3)),
+        border: Border.all(color: scheme.outline),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1135,21 +1336,27 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
           Expanded(
             child: Text(
               item.fullDateTimeLabel,
-              style: const TextStyle(
-                fontSize: 13,
+              style: TextStyle(
+                fontSize: timeFontSize,
                 fontWeight: FontWeight.w500,
-                color: _labelColor,
+                color: scheme.onSurface,
                 height: 1.25,
               ),
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            _formatSignedWon(item.amount),
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: amountColor,
+          SizedBox(
+            width: _calendarDetailAmountWidth,
+            child: Text(
+              _formatSignedWon(item.amount),
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: amountFontSize,
+                fontWeight: FontWeight.w700,
+                color: amountColor,
+              ),
             ),
           ),
         ],
@@ -1157,37 +1364,43 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     );
   }
 
-  Widget _buildWithdrawCard() {
+  Widget _buildWithdrawCard(BuildContext context) {
+    final scheme = _scheme(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.primaryBlue,
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.trending_up_rounded, color: Colors.white, size: 24),
-              SizedBox(width: 8),
+              const Icon(
+                Icons.account_balance_wallet_outlined,
+                color: AppColors.primaryBlue,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
               Text(
                 '출금 가능 금액',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: scheme.onSurface,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
           Text(
-            _formatWon(_withdrawableBalance),
-            style: const TextStyle(
+            formatWon(_withdrawableBalance),
+            style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.w700,
-              color: Colors.white,
+              color: scheme.onSurface,
               height: 1.2,
             ),
           ),
@@ -1197,8 +1410,8 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
             child: FilledButton(
               onPressed: () {},
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppColors.primaryBlue,
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: scheme.onPrimary,
                 elevation: 0,
                 minimumSize: const Size.fromHeight(44),
                 shape: RoundedRectangleBorder(
@@ -1206,7 +1419,7 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
                 ),
               ),
               child: const Text(
-                '출금 신청',
+                '출금 신청하기',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
             ),
@@ -1216,21 +1429,22 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     );
   }
 
-  Widget _buildLastMonthCard() {
+  Widget _buildLastMonthCard(BuildContext context) {
+    final scheme = _scheme(context);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderColor),
+        border: Border.all(color: scheme.outline),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              const Text(
+              Text(
                 '저번 달 수입',
-                style: TextStyle(fontSize: 14, color: _hintColor),
+                style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
               ),
               const Spacer(),
               Text(
@@ -1244,7 +1458,7 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          const Divider(height: 1, color: Color(0xFFF0F0F0)),
+          Divider(height: 1, color: scheme.outline),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -1252,17 +1466,18 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       '총 수업 수',
-                      style: TextStyle(fontSize: 13, color: _hintColor),
+                      style:
+                          TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       '$_lastMonthLessonCount회',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: _labelColor,
+                        color: scheme.onSurface,
                       ),
                     ),
                   ],
@@ -1274,18 +1489,21 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
+                    children: [
                       Text(
                         '평균 수업 시간',
-                        style: TextStyle(fontSize: 13, color: _hintColor),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
-                      SizedBox(height: 6),
+                      const SizedBox(height: 6),
                       Text(
                         '45분',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: _labelColor,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ],
@@ -1299,19 +1517,20 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     );
   }
 
-  Widget _buildChartSection() {
+  Widget _buildChartSection(BuildContext context) {
+    final scheme = _scheme(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
                 '정산 현황',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: _labelColor,
+                  color: scheme.onSurface,
                 ),
               ),
             ),
@@ -1332,26 +1551,26 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
         Container(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: scheme.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _borderColor),
+            border: Border.all(color: scheme.outline),
           ),
           child: Column(
             children: [
-              _buildBarChart(),
+              _buildBarChart(context),
               const SizedBox(height: 16),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   _chartTotalLabel,
-                  style: const TextStyle(fontSize: 13, color: _hintColor),
+                  style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
                 ),
               ),
               const SizedBox(height: 4),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  _formatWon(_chartTotal),
+                  formatWon(_chartTotal),
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -1367,12 +1586,16 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
   }
 
   Widget _buildPeriodChip(String label, bool selected, VoidCallback onTap) {
+    final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primaryBlue : const Color(0xFFF0F2F7),
+          color: selected ? AppColors.primaryBlue : scheme.surfaceContainerHighest,
+          border: selected
+              ? null
+              : Border.all(color: scheme.outline, width: 1),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -1380,14 +1603,15 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : _hintColor,
+            color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildBarChart() {
+  Widget _buildBarChart(BuildContext context) {
+    final scheme = _scheme(context);
     final amounts = _currentChartAmounts;
     final labels = _currentChartLabels;
     final maxAmount = amounts.reduce((a, b) => a > b ? a : b);
@@ -1421,7 +1645,10 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
                   const SizedBox(height: 8),
                   Text(
                     labels[index],
-                    style: TextStyle(fontSize: labelFontSize, color: _hintColor),
+                    style: TextStyle(
+                      fontSize: labelFontSize,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -1439,9 +1666,10 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     });
   }
 
-  Widget _buildHistoryPagination(int pageCount) {
+  Widget _buildHistoryPagination(BuildContext context, int pageCount) {
     if (pageCount <= 1) return const SizedBox.shrink();
 
+    final scheme = _scheme(context);
     final canGoPrev = _historyPageIndex > 0;
     final canGoNext = _historyPageIndex < pageCount - 1;
 
@@ -1457,17 +1685,17 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
             icon: Icon(
               Icons.chevron_left,
               size: 22,
-              color: canGoPrev ? _labelColor : _hintColor,
+              color: canGoPrev ? scheme.onSurface : scheme.onSurfaceVariant,
             ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
           Text(
             '${_historyPageIndex + 1} / $pageCount',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: _labelColor,
+              color: scheme.onSurface,
             ),
           ),
           IconButton(
@@ -1477,7 +1705,7 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
             icon: Icon(
               Icons.chevron_right,
               size: 22,
-              color: canGoNext ? _labelColor : _hintColor,
+              color: canGoNext ? scheme.onSurface : scheme.onSurfaceVariant,
             ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -1487,19 +1715,20 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     );
   }
 
-  Widget _buildHistorySection() {
+  Widget _buildHistorySection(BuildContext context) {
+    final scheme = _scheme(context);
     final pageCount = _historyPageCount;
     final pagedItems = _pagedSettlementHistory;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           '정산 내역',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            color: _labelColor,
+            color: scheme.onSurface,
           ),
         ),
         const SizedBox(height: 10),
@@ -1524,33 +1753,34 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
         ),
         const SizedBox(height: 12),
         if (pagedItems.isEmpty)
-          const Text(
+          Text(
             '표시할 정산 내역이 없습니다.',
-            style: TextStyle(fontSize: 13, color: _hintColor),
+            style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
           )
         else ...[
           for (final item in pagedItems) ...[
-            _buildHistoryCard(item),
+            _buildHistoryCard(context, item),
             const SizedBox(height: 10),
           ],
-          _buildHistoryPagination(pageCount),
+          _buildHistoryPagination(context, pageCount),
         ],
       ],
     );
   }
 
-  Widget _buildHistoryCard(_SettlementHistoryItem item) {
+  Widget _buildHistoryCard(BuildContext context, _SettlementHistoryItem item) {
+    final scheme = _scheme(context);
     final color = item.isIncome ? _incomeColor : _expenseColor;
     final amountText = item.isIncome
-        ? '+${_formatWon(item.amount)}'
-        : '-${_formatWon(item.amount.abs())}';
+        ? '+${formatWon(item.amount)}'
+        : '-${formatWon(item.amount.abs())}';
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _borderColor),
+        border: Border.all(color: scheme.outline),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1558,10 +1788,10 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
           Expanded(
             child: Text(
               item.title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: _labelColor,
+                color: scheme.onSurface,
               ),
             ),
           ),
@@ -1578,25 +1808,13 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                _formatFullDateTime(item.date),
-                style: const TextStyle(fontSize: 12, color: _hintColor),
+                formatDotDateTime(item.date),
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
             ],
           ),
         ],
       ),
     );
-  }
-
-  String _formatWon(int value) {
-    final text = value.toString();
-    final buffer = StringBuffer();
-    for (var i = 0; i < text.length; i++) {
-      if (i > 0 && (text.length - i) % 3 == 0) {
-        buffer.write(',');
-      }
-      buffer.write(text[i]);
-    }
-    return '$buffer원';
   }
 }

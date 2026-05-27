@@ -2,9 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/core/utils/won_format_util.dart';
+import 'package:ieum/core/widgets/shell_filter_chip.dart';
+import 'package:ieum/core/widgets/shell_popup_menu.dart';
 import 'package:ieum/features/tutor/data/tutor_request_list_dummy_data.dart';
 import 'package:ieum/features/tutor/widgets/tutor_request_accept_dialog.dart';
 import 'package:ieum/features/tutor/widgets/tutor_request_problem_image.dart';
+import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
 
 enum _SortOrder { newest, oldest }
 
@@ -16,17 +21,10 @@ class TutorRequestListScreen extends StatefulWidget {
 }
 
 class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
-  static const _backgroundColor = Color(0xFFF8F9FD);
-  static const _labelColor = Color(0xFF1A1D26);
-  static const _hintColor = Color(0xFF9AA3B2);
-  static const _borderColor = Color(0xFFE0E0E0);
-  static const _detailBoxColor = Color(0xFFF3F4F8);
+  ShellTheme get _shell => ShellTheme.of(context);
+
   static const _subjectFilters = TutorRequestDummyData.subjectFilters;
-  static const _sortOptions = ['최신순', '오래된 순'];
-  static const _selectorTextStyle = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w500,
-  );
+  static const _sortOptionLabels = ['최신순', '오래된 순'];
 
   List<TutorRequestListItem> get _allRequests => TutorRequestDummyData.build();
 
@@ -58,41 +56,31 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
     return list;
   }
 
-  double get _sortMenuWidth => _measureSelectorWidth(_sortOptions);
+  double get _sortMenuWidth =>
+      math.max(measureShellMenuLabelWidth(_sortOptionLabels), 120);
 
   Future<void> _openSortMenu(BuildContext anchorContext) async {
-    final box = anchorContext.findRenderObject() as RenderBox?;
-    if (box == null || !box.hasSize) return;
-
-    final offset = box.localToGlobal(Offset.zero);
     final menuWidth = _sortMenuWidth;
-    final screenSize = MediaQuery.sizeOf(context);
-    final left = (offset.dx + box.size.width - menuWidth)
-        .clamp(8.0, screenSize.width - menuWidth - 8);
-
-    final selected = await showMenu<_SortOrder>(
+    final selected = await showShellAnchorPopupMenu<_SortOrder>(
       context: context,
-      color: Colors.white,
-      elevation: 6,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: _borderColor),
-      ),
-      constraints: BoxConstraints.tightFor(width: menuWidth),
-      position: RelativeRect.fromLTRB(
-        left,
-        offset.dy + box.size.height + 8,
-        screenSize.width - left - menuWidth,
-        screenSize.height - offset.dy - box.size.height - 8,
-      ),
+      anchorContext: anchorContext,
+      menuWidth: menuWidth,
       items: [
-        _buildSortMenuItem(
-          label: _sortOptions[0],
-          order: _SortOrder.newest,
+        buildShellPopupMenuItem(
+          context: anchorContext,
+          value: _SortOrder.newest,
+          label: _sortOptionLabels[0],
+          menuWidth: menuWidth,
+          isSelected: _sortOrder == _SortOrder.newest,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
         ),
-        _buildSortMenuItem(
-          label: _sortOptions[1],
-          order: _SortOrder.oldest,
+        buildShellPopupMenuItem(
+          context: anchorContext,
+          value: _SortOrder.oldest,
+          label: _sortOptionLabels[1],
+          menuWidth: menuWidth,
+          isSelected: _sortOrder == _SortOrder.oldest,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
         ),
       ],
     );
@@ -101,58 +89,12 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
     setState(() => _sortOrder = selected);
   }
 
-  PopupMenuItem<_SortOrder> _buildSortMenuItem({
-    required String label,
-    required _SortOrder order,
-  }) {
-    final isSelected = _sortOrder == order;
-    return PopupMenuItem<_SortOrder>(
-      value: order,
-      height: 46,
-      padding: EdgeInsets.zero,
-      child: SizedBox(
-        width: _sortMenuWidth,
-        child: ColoredBox(
-          color: isSelected ? const Color(0xFFE8EEFF) : Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-            child: Text(
-              label,
-              maxLines: 1,
-              softWrap: false,
-              style: _selectorTextStyle.copyWith(
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? AppColors.primaryBlue : _hintColor,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  double _measureSelectorWidth(List<String> options) {
-    final painter = TextPainter(textDirection: TextDirection.ltr);
-    var maxText = 0.0;
-    for (final option in options) {
-      for (final weight in [FontWeight.w500, FontWeight.w600]) {
-        painter.text = TextSpan(
-          text: option,
-          style: _selectorTextStyle.copyWith(fontWeight: weight),
-        );
-        painter.layout();
-        maxText = math.max(maxText, painter.width);
-      }
-    }
-    return math.max(maxText + 56, 120);
-  }
-
   @override
   Widget build(BuildContext context) {
     final requests = _visibleRequests;
 
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: _shell.scaffoldBackground,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,22 +103,22 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
               padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       '문제 신청 리스트',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: _labelColor,
+                        color: _shell.titleColor,
                       ),
                     ),
                   ),
                   Builder(
                     builder: (anchorContext) => IconButton(
                       onPressed: () => _openSortMenu(anchorContext),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.tune_rounded,
-                        color: _labelColor,
+                        color: _shell.titleColor,
                         size: 26,
                       ),
                     ),
@@ -193,8 +135,7 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
                 itemCount: _subjectFilters.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
-                  final label = _subjectFilters[index];
-                  return _buildSubjectChip(label);
+                  return _buildSubjectChip(_subjectFilters[index]);
                 },
               ),
             ),
@@ -207,7 +148,7 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
                                 _selectedFilter == '전체'
                             ? '표시할 신청이 없습니다.'
                             : '해당 과목의 신청이 없습니다.',
-                        style: const TextStyle(color: _hintColor, fontSize: 14),
+                        style: TextStyle(color: _shell.hintColor, fontSize: 14),
                       ),
                     )
                   : ListView.separated(
@@ -229,26 +170,10 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
 
   Widget _buildSubjectChip(String label) {
     final selected = _selectedFilter == label;
-    return GestureDetector(
+    return ShellFilterChip(
+      label: label,
+      selected: selected,
       onTap: () => setState(() => _selectedFilter = label),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primaryBlue : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? AppColors.primaryBlue : const Color(0xFFE8E8E8),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : _hintColor,
-          ),
-        ),
-      ),
     );
   }
 
@@ -256,7 +181,7 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _shell.menuSheetBackground,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -271,14 +196,14 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSubjectBadge(item),
+                    TutorSubjectBadge(subject: item.subject),
                     const SizedBox(height: 8),
                     Text(
                       item.detailSubject,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: _labelColor,
+                        color: _shell.titleColor,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -287,9 +212,9 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
                       const SizedBox(height: 2),
                       Text(
                         item.chapter,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: _hintColor,
+                          color: _shell.hintColor,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -298,9 +223,9 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
                     const SizedBox(height: 4),
                     Text(
                       item.timeAgo,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        color: _hintColor,
+                        color: _shell.hintColor,
                       ),
                     ),
                   ],
@@ -312,7 +237,7 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: _detailBoxColor,
+              color: _shell.detailBackground,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -321,7 +246,7 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
                 const SizedBox(height: 8),
                 _buildInfoRow(
                   '예상 금액',
-                  _formatWon(item.priceWon),
+                  formatWon(item.priceWon),
                   valueColor: AppColors.primaryBlue,
                   valueBold: true,
                 ),
@@ -345,7 +270,7 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 13, color: _hintColor),
+          style: TextStyle(fontSize: 13, color: _shell.hintColor),
         ),
         const Spacer(),
         Text(
@@ -353,7 +278,7 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: valueBold ? FontWeight.w700 : FontWeight.w500,
-            color: valueColor ?? _labelColor,
+            color: valueColor ?? _shell.titleColor,
           ),
         ),
       ],
@@ -368,7 +293,9 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
             onPressed: () => _showAcceptConfirmDialog(item),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primaryBlue,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onPrimaryFill(
+                Theme.of(context).brightness,
+              ),
               elevation: 0,
               minimumSize: const Size.fromHeight(44),
               shape: RoundedRectangleBorder(
@@ -386,9 +313,9 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
           child: OutlinedButton(
             onPressed: () => _rejectRequest(item),
             style: OutlinedButton.styleFrom(
-              foregroundColor: _labelColor,
+              foregroundColor: _shell.titleColor,
               minimumSize: const Size.fromHeight(44),
-              side: const BorderSide(color: _borderColor, width: 1),
+              side: BorderSide(color: _shell.borderColor, width: 1),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -403,33 +330,4 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
     );
   }
 
-  Widget _buildSubjectBadge(TutorRequestListItem item) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: item.subjectBgColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        item.subject,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: item.subjectColor,
-        ),
-      ),
-    );
-  }
-
-  String _formatWon(int value) {
-    final text = value.toString();
-    final buffer = StringBuffer();
-    for (var i = 0; i < text.length; i++) {
-      if (i > 0 && (text.length - i) % 3 == 0) {
-        buffer.write(',');
-      }
-      buffer.write(text[i]);
-    }
-    return '$buffer원';
-  }
 }

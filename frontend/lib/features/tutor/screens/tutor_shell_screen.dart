@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
 import 'package:ieum/features/tutor/screens/tutor_home_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_my_page_screen.dart';
@@ -6,14 +8,14 @@ import 'package:ieum/features/tutor/screens/tutor_request_list_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_settlement_screen.dart';
 
 /// 강사 탭: 홈 · 신청리스트 · 정산 · 마이페이지
-class TutorShellScreen extends StatefulWidget {
+class TutorShellScreen extends ConsumerStatefulWidget {
   const TutorShellScreen({super.key});
 
   @override
-  State<TutorShellScreen> createState() => _TutorShellScreenState();
+  ConsumerState<TutorShellScreen> createState() => _TutorShellScreenState();
 }
 
-class _TutorShellScreenState extends State<TutorShellScreen> {
+class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
   int _index = 0;
 
   static const _tabs = [
@@ -27,7 +29,7 @@ class _TutorShellScreenState extends State<TutorShellScreen> {
     (icon: Icons.person_outline, activeIcon: Icons.person, label: '마이페이지'),
   ];
 
-  final _screens = const [
+  static final _screens = [
     TutorHomeScreen(),
     TutorRequestListScreen(),
     TutorSettlementScreen(),
@@ -36,12 +38,17 @@ class _TutorShellScreenState extends State<TutorShellScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _index, children: _screens),
-      bottomNavigationBar: AppShellTabBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        tabs: _tabs,
+    final isDark = ref.watch(shellDarkModeProvider);
+
+    return Theme(
+      data: isDark ? AppTheme.shellDark : AppTheme.shellLight,
+      child: Scaffold(
+        body: IndexedStack(index: _index, children: _screens),
+        bottomNavigationBar: AppShellTabBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          tabs: _tabs,
+        ),
       ),
     );
   }

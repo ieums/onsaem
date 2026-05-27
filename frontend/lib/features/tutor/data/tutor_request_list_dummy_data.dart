@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:ieum/core/utils/date_format_util.dart';
 import 'package:ieum/features/tutor/data/tutor_pricing.dart';
+
+/// 더미 「현재 시각」. 출시 시 `DateTime.now()`로 교체.
+final DateTime tutorRequestReferenceDate = DateTime(2026, 5, 21);
 
 /// 문제 신청 리스트 항목 (더미 / API 공통 형태).
 class TutorRequestListItem {
@@ -13,6 +17,9 @@ class TutorRequestListItem {
     required this.minutesAgo,
     required this.classMinutes,
     required this.priceWon,
+    this.problemImageUrl,
+    this.problemImageWidth,
+    this.problemImageHeight,
   });
 
   final String id;
@@ -24,18 +31,27 @@ class TutorRequestListItem {
   final int minutesAgo;
   final int classMinutes;
   final int priceWon;
+  final String? problemImageUrl;
+  final double? problemImageWidth;
+  final double? problemImageHeight;
 
-  String get timeAgo => '$minutesAgo분 전';
+  String get timeAgo => formatDotDateTime(
+    tutorRequestReferenceDate.subtract(Duration(minutes: minutesAgo)),
+  );
 }
 
 class TutorRequestSubjectTheme {
   const TutorRequestSubjectTheme({
     required this.color,
     required this.backgroundColor,
+    required this.darkColor,
+    required this.darkBackgroundColor,
   });
 
   final Color color;
   final Color backgroundColor;
+  final Color darkColor;
+  final Color darkBackgroundColor;
 }
 
 /// 수능특강 기준 시드 (월·일 없음). API 연동 시 이 파일만 교체·삭제하면 됩니다.
@@ -60,6 +76,9 @@ class TutorRequestSeed {
 class TutorRequestDummyData {
   TutorRequestDummyData._();
 
+  /// 더미 「현재 시각」. 출시 시 `DateTime.now()`로 교체.
+  static DateTime get referenceDate => tutorRequestReferenceDate;
+
   static const subjectFilters = ['전체', '국어', '수학', '영어', '사회', '과학'];
 
   /// 강사 홈 「새로운 질문」 — N분 이내만 노출.
@@ -73,24 +92,34 @@ class TutorRequestDummyData {
 
   static const _themes = <String, TutorRequestSubjectTheme>{
     '국어': TutorRequestSubjectTheme(
-      color: Color(0xFFE53935),
-      backgroundColor: Color(0xFFFFEBEE),
+      color: Color(0xFFE57373),
+      backgroundColor: Color(0xFFFFF0F0),
+      darkColor: Color(0xFFFFABAB),
+      darkBackgroundColor: Color(0xFF4A3232),
     ),
     '수학': TutorRequestSubjectTheme(
-      color: Color(0xFFF57C00),
-      backgroundColor: Color(0xFFFFF3E0),
+      color: Color(0xFFE89A56),
+      backgroundColor: Color(0xFFFFF4E8),
+      darkColor: Color(0xFFFFC48A),
+      darkBackgroundColor: Color(0xFF4A3828),
     ),
     '영어': TutorRequestSubjectTheme(
-      color: Color(0xFFF9A825),
-      backgroundColor: Color(0xFFFFF9C4),
+      color: Color(0xFFE0B85C),
+      backgroundColor: Color(0xFFFFFAED),
+      darkColor: Color(0xFFFFE08A),
+      darkBackgroundColor: Color(0xFF454028),
     ),
     '사회': TutorRequestSubjectTheme(
-      color: Color(0xFF43A047),
-      backgroundColor: Color(0xFFE8F5E9),
+      color: Color(0xFF6BAD80),
+      backgroundColor: Color(0xFFEFF7F2),
+      darkColor: Color(0xFF9FD4B0),
+      darkBackgroundColor: Color(0xFF2A3D32),
     ),
     '과학': TutorRequestSubjectTheme(
-      color: Color(0xFF1E88E5),
-      backgroundColor: Color(0xFFE3F2FD),
+      color: Color(0xFF72A8D4),
+      backgroundColor: Color(0xFFEAF3FB),
+      darkColor: Color(0xFFA8CEEE),
+      darkBackgroundColor: Color(0xFF283848),
     ),
   };
 
@@ -285,10 +314,9 @@ class TutorRequestDummyData {
   static List<TutorRequestListItem> recentQuestions({
     int withinMinutes = newQuestionWithinMinutes,
   }) {
-    final list = build()
-        .where((item) => item.minutesAgo <= withinMinutes)
-        .toList()
-      ..sort((a, b) => a.minutesAgo.compareTo(b.minutesAgo));
+    final list =
+        build().where((item) => item.minutesAgo <= withinMinutes).toList()
+          ..sort((a, b) => a.minutesAgo.compareTo(b.minutesAgo));
     return list;
   }
 }
