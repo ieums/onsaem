@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
-import 'package:ieum/core/theme/app_colors.dart';
 
 /// 온보딩(스플래시) 화면 — 로고 영역 제외, 이미지와 동일한 텍스트 레이아웃
 class OnboardingScreen extends StatefulWidget {
@@ -19,7 +18,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    // 로그인 라우트는 fe-login PR에서 연결
+    _timer = Timer(const Duration(seconds: 3), _goToLogin);
   }
 
   void _goToLogin() {
@@ -36,7 +35,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primaryBlue,
+      backgroundColor: Colors.white,
       body: GestureDetector(
         onTap: _goToLogin,
         behavior: HitTestBehavior.opaque,
@@ -51,10 +50,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   SizedBox(height: 120),
                   Text(
                     '온샘',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.white,
+                      color: Color(0xFF1A1D26),
                       height: 1.2,
                       letterSpacing: -0.5,
                     ),
@@ -66,7 +66,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.white,
+                      color: Color(0xFF1A1D26),
                       height: 1.4,
                     ),
                   ),
@@ -77,7 +77,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
-                      color: AppColors.white70,
+                      color: Color(0xFF5B6475),
                       height: 1.4,
                     ),
                   ),
