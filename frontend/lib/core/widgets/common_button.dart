@@ -33,7 +33,7 @@ class CommonButton extends StatelessWidget {
       style: FilledButton.styleFrom(
         minimumSize: const Size(double.infinity, 52),
         backgroundColor: AppColors.primaryBlue,
-        foregroundColor: AppColors.white,
+        foregroundColor: AppColors.onPrimaryFill(Theme.of(context).brightness),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       child: Text(label),

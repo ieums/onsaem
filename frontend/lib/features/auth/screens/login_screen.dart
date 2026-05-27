@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.primaryBlue,
+                              color: Color(0xFF1A1D26),
                             ),
                           ),
                         ),
@@ -145,9 +145,10 @@ class _LoginScreenState extends State<LoginScreen> {
       child: FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primaryBlue,
-          foregroundColor: AppColors.white,
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1A1D26),
           elevation: 0,
+          side: const BorderSide(color: Color(0xFFE0E0E0), width: 1),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
@@ -285,7 +286,7 @@ class _BrandTitle extends StatelessWidget {
           style: TextStyle(
             fontSize: 36,
             fontWeight: FontWeight.bold,
-            color: AppColors.primaryBlue,
+            color: Color(0xFF1A1D26),
             height: 1.1,
           ),
         ),
@@ -297,7 +298,7 @@ class _BrandTitle extends StatelessWidget {
             fontSize: 15,
             fontWeight: FontWeight.w600,
             letterSpacing: 3,
-            color: AppColors.primaryBlue,
+            color: Color(0xFF1A1D26),
           ),
         ),
       ],
