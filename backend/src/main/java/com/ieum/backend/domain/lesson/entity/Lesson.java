@@ -20,8 +20,8 @@ public class Lesson {
     @Column(name = "channel_name", nullable = false, length = 100)
     private String channelName;
 
-    @Column(name = "teacher_id")
-    private Long teacherId;
+    @Column(name = "tutor_id")
+    private Long tutorId;
 
     @Column(name = "student_id")
     private Long studentId;
