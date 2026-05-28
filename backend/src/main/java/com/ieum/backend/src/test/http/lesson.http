@@ -1,0 +1,50 @@
+### 아고라 토큰 발급 테스트
+POST http://localhost:8080/api/v1/lesson/token
+Content-Type: application/json
+
+{
+  "channelName": "test-001",
+  "uid": "0",
+  "role": "PUBLISHER"
+}
+
+### SUBSCRIBER 역할 테스트
+POST http://localhost:8080/api/v1/lesson/token
+Content-Type: application/json
+
+{
+  "channelName": "test-001",
+  "uid": "1",
+  "role": "SUBSCRIBER"
+}
+
+### 채널명 없을 때 에러 테스트
+POST http://localhost:8080/api/v1/lesson/token
+Content-Type: application/json
+
+{
+  "channelName": "",
+  "uid": "0",
+  "role": "PUBLISHER"
+}
+
+### 이미지 업로드 테스트
+POST http://localhost:8080/api/v1/lesson/1/images
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="test.jpg"
+Content-Type: image/jpeg
+
+< C:\Users\Ryu.J\Pictures\아무사진.jpg
+--boundary--
+
+### 수업 완료 테스트
+POST http://localhost:8080/api/v1/lesson/1/complete
+Content-Type: application/json
+
+### 녹화 시작 테스트
+POST http://localhost:8080/api/v1/lesson/1/recording/start
+
+### 녹화 중지 테스트
+POST http://localhost:8080/api/v1/lesson/1/recording/stop
