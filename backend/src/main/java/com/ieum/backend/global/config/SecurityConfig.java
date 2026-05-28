@@ -31,7 +31,9 @@ public class SecurityConfig {
                                 "/api/v1/lesson/*/recording/start",
                                 "/api/v1/lesson/*/recording/stop",
                                 "/ws/**",
-                                "/ws-raw"
+                                "/ws-raw",
+                                "/api/v1/problems/**",
+                                "/api/v1/payments/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );

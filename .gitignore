@@ -29,6 +29,5 @@ Thumbs.db
 !.env.example
 backend/src/main/resources/application-local.yml
 
-
-# Claude Code
-.claude/
+# FVM Version Cache
+.fvm/
