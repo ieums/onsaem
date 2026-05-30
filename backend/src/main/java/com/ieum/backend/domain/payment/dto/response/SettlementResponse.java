@@ -1,42 +1,34 @@
 package com.ieum.backend.domain.payment.dto.response;
 
 import com.ieum.backend.domain.payment.entity.Settlement;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
+import com.ieum.backend.domain.payment.entity.enums.SettlementStatus;
 
 import java.time.LocalDateTime;
 
-@Getter
-@Builder
-@AllArgsConstructor
-public class SettlementResponse {
-
-    private Long id;
-    private Long tutorId;
-    private Long lessonId;
-    private Integer totalCoin;
-    private Integer platformFeeCoin;
-    private Integer tutorCoin;
-    private Integer tutorAmount;
-    private String status;
-    private String statusDisplayName;
-    private LocalDateTime createdAt;
-    private LocalDateTime transferredAt;
-
-    public static SettlementResponse from(Settlement s) {
-        return SettlementResponse.builder()
-                .id(s.getId())
-                .tutorId(s.getTutorId())
-                .lessonId(s.getLessonId())
-                .totalCoin(s.getTotalCoin())
-                .platformFeeCoin(s.getPlatformFeeCoin())
-                .tutorCoin(s.getTutorCoin())
-                .tutorAmount(s.getTutorAmount())
-                .status(s.getStatus().name())
-                .statusDisplayName(s.getStatus().getDisplayName())
-                .createdAt(s.getCreatedAt())
-                .transferredAt(s.getTransferredAt())
-                .build();
+public record SettlementResponse(
+        Long id,
+        Long tutorId,
+        Long lessonId,
+        Integer totalCoin,
+        Integer platformFeeCoin,
+        Integer tutorCoin,
+        Integer tutorAmount,
+        SettlementStatus status,
+        LocalDateTime createdAt,
+        LocalDateTime transferredAt
+) {
+    public static SettlementResponse from(Settlement settlement) {
+        return new SettlementResponse(
+                settlement.getId(),
+                settlement.getTutorId(),
+                settlement.getLessonId(),
+                settlement.getTotalCoin(),
+                settlement.getPlatformFeeCoin(),
+                settlement.getTutorCoin(),
+                settlement.getTutorAmount(),
+                settlement.getStatus(),
+                settlement.getCreatedAt(),
+                settlement.getTransferredAt()
+        );
     }
 }

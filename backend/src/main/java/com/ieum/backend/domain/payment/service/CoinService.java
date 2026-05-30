@@ -176,4 +176,41 @@ public class CoinService {
                 .map(CoinTransactionResponse::from)
                 .collect(Collectors.toList());
     }
+    /**
+     * 코인 환불 처리
+     * - 잔액에서 코인 차감
+     * - REFUND 트랜잭션 기록
+     *
+     * @param studentId  학생 ID
+     * @param coinAmount 환불할 코인 (충전 + 보너스 합산)
+     * @param paymentId  원본 Payment ID (트랜잭션 추적용)
+     */
+    @Transactional
+    public CoinBalanceResponse refund(Long studentId, Integer coinAmount, Long paymentId) {
+        CoinWallet wallet = getOrCreateWallet(studentId);
+
+        // 잔액 부족 체크
+        if (wallet.getBalance() < coinAmount) {
+            throw new RuntimeException(
+                    "환불 불가: 잔액 부족. 현재 잔액 " + wallet.getBalance() + " < 환불 요청 " + coinAmount
+            );
+        }
+
+        // 잔액 차감
+        wallet.subtract(coinAmount);
+
+        // 환불 트랜잭션 기록
+        CoinTransaction tx = CoinTransaction.builder()
+                .studentId(studentId)
+                .type(TransactionType.REFUND)
+                .amount(-coinAmount)
+                .balanceAfter(wallet.getBalance())
+                .description("결제 환불 (paymentId: " + paymentId + ")")
+                .paymentId(paymentId)
+                .build();
+        transactionRepository.save(tx);
+
+        return CoinBalanceResponse.from(wallet);
+    }
+
 }

@@ -44,6 +44,11 @@ public class CoinWallet {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void subtract(int amount) {
+        this.balance -= amount;
+        this.availableBalance -= amount;
+    }
+
     // 코인 홀드 (강의 시작 시)
     public void hold(int amount) {
         if (this.availableBalance < amount) {

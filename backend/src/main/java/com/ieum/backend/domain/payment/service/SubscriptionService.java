@@ -1,6 +1,5 @@
 package com.ieum.backend.domain.payment.service;
 
-import com.ieum.backend.domain.payment.dto.request.SubscribeRequest;
 import com.ieum.backend.domain.payment.dto.response.SubscriptionResponse;
 import com.ieum.backend.domain.payment.entity.Subscription;
 import com.ieum.backend.domain.payment.entity.SubscriptionPlan;
@@ -19,23 +18,44 @@ public class SubscriptionService {
     private final SubscriptionPlanRepository planRepository;
 
     /**
-     * 구독 시작
+     * 활성 구독 없는지 확인 (결제 요청 전 사전 체크)
+     * PaymentService.createSubscriptionPayment에서 호출
      */
-    @Transactional
-    public SubscriptionResponse subscribe(SubscribeRequest request) {
-        // 기존 활성 구독 확인
-        subscriptionRepository.findByStudentIdAndActiveTrue(request.getStudentId())
+    public void checkNoActiveSubscription(Long studentId) {
+        subscriptionRepository.findByStudentIdAndActiveTrue(studentId)
                 .ifPresent(existing -> {
                     throw new RuntimeException("이미 활성 구독이 있습니다. 기존 구독: " + existing.getId());
                 });
+    }
 
-        SubscriptionPlan plan = planRepository.findById(request.getPlanId())
+    /**
+     * 결제 완료 후 구독 활성화
+     * PaymentService.completeSubscriptionPayment에서 호출
+     *
+     * @param studentId  학생 ID
+     * @param planId     구독 플랜 ID
+     * @param paidPrice  실제 결제 금액
+     * @param autoRenew  자동 갱신 여부
+     * @param paymentId  Payment 엔티티 ID (FK 연결용, 필요 없으면 무시 가능)
+     */
+    @Transactional
+    public SubscriptionResponse activateAfterPayment(
+            Long studentId,
+            Long planId,
+            int paidPrice,
+            boolean autoRenew,
+            Long paymentId
+    ) {
+        // 한 번 더 체크 (동시성 방어)
+        checkNoActiveSubscription(studentId);
+
+        SubscriptionPlan plan = planRepository.findById(planId)
                 .orElseThrow(() -> new RuntimeException("존재하지 않는 구독 플랜입니다."));
 
         Subscription subscription = Subscription.builder()
-                .studentId(request.getStudentId())
+                .studentId(studentId)
                 .subscriptionPlan(plan)
-                .autoRenew(request.getAutoRenew())
+                .autoRenew(autoRenew)
                 .build();
 
         subscriptionRepository.save(subscription);
@@ -71,6 +91,19 @@ public class SubscriptionService {
                 .orElseThrow(() -> new RuntimeException("활성 구독이 없습니다."));
 
         subscription.cancel();
+        return SubscriptionResponse.from(subscription);
+    }
+    /**
+     * 자동갱신 토글
+     * @param studentId 학생 ID
+     * @param autoRenew true면 ON, false면 OFF
+     */
+    @Transactional
+    public SubscriptionResponse toggleAutoRenew(Long studentId, boolean autoRenew) {
+        Subscription subscription = subscriptionRepository.findByStudentIdAndActiveTrue(studentId)
+                .orElseThrow(() -> new RuntimeException("활성 구독이 없습니다."));
+
+        subscription.updateAutoRenew(autoRenew);
         return SubscriptionResponse.from(subscription);
     }
 }

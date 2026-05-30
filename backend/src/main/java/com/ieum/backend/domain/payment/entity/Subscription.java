@@ -64,6 +64,11 @@ public class Subscription {
         this.endDate = this.startDate.plusDays(subscriptionPlan.getDurationDays());
     }
 
+    // 구독 자동갱신
+    public void updateAutoRenew(boolean autoRenew) {
+        this.autoRenew = autoRenew;
+    }
+
     // 구독 취소
     public void cancel() {
         this.autoRenew = false;

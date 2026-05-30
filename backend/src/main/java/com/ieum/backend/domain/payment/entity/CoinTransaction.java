@@ -24,14 +24,15 @@ public class CoinTransaction {
     private TransactionType type;
 
     @Column(nullable = false)
-    private Integer amount;           // + 충전, - 차감
+    private Integer amount;
 
     @Column(nullable = false)
-    private Integer balanceAfter;     // 거래 후 잔액
+    private Integer balanceAfter;
 
-    private Long lessonId;            // 강의 관련이면
+    private Long lessonId;
 
-    private Long paymentId;           // 결제 관련이면
+    @Column(name = "payment_id")
+    private Long paymentId;
 
     @Column(length = 200)
     private String description;
