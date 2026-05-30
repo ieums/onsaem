@@ -1,6 +1,6 @@
-package com.ieum.backend.domain.payment.repository;
+package com.ieum.backend.domain.settlement.repository;
 
-import com.ieum.backend.domain.payment.entity.Settlement;
+import com.ieum.backend.domain.settlement.entity.Settlement;
 import com.ieum.backend.domain.payment.entity.enums.SettlementStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 

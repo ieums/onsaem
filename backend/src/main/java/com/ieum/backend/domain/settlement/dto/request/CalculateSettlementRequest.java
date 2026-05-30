@@ -1,4 +1,4 @@
-package com.ieum.backend.domain.payment.dto.request;
+package com.ieum.backend.domain.settlement.dto.request;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;

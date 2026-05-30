@@ -1,4 +1,4 @@
-package com.ieum.backend.domain.payment.entity;
+package com.ieum.backend.domain.settlement.entity;
 
 import com.ieum.backend.domain.payment.entity.enums.SettlementStatus;
 import jakarta.persistence.*;

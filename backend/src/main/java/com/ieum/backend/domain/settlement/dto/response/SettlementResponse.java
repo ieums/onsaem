@@ -1,6 +1,6 @@
-package com.ieum.backend.domain.payment.dto.response;
+package com.ieum.backend.domain.settlement.dto.response;
 
-import com.ieum.backend.domain.payment.entity.Settlement;
+import com.ieum.backend.domain.settlement.entity.Settlement;
 import com.ieum.backend.domain.payment.entity.enums.SettlementStatus;
 
 import java.time.LocalDateTime;

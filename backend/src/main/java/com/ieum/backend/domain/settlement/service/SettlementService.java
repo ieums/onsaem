@@ -1,11 +1,11 @@
-package com.ieum.backend.domain.payment.service;
+package com.ieum.backend.domain.settlement.service;
 
-import com.ieum.backend.domain.payment.dto.request.CalculateSettlementRequest;
-import com.ieum.backend.domain.payment.dto.response.SettlementResponse;
-import com.ieum.backend.domain.payment.dto.response.SettlementSummaryResponse;
-import com.ieum.backend.domain.payment.entity.Settlement;
+import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
+import com.ieum.backend.domain.settlement.dto.response.SettlementResponse;
+import com.ieum.backend.domain.settlement.dto.response.SettlementSummaryResponse;
+import com.ieum.backend.domain.settlement.entity.Settlement;
 import com.ieum.backend.domain.payment.entity.enums.SettlementStatus;
-import com.ieum.backend.domain.payment.repository.SettlementRepository;
+import com.ieum.backend.domain.settlement.repository.SettlementRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

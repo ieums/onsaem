@@ -1,10 +1,10 @@
-package com.ieum.backend.domain.payment.controller;
+package com.ieum.backend.domain.settlement.controller;
 
-import com.ieum.backend.domain.payment.dto.request.CalculateSettlementRequest;
-import com.ieum.backend.domain.payment.dto.response.SettlementResponse;
-import com.ieum.backend.domain.payment.dto.response.SettlementSummaryResponse;
+import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
+import com.ieum.backend.domain.settlement.dto.response.SettlementResponse;
+import com.ieum.backend.domain.settlement.dto.response.SettlementSummaryResponse;
 import com.ieum.backend.domain.payment.entity.enums.SettlementStatus;
-import com.ieum.backend.domain.payment.service.SettlementService;
+import com.ieum.backend.domain.settlement.service.SettlementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

@@ -1,4 +1,4 @@
-package com.ieum.backend.domain.payment.dto.response;
+package com.ieum.backend.domain.settlement.dto.response;
 
 public record SettlementSummaryResponse(
         Long tutorId,
