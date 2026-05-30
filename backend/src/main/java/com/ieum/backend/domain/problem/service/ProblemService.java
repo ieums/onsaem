@@ -1,10 +1,12 @@
 package com.ieum.backend.domain.problem.service;
 
+import com.ieum.backend.domain.matching.repository.MatchingApplicationRepository;
 import com.ieum.backend.domain.problem.dto.internal.AiAnalysisResult;
 import com.ieum.backend.domain.problem.dto.request.ClassificationUpdateRequest;
 import com.ieum.backend.domain.problem.dto.request.ProblemCreateRequest;
 import com.ieum.backend.domain.problem.dto.response.ProblemCreateResponse;
 import com.ieum.backend.domain.problem.dto.response.ProblemDetailResponse;
+import com.ieum.backend.domain.problem.dto.response.SearchingProblemResponse;
 import com.ieum.backend.domain.problem.entity.Problem;
 import com.ieum.backend.domain.problem.repository.ProblemRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,6 +24,7 @@ import java.util.stream.Collectors;
 public class ProblemService {
 
     private final ProblemRepository problemRepository;
+    private final MatchingApplicationRepository matchingApplicationRepository;
     private final ImageStorageService imageStorageService;
     private final GeminiClient geminiClient;
 
@@ -111,6 +115,17 @@ public class ProblemService {
         );
 
         return ProblemDetailResponse.from(problem);
+    }
+
+    /**
+     * 강사 탐색 중인 문제 목록 조회
+     */
+    public List<SearchingProblemResponse> getSearchingProblems(Long tutorId) {
+        List<Problem> problems = problemRepository.findAllSearching(LocalDateTime.now());
+        return problems.stream()
+                .map(p -> SearchingProblemResponse.from(p,
+                        matchingApplicationRepository.existsByProblemIdAndTutorId(p.getId(), tutorId)))
+                .toList();
     }
 
     /**

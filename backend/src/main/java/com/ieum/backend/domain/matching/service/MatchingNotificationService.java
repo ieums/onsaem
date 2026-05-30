@@ -46,4 +46,11 @@ public class MatchingNotificationService {
                 Map.of("type", "TUTOR_AVAILABLE", "tutorId", tutorId, "problemId", problemId)
         );
     }
+
+    public void notifyProblemMatched(Long problemId, Long tutorId) {
+        messagingTemplate.convertAndSend(
+                "/topic/tutor/" + tutorId,
+                Map.of("type", "PROBLEM_MATCHED", "problemId", problemId)
+        );
+    }
 }

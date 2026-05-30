@@ -65,6 +65,11 @@ button.danger:hover { background: #6b2222; }
     <input id="subStudent" value="/topic/student/1" style="flex:2;" />
     <button onclick="subscribeStudent()">구독</button>
   </div>
+  <div class="row">
+    <label>강사 알림</label>
+    <input id="subTutor" value="/topic/tutor/200" style="flex:2;" />
+    <button onclick="subscribeTutor()">구독</button>
+  </div>
   <p class="hint">※ problemId=1, studentId=1 기준. 필요 시 숫자 변경</p>
   <div class="subs" id="subList"></div>
 </div>
@@ -148,6 +153,10 @@ function subscribe(topic) {
 
 function subscribeStudent() {
   subscribe(document.getElementById('subStudent').value);
+}
+
+function subscribeTutor() {
+  subscribe(document.getElementById('subTutor').value);
 }
 
 function unsubscribe(topic) {

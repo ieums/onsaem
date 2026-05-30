@@ -87,7 +87,10 @@ public class MatchingService {
         problem.matchTutor();
 
         applicationRepository.findByProblemIdAndStatusIn(problemId, List.of(ApplicationStatus.PENDING))
-                .forEach(MatchingApplication::reject);
+                .forEach(app -> {
+                    app.reject();
+                    notificationService.notifyProblemMatched(problemId, app.getTutorId());
+                });
 
         notificationService.notifyMatched(problemId, tutorId, problem.getStudentId());
     }
