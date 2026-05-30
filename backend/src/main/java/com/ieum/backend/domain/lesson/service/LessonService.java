@@ -26,6 +26,12 @@ public class LessonService {
     private final S3Service s3Service;
     private final AgoraRecordingService agoraRecordingService;
 
+    @Transactional
+    public Lesson createLesson(Long tutorId, Long studentId, String channelName) {
+        Lesson lesson = new Lesson(channelName, tutorId, studentId);
+        return lessonRepository.save(lesson);
+    }
+
     /**
      * Agora 토큰 발급 (채널이 없으면 자동 생성)
      */

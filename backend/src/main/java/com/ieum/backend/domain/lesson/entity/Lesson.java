@@ -55,6 +55,12 @@ public class Lesson {
         this.channelName = channelName;
     }
 
+    public Lesson(String channelName, Long tutorId, Long studentId) {
+        this.channelName = channelName;
+        this.tutorId = tutorId;
+        this.studentId = studentId;
+    }
+
     /** 수업 시작: 상태를 ACTIVE로, startedAt 기록 */
     public void start() {
         this.status = LessonStatus.ACTIVE;

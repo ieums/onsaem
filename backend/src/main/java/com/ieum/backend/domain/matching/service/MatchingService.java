@@ -1,5 +1,7 @@
 package com.ieum.backend.domain.matching.service;
 
+import com.ieum.backend.domain.lesson.entity.Lesson;
+import com.ieum.backend.domain.lesson.service.LessonService;
 import com.ieum.backend.domain.matching.dto.response.ApplicantResponse;
 import com.ieum.backend.domain.matching.entity.ApplicationStatus;
 import com.ieum.backend.domain.matching.entity.MatchingApplication;
@@ -22,6 +24,7 @@ public class MatchingService {
     private final ProblemRepository problemRepository;
     private final MatchingApplicationRepository applicationRepository;
     private final MatchingNotificationService notificationService;
+    private final LessonService lessonService;
 
     @Transactional
     public void startSearching(Long problemId, int minutes) {
@@ -92,7 +95,10 @@ public class MatchingService {
                     notificationService.notifyProblemMatched(problemId, app.getTutorId());
                 });
 
-        notificationService.notifyMatched(problemId, tutorId, problem.getStudentId());
+        String channelName = "problem-" + problemId;
+        Lesson lesson = lessonService.createLesson(tutorId, problem.getStudentId(), channelName);
+
+        notificationService.notifyMatched(problemId, tutorId, problem.getStudentId(), lesson.getId(), channelName);
     }
 
     @Transactional

@@ -19,10 +19,15 @@ public class MatchingNotificationService {
         );
     }
 
-    public void notifyMatched(Long problemId, Long tutorId, Long studentId) {
+    public void notifyMatched(Long problemId, Long tutorId, Long studentId, Long lessonId, String channelName) {
         messagingTemplate.convertAndSend(
                 "/topic/matching/" + problemId,
-                Map.of("type", "MATCHED", "tutorId", tutorId, "studentId", studentId, "problemId", problemId)
+                Map.of("type", "MATCHED",
+                        "tutorId", tutorId,
+                        "studentId", studentId,
+                        "problemId", problemId,
+                        "lessonId", lessonId,
+                        "channelName", channelName)
         );
     }
 
