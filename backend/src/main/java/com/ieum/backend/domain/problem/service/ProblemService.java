@@ -79,7 +79,7 @@ public class ProblemService {
                 .difficulty(dp.getDifficulty())
                 .totalDifficultyScore(dp.getTotalDifficultyScore())
                 .examType(dp.getExamType())
-                .userDescription(request.getStudentDescription())
+                .studentDescription(request.getStudentDescription())
                 .build();
 
         return problemRepository.save(problem);

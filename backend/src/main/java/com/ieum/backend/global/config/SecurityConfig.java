@@ -33,7 +33,8 @@ public class SecurityConfig {
                                 "/ws/**",
                                 "/ws-raw",
                                 "/api/v1/problems/**",
-                                "/api/v1/payments/**"
+                                "/api/v1/payments/**",
+                                "/api/v1/matching/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );
