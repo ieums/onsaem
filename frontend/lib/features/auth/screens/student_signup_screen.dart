@@ -1,27 +1,37 @@
 import 'dart:math' as math;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/app_theme.dart';
 
-class StudentSignupScreen extends StatefulWidget {
-  const StudentSignupScreen({super.key});
+class StudentSignupScreen extends ConsumerStatefulWidget {
+  const StudentSignupScreen({
+    super.key,
+    this.isEditMode = false,
+  });
+
+  final bool isEditMode;
 
   @override
-  State<StudentSignupScreen> createState() => _StudentSignupScreenState();
+  ConsumerState<StudentSignupScreen> createState() => _StudentSignupScreenState();
 }
 
-class _StudentSignupScreenState extends State<StudentSignupScreen> {
+class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   static const _backgroundColor = Color(0xFFF8F9FD);
   static const _inputFillColor = Color(0xFFEEF1F7);
   static const _hintColor = Color(0xFF9AA3B2);
   static const _labelColor = Color(0xFF1A1D26);
   static const _errorColor = Color(0xFFE53935);
+  static const _profilePlaceholderColor = Color(0xFFC5CAD3);
+  static const _profileSize = 96.0;
+  static const _profileAddButtonSize = 24.0;
 
   static const _domainOptions = ['직접입력', 'gmail.com', 'naver.com'];
-  /// 도메인 버튼 너비 — gmail/naver 기준 (직접입력은 더 짧게 보이도록 동일 폭)
   static const _presetDomainsForWidth = ['gmail.com', 'naver.com'];
   static const _domainTextStyle = TextStyle(
     fontSize: 14,
@@ -39,16 +49,140 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
 
   final _domainTriggerKey = GlobalKey();
 
-  String _selectedDomain = '직접입력';
+  String _selectedDomain = 'gmail.com';
   bool _isDomainMenuOpen = false;
   OverlayEntry? _domainOverlayEntry;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _showPasswordMismatch = false;
+  Uint8List? _profileImageBytes;
+
+  bool get _isShellThemed => widget.isEditMode;
+
+  ThemeData? get _shellTheme {
+    if (!_isShellThemed) return null;
+    final base =
+        ref.watch(shellDarkModeProvider) ? AppTheme.shellDark : AppTheme.shellLight;
+    return base.copyWith(
+      colorScheme: base.colorScheme.copyWith(primary: AppColors.studentPoint),
+    );
+  }
+
+  Color _scaffoldBg(BuildContext context) => _isShellThemed
+      ? Theme.of(context).scaffoldBackgroundColor
+      : _backgroundColor;
+
+  Color _textPrimary(BuildContext context) =>
+      _isShellThemed ? Theme.of(context).colorScheme.onSurface : _labelColor;
+
+  Color _textHint(BuildContext context) => _isShellThemed
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : _hintColor;
+
+  Color _fieldFill(BuildContext context) {
+    if (!_isShellThemed) return _inputFillColor;
+    if (_isShellDark(context)) {
+      return Theme.of(context).inputDecorationTheme.fillColor ??
+          Theme.of(context).colorScheme.surface;
+    }
+    return const Color(0xFFF0F2F7);
+  }
+
+  Color _profilePlaceholder(BuildContext context) {
+    if (!_isShellThemed) return _profilePlaceholderColor;
+    if (_isShellDark(context)) {
+      return Theme.of(context).colorScheme.surfaceContainerHigh;
+    }
+    return const Color(0xFFF0F2F7);
+  }
+
+  Color _menuSurface(BuildContext context) => _isShellThemed
+      ? (_isShellDark(context)
+          ? Theme.of(context).colorScheme.surface
+          : Colors.white)
+      : Colors.white;
+
+  Color _selectorFieldFill(BuildContext context) =>
+      _isShellDark(context) ? _scheme(context).surface : _fieldFill(context);
+
+  Color _selectorRowFill(BuildContext context, {required bool selected}) {
+    if (selected) return AppColors.studentPoint;
+    if (_isShellDark(context)) return _scheme(context).surface;
+    return _isShellThemed ? _menuSurface(context) : Colors.white;
+  }
+
+  Color _selectorLabelColor(BuildContext context, {required bool selected}) {
+    if (selected) {
+      return AppColors.onPrimaryFill(Theme.of(context).brightness);
+    }
+    return _textPrimary(context);
+  }
+
+  Color _selectorIconColor(BuildContext context, {required bool isOpen}) {
+    if (isOpen) return AppColors.studentPoint;
+    if (_isShellDark(context)) return AppColors.white70;
+    return _textHint(context);
+  }
+
+  bool _isShellDark(BuildContext context) =>
+      _isShellThemed && Theme.of(context).brightness == Brightness.dark;
+
+  ColorScheme _scheme(BuildContext context) => Theme.of(context).colorScheme;
+
+  Color _accentFill(BuildContext context) {
+    if (!_isShellThemed) return AppColors.studentPoint;
+    if (_isShellDark(context)) return _scheme(context).surfaceContainerHigh;
+    return _scheme(context).primary;
+  }
+
+  Color _accentForeground(BuildContext context) {
+    if (!_isShellThemed) return Colors.white;
+    if (_isShellDark(context)) return _scheme(context).primary;
+    return _scheme(context).onPrimary;
+  }
+
+  Color _profileAddBorder(BuildContext context) {
+    if (!_isShellThemed) return Colors.white;
+    return _scaffoldBg(context);
+  }
+
+  ButtonStyle _primaryCtaStyle(BuildContext context) {
+    if (_isShellDark(context)) {
+      return FilledButton.styleFrom(
+        backgroundColor: _scheme(context).surface,
+        foregroundColor: _scheme(context).onSurface,
+        disabledBackgroundColor: _scheme(context).surfaceContainerLow,
+        disabledForegroundColor: _scheme(context).onSurfaceVariant,
+        elevation: 0,
+        side: BorderSide(color: _scheme(context).primary, width: 1.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      );
+    }
+    return FilledButton.styleFrom(
+      backgroundColor:
+          _isShellThemed ? _scheme(context).primary : AppColors.studentPoint,
+      foregroundColor:
+          _isShellThemed ? _scheme(context).onPrimary : Colors.white,
+      disabledBackgroundColor: AppColors.studentPoint.withValues(alpha: 0.4),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    );
+  }
+
+  Color _focusBorderColor(BuildContext context) =>
+      _isShellThemed ? _scheme(context).primary : AppColors.studentPoint;
 
   @override
   void initState() {
     super.initState();
+    if (widget.isEditMode) {
+      _nameController.text = '테스트';
+      _yearController.text = '2008';
+      _monthController.text = '03';
+      _dayController.text = '15';
+      _emailLocalController.text = 'student';
+      _phoneController.text = '010-1234-5678';
+    }
     _confirmPasswordController.addListener(_validatePasswordMatch);
     _passwordController.addListener(_validatePasswordMatch);
   }
@@ -96,25 +230,38 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
     final offset = box.localToGlobal(Offset.zero);
     final triggerSize = box.size;
     final menuWidth = _domainBoxWidth;
+    final shellTheme = _shellTheme;
 
     _domainOverlayEntry?.remove();
     _domainOverlayEntry = OverlayEntry(
-      builder: (overlayContext) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _closeDomainMenu,
-              behavior: HitTestBehavior.translucent,
-            ),
-          ),
-          Positioned(
-            left: offset.dx,
-            top: offset.dy + triggerSize.height + 8,
-            width: menuWidth,
-            child: _buildDomainMenu(),
-          ),
-        ],
-      ),
+      builder: (overlayContext) {
+        Widget buildMenuStack(BuildContext menuContext) {
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: _closeDomainMenu,
+                  behavior: HitTestBehavior.translucent,
+                ),
+              ),
+              Positioned(
+                left: offset.dx,
+                top: offset.dy + triggerSize.height + 8,
+                width: menuWidth,
+                child: _buildDomainMenu(menuContext),
+              ),
+            ],
+          );
+        }
+
+        if (shellTheme != null) {
+          return Theme(
+            data: shellTheme,
+            child: Builder(builder: buildMenuStack),
+          );
+        }
+        return buildMenuStack(overlayContext);
+      },
     );
 
     Overlay.of(context).insert(_domainOverlayEntry!);
@@ -128,31 +275,79 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
     }
   }
 
+  bool get _hasProfileImage =>
+      _profileImageBytes != null && _profileImageBytes!.isNotEmpty;
+
+  Future<void> _pickProfileImage() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+      if (!mounted || result == null || result.files.isEmpty) return;
+      final bytes = result.files.single.bytes;
+      if (bytes == null || bytes.isEmpty) return;
+      setState(() => _profileImageBytes = bytes);
+    } on MissingPluginException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('앱을 완전히 종료한 뒤 다시 실행해 주세요.')),
+      );
+    }
+  }
+
+  void _submit() {
+    if (widget.isEditMode) {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(RoutePaths.studentHome);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('프로필이 저장되었습니다.')),
+      );
+      return;
+    }
+    context.go(RoutePaths.studentHome);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screen = Builder(builder: _buildScreen);
+    final theme = _shellTheme;
+    if (theme != null) {
+      return Theme(data: theme, child: screen);
+    }
+    return screen;
+  }
+
+  Widget _buildScreen(BuildContext context) {
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: _scaffoldBg(context),
       appBar: AppBar(
-        backgroundColor: _backgroundColor,
+        backgroundColor: _scaffoldBg(context),
         elevation: 0,
         centerTitle: true,
         automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: _labelColor),
+          icon: Icon(Icons.arrow_back_ios_new, size: 20, color: _textPrimary(context)),
           onPressed: () {
             if (context.canPop()) {
               context.pop();
             } else {
-              context.go(RoutePaths.signup);
+              context.go(
+                widget.isEditMode ? RoutePaths.studentHome : RoutePaths.signup,
+              );
             }
           },
         ),
-        title: const Text(
-          '학생 회원가입',
+        title: Text(
+          widget.isEditMode ? '프로필 수정' : '학생 회원가입',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: _labelColor,
+            color: _textPrimary(context),
           ),
         ),
       ),
@@ -164,19 +359,23 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildLabel('이름'),
+                  _buildProfilePhotoSection(context),
+                  const SizedBox(height: 24),
+                  _buildLabel(context, '이름'),
                   const SizedBox(height: 8),
                   _buildTextField(
+                    context,
                     controller: _nameController,
                     hint: '이름을 입력하세요',
                   ),
                   const SizedBox(height: 20),
-                  _buildLabel('생년월일'),
+                  _buildLabel(context, '생년월일'),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
                         child: _buildTextField(
+                          context,
                           controller: _yearController,
                           hint: 'YYYY',
                           keyboardType: TextInputType.number,
@@ -190,6 +389,7 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _buildTextField(
+                          context,
                           controller: _monthController,
                           hint: 'MM',
                           keyboardType: TextInputType.number,
@@ -203,6 +403,7 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _buildTextField(
+                          context,
                           controller: _dayController,
                           hint: 'DD',
                           keyboardType: TextInputType.number,
@@ -216,13 +417,14 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _buildLabel('이메일'),
+                  _buildLabel(context, '이메일'),
                   const SizedBox(height: 8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: _buildTextField(
+                          context,
                           controller: _emailLocalController,
                           hint: _selectedDomain == '직접입력'
                               ? '이메일 주소를 입력하세요'
@@ -234,14 +436,15 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
                       SizedBox(
                         width: _domainBoxWidth,
                         key: _domainTriggerKey,
-                        child: _buildDomainTrigger(),
+                        child: _buildDomainTrigger(context),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _buildLabel('휴대폰'),
+                  _buildLabel(context, '휴대폰'),
                   const SizedBox(height: 8),
                   _buildTextField(
+                    context,
                     controller: _phoneController,
                     hint: '전화번호를 입력하세요',
                     keyboardType: TextInputType.number,
@@ -250,43 +453,49 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
                       _PhoneNumberFormatter(),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  _buildLabel('비밀번호'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    controller: _passwordController,
-                    hint: '비밀번호를 입력하세요',
-                    obscureText: _obscurePassword,
-                    suffixIcon: _buildVisibilityToggle(
-                      isVisible: _obscurePassword,
-                      onToggle: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildLabel('비밀번호 확인'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    controller: _confirmPasswordController,
-                    hint: '비밀번호를 다시 입력하세요',
-                    obscureText: _obscureConfirmPassword,
-                    suffixIcon: _buildVisibilityToggle(
-                      isVisible: _obscureConfirmPassword,
-                      onToggle: () => setState(
-                        () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                      ),
-                    ),
-                  ),
-                  if (_showPasswordMismatch) ...[
+                  if (!widget.isEditMode) ...[
+                    const SizedBox(height: 20),
+                    _buildLabel(context, '비밀번호'),
                     const SizedBox(height: 8),
-                    const Text(
-                      '비밀번호가 일치하지 않습니다.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: _errorColor,
-                        fontWeight: FontWeight.w500,
+                    _buildTextField(
+                      context,
+                      controller: _passwordController,
+                      hint: '비밀번호를 입력하세요',
+                      obscureText: _obscurePassword,
+                      suffixIcon: _buildVisibilityToggle(
+                        context,
+                        isVisible: _obscurePassword,
+                        onToggle: () =>
+                            setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
+                    const SizedBox(height: 20),
+                    _buildLabel(context, '비밀번호 확인'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      context,
+                      controller: _confirmPasswordController,
+                      hint: '비밀번호를 다시 입력하세요',
+                      obscureText: _obscureConfirmPassword,
+                      suffixIcon: _buildVisibilityToggle(
+                        context,
+                        isVisible: _obscureConfirmPassword,
+                        onToggle: () => setState(
+                          () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                        ),
+                      ),
+                    ),
+                    if (_showPasswordMismatch) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        '비밀번호가 일치하지 않습니다.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: _errorColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -298,18 +507,19 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
               height: 54,
               width: double.infinity,
               child: FilledButton(
-                onPressed: () => context.go(RoutePaths.studentHome),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                onPressed: _submit,
+                style: _primaryCtaStyle(context),
+                child: Text(
+                  widget.isEditMode ? '저장하기' : '가입하기',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: _isShellDark(context)
+                        ? _scheme(context).onSurface
+                        : (_isShellThemed
+                            ? _scheme(context).onPrimary
+                            : Colors.white),
                   ),
-                ),
-                child: const Text(
-                  '가입하기',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -319,18 +529,104 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
     );
   }
 
-  Widget _buildLabel(String text) {
+  Widget _buildLabel(BuildContext context, String text) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
-        color: _labelColor,
+        color: _textPrimary(context),
       ),
     );
   }
 
-  /// 가장 긴 도메인 라벨 + 패딩·아이콘 너비 (선택 버튼·메뉴 동일)
+  Widget _buildProfilePhotoSection(BuildContext context) {
+    return Column(
+      children: [
+        Center(
+          child: SizedBox(
+            width: _profileSize,
+            height: _profileSize,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                GestureDetector(
+                  onTap: _pickProfileImage,
+                  behavior: HitTestBehavior.opaque,
+                  child: _buildProfileAvatar(context),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: GestureDetector(
+                    onTap: _pickProfileImage,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      width: _profileAddButtonSize,
+                      height: _profileAddButtonSize,
+                      decoration: BoxDecoration(
+                        color: _accentFill(context),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: _profileAddBorder(context),
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.add,
+                        color: _accentForeground(context),
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          widget.isEditMode ? '프로필 수정' : '프로필 등록',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: _textHint(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileAvatar(BuildContext context) {
+    return Container(
+      width: _profileSize,
+      height: _profileSize,
+      decoration: BoxDecoration(
+        color: _profilePlaceholder(context),
+        shape: BoxShape.circle,
+      ),
+      child: ClipOval(
+        child: _hasProfileImage
+            ? Image.memory(
+                _profileImageBytes!,
+                width: _profileSize,
+                height: _profileSize,
+                fit: BoxFit.cover,
+              )
+            : Center(
+                child: Icon(
+                  Icons.person,
+                  size: 48,
+                  color: _isShellThemed
+                      ? _textHint(context)
+                      : Colors.white,
+                ),
+              ),
+      ),
+    );
+  }
+
   double get _domainBoxWidth {
     final painter = TextPainter(textDirection: TextDirection.ltr);
     var maxText = 0.0;
@@ -344,13 +640,13 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
         maxText = math.max(maxText, painter.width);
       }
     }
-    const horizontalPadding = 24.0; // 12 * 2
-    const iconAndGap = 26.0; // 22 + 4
-    const safetyBuffer = 8.0; // 렌더링·폰트 오차 여유
+    const horizontalPadding = 24.0;
+    const iconAndGap = 26.0;
+    const safetyBuffer = 8.0;
     return maxText + horizontalPadding + iconAndGap + safetyBuffer;
   }
 
-  Widget _buildDomainTrigger() {
+  Widget _buildDomainTrigger(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -359,7 +655,7 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
           decoration: BoxDecoration(
-            color: _inputFillColor,
+            color: _selectorFieldFill(context),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
@@ -367,7 +663,7 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
               Expanded(
                 child: Text(
                   _selectedDomain,
-                  style: _domainTextStyle.copyWith(color: _labelColor),
+                  style: _domainTextStyle.copyWith(color: _textPrimary(context)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -377,8 +673,7 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
                 _isDomainMenuOpen
                     ? Icons.keyboard_arrow_up_rounded
                     : Icons.keyboard_arrow_down_rounded,
-                color:
-                    _isDomainMenuOpen ? AppColors.primaryBlue : _hintColor,
+                color: _selectorIconColor(context, isOpen: _isDomainMenuOpen),
                 size: 22,
               ),
             ],
@@ -388,30 +683,28 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
     );
   }
 
-  /// 전화번호 입력창 바로 위에 표시
-  Widget _buildDomainMenu() {
+  Widget _buildDomainMenu(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14), // 위 버튼과 동일하게 14로 맞춤
+      borderRadius: BorderRadius.circular(14),
       child: Column(
         children: [
-          for (final domain in _domainOptions)
-            _buildDomainMenuItem(domain),
+          for (final domain in _domainOptions) _buildDomainMenuItem(context, domain),
         ],
       ),
     );
   }
 
-  Widget _buildDomainMenuItem(String domain) {
+  Widget _buildDomainMenuItem(BuildContext context, String domain) {
     final isSelected = domain == _selectedDomain;
     return SizedBox(
-      width: _domainBoxWidth, // 모든 도메인 메뉴 아이템의 너비를 동일하게 맞춤
+      width: _domainBoxWidth,
       child: Material(
-        color: isSelected ? AppColors.primaryBlue : Colors.white,
+        color: _selectorRowFill(context, selected: isSelected),
         child: InkWell(
-          onTap: () => setState(() {
-            _selectedDomain = domain;
-            _isDomainMenuOpen = false;
-          }),
+          onTap: () {
+            setState(() => _selectedDomain = domain);
+            _closeDomainMenu();
+          },
           borderRadius: BorderRadius.circular(14),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -419,7 +712,7 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
               domain,
               style: _domainTextStyle.copyWith(
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? Colors.white : _labelColor,
+                color: _selectorLabelColor(context, selected: isSelected),
               ),
             ),
           ),
@@ -428,21 +721,23 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
     );
   }
 
-  Widget _buildVisibilityToggle({
+  Widget _buildVisibilityToggle(
+    BuildContext context, {
     required bool isVisible,
     required VoidCallback onToggle,
   }) {
     return IconButton(
       icon: Icon(
         isVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-        color: _hintColor,
+        color: _textHint(context),
         size: 22,
       ),
       onPressed: onToggle,
     );
   }
 
-  Widget _buildTextField({
+  Widget _buildTextField(
+    BuildContext context, {
     required TextEditingController controller,
     required String hint,
     bool obscureText = false,
@@ -450,6 +745,7 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
     List<TextInputFormatter>? inputFormatters,
     Widget? suffixIcon,
     TextAlign textAlign = TextAlign.start,
+    ValueChanged<String>? onChanged,
   }) {
     return TextField(
       controller: controller,
@@ -457,14 +753,14 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       textAlign: textAlign,
-      style: const TextStyle(fontSize: 16, color: _labelColor),
+      onChanged: onChanged,
+      style: TextStyle(fontSize: 16, color: _textPrimary(context)),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: _hintColor, fontSize: 15),
+        hintStyle: TextStyle(color: _textHint(context), fontSize: 15),
         filled: true,
-        fillColor: _inputFillColor,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        fillColor: _fieldFill(context),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
@@ -475,7 +771,7 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.primaryBlue, width: 1.5),
+          borderSide: BorderSide(color: _focusBorderColor(context), width: 1.5),
         ),
         suffixIcon: suffixIcon,
       ),
@@ -483,7 +779,6 @@ class _StudentSignupScreenState extends State<StudentSignupScreen> {
   }
 }
 
-/// 11자리 숫자 → 000-0000-0000 자동 포맷
 class _PhoneNumberFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(

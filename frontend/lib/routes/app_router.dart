@@ -6,6 +6,7 @@ import 'package:ieum/features/auth/screens/signup_role_screen.dart';
 import 'package:ieum/features/auth/screens/student_signup_screen.dart';
 import 'package:ieum/features/auth/screens/tutor_signup_screen.dart';
 import 'package:ieum/features/onboarding/screens/onboarding_screen.dart';
+import 'package:ieum/features/student/screens/student_credit_recharge_screen.dart';
 import 'package:ieum/features/student/screens/student_shell_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_shell_screen.dart';
 
@@ -27,7 +28,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: RoutePaths.signupStudent,
-      builder: (_, _) => const StudentSignupScreen(),
+      builder: (_, state) => StudentSignupScreen(
+        isEditMode: state.uri.queryParameters['edit'] == 'true',
+      ),
     ),
     GoRoute(
       path: RoutePaths.signupTutor,
@@ -38,6 +41,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.studentHome,
       builder: (_, _) => const StudentShellScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.studentCreditRecharge,
+      builder: (_, _) => const StudentCreditRechargeScreen(),
     ),
     GoRoute(
       path: RoutePaths.tutorHome,

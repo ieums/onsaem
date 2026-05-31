@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 /// 온샘 앱 공통 컬러
 abstract final class AppColors {
   static const Color primaryBlue = Color(0xFFBFA2DB);
+  static const Color studentPoint = Color(0xFF5B9BD5);
   static const Color incomeGreen = Color(0xFF5FA68A);
 
   /// 회원가입 역할 선택 — 학생 카드용 (강사는 [primaryBlue])
-  static const Color roleStudentAccent = Color(0xFF5B9BD5);
+  static const Color roleStudentAccent = studentPoint;
   static const Color roleStudentBorder = Color(0xFFA8C9EB);
   static const Color logoutRed = Color(0xFFE53935);
   static const Color white = Colors.white;

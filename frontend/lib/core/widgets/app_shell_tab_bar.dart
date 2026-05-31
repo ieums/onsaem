@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:ieum/core/theme/app_colors.dart';
-
 /// 학생·강사 셸 하단 탭 바 (높이·아이콘 크기 공통)
 class AppShellTabBar extends StatelessWidget {
   const AppShellTabBar({
@@ -42,7 +40,7 @@ class AppShellTabBar extends StatelessWidget {
             return TextStyle(
               fontSize: _labelSize,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: selected ? AppColors.primaryBlue : scheme.onSurfaceVariant,
+              color: selected ? scheme.primary : scheme.onSurfaceVariant,
             );
           }),
           destinations: [
@@ -52,7 +50,7 @@ class AppShellTabBar extends StatelessWidget {
                 selectedIcon: Icon(
                   t.activeIcon,
                   size: _iconSize,
-                  color: AppColors.primaryBlue,
+                  color: scheme.primary,
                 ),
                 label: t.label,
               ),

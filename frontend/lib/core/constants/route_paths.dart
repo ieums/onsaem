@@ -6,5 +6,6 @@ abstract final class RoutePaths {
   static const signupStudent = '/signup/student';
   static const signupTutor = '/signup/tutor';
   static const studentHome = '/student';
+  static const studentCreditRecharge = '/student/credit-recharge';
   static const tutorHome = '/tutor';
 }

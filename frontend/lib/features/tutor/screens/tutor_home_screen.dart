@@ -51,14 +51,11 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
     if (items.isEmpty) return [];
 
     final pageCount = _questionPageCount;
-    final safeIndex = pageCount == 0
-        ? 0
-        : _questionPageIndex.clamp(0, pageCount - 1);
+    final safeIndex =
+        pageCount == 0 ? 0 : _questionPageIndex.clamp(0, pageCount - 1);
     final start = safeIndex * TutorRequestDummyData.newQuestionPageSize;
-    final end = (start + TutorRequestDummyData.newQuestionPageSize).clamp(
-      0,
-      items.length,
-    );
+    final end = (start + TutorRequestDummyData.newQuestionPageSize)
+        .clamp(0, items.length);
     return items.sublist(start, end);
   }
 
@@ -142,7 +139,10 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
                     const SizedBox(height: 4),
                     Text(
                       isOnline ? '질문을 기다리고 있어요' : '오프라인 상태입니다',
-                      style: TextStyle(fontSize: 13, color: shell.hintColor),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: shell.hintColor,
+                      ),
                     ),
                   ],
                 ),
@@ -165,9 +165,7 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
                         ? AppColors.primaryBlue
                         : shell.trackOffColor;
                   }),
-                  trackOutlineColor: WidgetStateProperty.all(
-                    Colors.transparent,
-                  ),
+                  trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
                 ),
                 child: Switch(
                   value: isOnline,
@@ -322,7 +320,10 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
                       const SizedBox(height: 2),
                       Text(
                         question.chapter,
-                        style: TextStyle(fontSize: 13, color: shell.hintColor),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: shell.hintColor,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -330,7 +331,10 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
                     const SizedBox(height: 2),
                     Text(
                       question.timeAgo,
-                      style: TextStyle(fontSize: 11, color: shell.hintColor),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: shell.hintColor,
+                      ),
                     ),
                   ],
                 ),
@@ -352,24 +356,18 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
   Widget _buildActionButtons(TutorRequestListItem question) {
     final shell = ShellTheme.of(context);
     final isOnline = ref.watch(tutorAvailabilityProvider);
-    final acceptBg = isOnline
-        ? AppColors.primaryBlue
-        : shell.offlineButtonColor;
+    final acceptBg = isOnline ? AppColors.primaryBlue : shell.offlineButtonColor;
     final acceptFg = isOnline
         ? AppColors.onPrimaryFill(Theme.of(context).brightness)
         : shell.offlineButtonTextColor;
-    final rejectBorder = isOnline
-        ? shell.borderColor
-        : shell.offlineButtonColor;
+    final rejectBorder = isOnline ? shell.borderColor : shell.offlineButtonColor;
     final rejectFg = isOnline ? shell.titleColor : shell.offlineButtonTextColor;
 
     return Row(
       children: [
         Expanded(
           child: FilledButton(
-            onPressed: isOnline
-                ? () => _showAcceptConfirmDialog(question)
-                : null,
+            onPressed: isOnline ? () => _showAcceptConfirmDialog(question) : null,
             style: FilledButton.styleFrom(
               backgroundColor: acceptBg,
               foregroundColor: acceptFg,
@@ -381,7 +379,10 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
             ),
             child: const Text(
               '수락',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ),
@@ -399,11 +400,15 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
             ),
             child: const Text(
               '거절',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
       ],
     );
   }
+
 }
