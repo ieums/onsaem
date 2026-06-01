@@ -33,6 +33,7 @@ public class SecurityConfig {
                                 "/ws-raw",
                                 "/api/v1/problems/**",
                                 "/api/v1/payments/**",
+                                "/api/v1/lesson-review/**",
                                 "/error"
                         ).permitAll()
                         .anyRequest().authenticated()

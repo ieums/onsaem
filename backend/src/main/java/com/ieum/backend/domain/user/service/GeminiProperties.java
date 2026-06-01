@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 
 @ConfigurationProperties(prefix = "gemini")
 public record GeminiProperties(
-        String apiKey,
+        Api api,                                                                          // ← 변경: String apiKey → Api api
         @DefaultValue("gemini-2.5-flash") String model,
         @DefaultValue("gemini-flash-latest") String fallbackModel,
         @DefaultValue("https://generativelanguage.googleapis.com/v1beta") String baseUrl,
@@ -13,4 +13,6 @@ public record GeminiProperties(
         @DefaultValue("2") int maxRetries,
         @DefaultValue("1000") long retryDelayMs
 ) {
+    public record Api(String key) {                                                       // ← 추가: 중첩 record
+    }
 }

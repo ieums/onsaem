@@ -72,4 +72,19 @@ public class LessonQueryRepository {
     private static java.time.LocalDateTime toLocalDateTime(Timestamp ts) {
         return ts == null ? null : ts.toLocalDateTime();
     }
+
+    /**
+     * lesson ID만으로 단건 조회 — Scheduler가 사용 (학생 ID 없이 호출 필요).
+     */
+    public Optional<LessonInfo> findById(Long lessonId) {
+        String sql = """
+            SELECT id, tutor_id, student_id, channel_name, status,
+                   recording_url, started_at, ended_at
+            FROM lessons
+            WHERE id = ?
+            """;
+        return jdbcTemplate.query(sql, this::mapRow, lessonId)
+                .stream()
+                .findFirst();
+    }
 }

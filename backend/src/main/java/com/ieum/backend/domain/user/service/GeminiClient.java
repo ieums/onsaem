@@ -15,8 +15,9 @@ import org.springframework.web.client.RestClientException;
 import java.time.Duration;
 import java.util.List;
 
+
 @Slf4j
-@Component
+@Component("aiTutorGeminiClient")
 @EnableConfigurationProperties(GeminiProperties.class)
 public class GeminiClient {
 
@@ -86,7 +87,7 @@ public class GeminiClient {
 
         GeminiResponse response = restClient.post()
                 .uri("/models/{model}:generateContent", model)
-                .header("x-goog-api-key", properties.apiKey())
+                .header("x-goog-api-key", properties.api().key())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
