@@ -36,5 +36,10 @@ out/
 ### VS Code ###
 .vscode/
 
-### Local config (secrets) ###
+### Image ###
+uploads/
+
+### yml ###
+application-local.yml
+data.sql
 application-local.properties
