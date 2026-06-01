@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+.fvm/
+.fvmrc
+.vscode/settings.json
+
+# iOS — flutter run / pod install 로컬 부산물 (Android·웹 위주일 때 커밋 제외)
+ios/Podfile
+ios/Podfile.lock
