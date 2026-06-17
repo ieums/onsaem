@@ -76,6 +76,9 @@ public class Problem {
     @Column(nullable = false)
     private boolean searching = false;
 
+    @Column(nullable = false)
+    private boolean expiringSoonNotified = false;
+
     @Builder
     public Problem(Long studentId, List<String> imageUrls, String extractedText,
                    String summary, Subject subject, String primaryType,
@@ -127,6 +130,11 @@ public class Problem {
     public void extendDeadline(LocalDateTime newDeadline) {
         this.searchDeadline = newDeadline;
         this.searching = true;
+        this.expiringSoonNotified = false;
+    }
+
+    public void markExpiringSoonNotified() {
+        this.expiringSoonNotified = true;
     }
 
     public void matchTutor() {

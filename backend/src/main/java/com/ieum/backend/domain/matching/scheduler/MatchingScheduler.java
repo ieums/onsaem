@@ -1,0 +1,53 @@
+package com.ieum.backend.domain.matching.scheduler;
+
+import com.ieum.backend.domain.matching.entity.ApplicationStatus;
+import com.ieum.backend.domain.matching.repository.MatchingApplicationRepository;
+import com.ieum.backend.domain.matching.service.MatchingNotificationService;
+import com.ieum.backend.domain.problem.entity.Problem;
+import com.ieum.backend.domain.problem.repository.ProblemRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Component
+@RequiredArgsConstructor
+public class MatchingScheduler {
+
+    private final ProblemRepository problemRepository;
+    private final MatchingApplicationRepository applicationRepository;
+    private final MatchingNotificationService notificationService;
+
+    @Scheduled(fixedDelay = 30000)
+    @Transactional
+    public void run() {
+        checkExpiringSoon();
+        checkExpired();
+    }
+
+    /** 1단계: 만료 1분 전 알림 */
+    private void checkExpiringSoon() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Problem> problems = problemRepository.findAllExpiringSoon(now, now.plusMinutes(1));
+        for (Problem problem : problems) {
+            notificationService.notifySearchExpiringSoon(problem.getStudentId(), problem.getId());
+            problem.markExpiringSoonNotified();
+        }
+    }
+
+    /** 2단계: 완전 만료 처리 */
+    private void checkExpired() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Problem> problems = problemRepository.findAllExpired(now);
+        for (Problem problem : problems) {
+            problem.stopSearching();
+            applicationRepository
+                    .findByProblemIdAndStatusIn(problem.getId(), List.of(ApplicationStatus.PENDING))
+                    .forEach(app -> app.expire());
+            notificationService.notifySearchExpired(problem.getStudentId(), problem.getId());
+        }
+    }
+}

@@ -129,7 +129,7 @@ public class MatchingService {
                 .orElseThrow(() -> new IllegalStateException("문제를 찾을 수 없습니다. id=" + problemId));
 
         problem.stopSearching();
-        notificationService.notifySearchExpired(problem.getStudentId());
+        notificationService.notifySearchExpired(problem.getStudentId(), problemId);
     }
 
     @Transactional

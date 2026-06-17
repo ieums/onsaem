@@ -31,10 +31,17 @@ public class MatchingNotificationService {
         );
     }
 
-    public void notifySearchExpired(Long studentId) {
+    public void notifySearchExpiringSoon(Long studentId, Long problemId) {
         messagingTemplate.convertAndSend(
                 "/topic/student/" + studentId,
-                Map.of("type", "SEARCH_EXPIRED", "studentId", studentId)
+                Map.of("type", "SEARCH_EXPIRING_SOON", "studentId", studentId, "problemId", problemId)
+        );
+    }
+
+    public void notifySearchExpired(Long studentId, Long problemId) {
+        messagingTemplate.convertAndSend(
+                "/topic/student/" + studentId,
+                Map.of("type", "SEARCH_EXPIRED", "studentId", studentId, "problemId", problemId)
         );
     }
 
