@@ -20,4 +20,6 @@ public interface MatchingApplicationRepository extends JpaRepository<MatchingApp
     Optional<MatchingApplication> findByProblemIdAndTutorId(Long problemId, Long tutorId);
 
     int countByProblemIdAndStatusIn(Long problemId, List<ApplicationStatus> statuses);
+
+    List<MatchingApplication> findByTutorIdAndStatusIn(Long tutorId, List<ApplicationStatus> statuses);
 }

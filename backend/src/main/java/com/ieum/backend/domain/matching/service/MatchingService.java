@@ -3,6 +3,7 @@ package com.ieum.backend.domain.matching.service;
 import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.domain.lesson.service.LessonService;
 import com.ieum.backend.domain.matching.dto.response.ApplicantResponse;
+import com.ieum.backend.domain.matching.dto.response.TutorApplicationResponse;
 import com.ieum.backend.domain.matching.entity.ApplicationStatus;
 import com.ieum.backend.domain.matching.entity.MatchingApplication;
 import com.ieum.backend.domain.matching.repository.MatchingApplicationRepository;
@@ -15,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -133,10 +136,49 @@ public class MatchingService {
     }
 
     @Transactional
+    public void cancelApplication(Long problemId, Long tutorId) {
+        MatchingApplication application = applicationRepository
+                .findByProblemIdAndTutorId(problemId, tutorId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "신청 내역을 찾을 수 없습니다. problemId=" + problemId + ", tutorId=" + tutorId));
+
+        if (application.getStatus() != ApplicationStatus.PENDING) {
+            throw new IllegalStateException(
+                    "PENDING 상태인 신청만 취소할 수 있습니다. status=" + application.getStatus());
+        }
+
+        applicationRepository.delete(application);
+    }
+
+    @Transactional
     public void extendSearch(Long problemId, int minutes) {
         Problem problem = problemRepository.findById(problemId)
                 .orElseThrow(() -> new IllegalStateException("문제를 찾을 수 없습니다. id=" + problemId));
 
         problem.extendDeadline(LocalDateTime.now().plusMinutes(minutes));
+    }
+
+    public List<TutorApplicationResponse> getTutorApplications(Long tutorId) {
+        List<ApplicationStatus> statuses = List.of(
+                ApplicationStatus.PENDING,
+                ApplicationStatus.UNAVAILABLE,
+                ApplicationStatus.ACCEPTED
+        );
+
+        List<MatchingApplication> applications =
+                applicationRepository.findByTutorIdAndStatusIn(tutorId, statuses);
+
+        List<Long> problemIds = applications.stream()
+                .map(MatchingApplication::getProblemId)
+                .distinct()
+                .toList();
+
+        Map<Long, Problem> problemMap = problemRepository.findAllByIdIn(problemIds).stream()
+                .collect(Collectors.toMap(Problem::getId, p -> p));
+
+        return applications.stream()
+                .filter(app -> problemMap.containsKey(app.getProblemId()))
+                .map(app -> TutorApplicationResponse.from(app, problemMap.get(app.getProblemId())))
+                .toList();
     }
 }
