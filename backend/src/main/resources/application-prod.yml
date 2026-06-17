@@ -13,5 +13,8 @@ cloud:
     credentials:
       access-key: ${AWS_ACCESS_KEY_ID}
       secret-key: ${AWS_SECRET_ACCESS_KEY}
-    region:
-      static: ap-northeast-2  
+
+portone:
+  api-secret: ${PORTONE_API_SECRET:}
+  api-base-url: https://api.portone.io
+  verification-enabled: ${PORTONE_VERIFY:false}

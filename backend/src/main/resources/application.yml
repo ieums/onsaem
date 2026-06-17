@@ -7,16 +7,12 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
-
   cloud:
     aws:
       region:
         static: ap-northeast-2
       s3:
         bucket: onsaem-bucket
-      credentials:
-        access-key: ${AWS_ACCESS_KEY_ID}
-        secret-key: ${AWS_SECRET_ACCESS_KEY}
   servlet:
     multipart:
       max-file-size: 20MB
@@ -24,15 +20,17 @@ spring:
 
 server:
   port: 8080
+
 file:
   upload-dir: uploads
+
 gemini:
   api:
     key: ${GEMINI_API_KEY:none}
 
 agora:
-  app-id: ${AGORA_APP_ID}
-  app-certificate: ${AGORA_APP_CERTIFICATE}
+  app-id: ${AGORA_APP_ID:none}
+  app-certificate: ${AGORA_APP_CERTIFICATE:none}
   token-expiry-seconds: 3600
-  customer-id: ${AGORA_CUSTOMER_ID}
-  customer-secret: ${AGORA_CUSTOMER_SECRET}
+  customer-id: ${AGORA_CUSTOMER_ID:none}
+  customer-secret: ${AGORA_CUSTOMER_SECRET:none}
