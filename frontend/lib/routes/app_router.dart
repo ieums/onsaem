@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/features/auth/screens/login_screen.dart';
 import 'package:ieum/features/auth/screens/signup_role_screen.dart';
 import 'package:ieum/features/auth/screens/student_signup_screen.dart';
@@ -16,6 +18,14 @@ import '../features/matching/screens/problem_detail_screen.dart';
 final appRouter = GoRouter(
   navigatorKey: GlobalKey<NavigatorState>(),
   initialLocation: '/',
+  redirect: (context, state) {
+    final container = ProviderScope.containerOf(context);
+    final user = container.read(currentUserProvider);
+    final isProtected = state.matchedLocation.startsWith('/tutor') ||
+        state.matchedLocation.startsWith('/student');
+    if (user == null && isProtected) return '/';
+    return null;
+  },
   routes: [
     // ─── 유나 라우트 ───────────────────────────────────────────────────────
     GoRoute(

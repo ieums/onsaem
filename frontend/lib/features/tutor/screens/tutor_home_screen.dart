@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/matching/models/searching_problem_model.dart';
-import 'package:ieum/features/matching/providers/matching_provider.dart';
+import 'package:ieum/features/matching/providers/matching_provider.dart'
+    show matchingProvider, tutorApplicationsProvider;
 import 'package:ieum/features/tutor/providers/tutor_availability_provider.dart';
 import 'package:ieum/features/tutor/widgets/tutor_request_problem_image.dart';
 import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
@@ -39,13 +40,17 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
 
   void _rejectProblem(int problemId) {
     setState(() => _rejectedProblemIds.add(problemId));
+    ref.read(matchingProvider.notifier).rejectProblem(problemId);
   }
 
   Future<void> _navigateToDetail(SearchingProblemModel problem) async {
     final rejected =
         await context.push<int?>('/problem-detail', extra: problem);
-    if (mounted && rejected != null) {
+    if (!mounted) return;
+    if (rejected != null) {
       setState(() => _rejectedProblemIds.add(rejected));
+    } else {
+      ref.invalidate(tutorApplicationsProvider);
     }
   }
 

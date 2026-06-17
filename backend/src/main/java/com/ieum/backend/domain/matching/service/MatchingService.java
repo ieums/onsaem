@@ -158,6 +158,22 @@ public class MatchingService {
         problem.extendDeadline(LocalDateTime.now().plusMinutes(minutes));
     }
 
+    @Transactional
+    public void rejectProblem(Long problemId, Long tutorId) {
+        boolean alreadyRejected = applicationRepository
+                .findByProblemIdAndTutorId(problemId, tutorId)
+                .map(a -> a.getStatus() == ApplicationStatus.REJECTED)
+                .orElse(false);
+        if (alreadyRejected) return;
+
+        MatchingApplication application = MatchingApplication.builder()
+                .problemId(problemId)
+                .tutorId(tutorId)
+                .build();
+        application.reject();
+        applicationRepository.save(application);
+    }
+
     public List<TutorApplicationResponse> getTutorApplications(Long tutorId) {
         List<ApplicationStatus> statuses = List.of(
                 ApplicationStatus.PENDING,

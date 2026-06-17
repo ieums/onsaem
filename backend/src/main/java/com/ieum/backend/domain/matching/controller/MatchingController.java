@@ -66,6 +66,14 @@ public class MatchingController {
         return ApiResponse.ok("신청이 취소되었습니다", null);
     }
 
+    @PostMapping("/{problemId}/reject")
+    public ApiResponse<Void> rejectProblem(
+            @PathVariable Long problemId,
+            @RequestParam Long tutorId) {
+        matchingService.rejectProblem(problemId, tutorId);
+        return ApiResponse.ok("문제를 거절했습니다", null);
+    }
+
     @GetMapping("/tutor/{tutorId}/applications")
     public ApiResponse<List<TutorApplicationResponse>> getTutorApplications(
             @PathVariable Long tutorId) {
