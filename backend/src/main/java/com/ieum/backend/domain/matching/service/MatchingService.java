@@ -133,6 +133,21 @@ public class MatchingService {
     }
 
     @Transactional
+    public void cancelApplication(Long problemId, Long tutorId) {
+        MatchingApplication application = applicationRepository
+                .findByProblemIdAndTutorId(problemId, tutorId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "신청 내역을 찾을 수 없습니다. problemId=" + problemId + ", tutorId=" + tutorId));
+
+        if (application.getStatus() != ApplicationStatus.PENDING) {
+            throw new IllegalStateException(
+                    "PENDING 상태인 신청만 취소할 수 있습니다. status=" + application.getStatus());
+        }
+
+        applicationRepository.delete(application);
+    }
+
+    @Transactional
     public void extendSearch(Long problemId, int minutes) {
         Problem problem = problemRepository.findById(problemId)
                 .orElseThrow(() -> new IllegalStateException("문제를 찾을 수 없습니다. id=" + problemId));

@@ -100,3 +100,10 @@ POST http://localhost:8080/api/v1/matching/1/accept
 Content-Type: application/json
 
 { "tutorId": 100 }
+
+### Step 20 - 강사 신청 취소
+### → Step 17에서 신청 후 취소 테스트 (DB에서 삭제 확인)
+DELETE http://localhost:8080/api/v1/matching/1/apply?tutorId=100
+
+### Step 21 - 취소 후 목록 재조회 (applicantCount=0 확인)
+GET http://localhost:8080/api/v1/problems/student?studentId=1

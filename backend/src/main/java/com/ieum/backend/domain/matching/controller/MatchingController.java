@@ -57,6 +57,14 @@ public class MatchingController {
         return ApiResponse.ok("탐색 시간을 연장했습니다", null);
     }
 
+    @DeleteMapping("/{problemId}/apply")
+    public ApiResponse<Void> cancelApplication(
+            @PathVariable Long problemId,
+            @RequestParam Long tutorId) {
+        matchingService.cancelApplication(problemId, tutorId);
+        return ApiResponse.ok("신청이 취소되었습니다", null);
+    }
+
     @PostMapping("/tutor/{tutorId}/start-lesson")
     public ApiResponse<Void> tutorStartLesson(@PathVariable Long tutorId) {
         matchingService.tutorStartLesson(tutorId);
