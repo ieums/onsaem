@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -19,16 +21,16 @@ public class MatchingNotificationService {
         );
     }
 
-    public void notifyMatched(Long problemId, Long tutorId, Long studentId, Long lessonId, String channelName) {
-        messagingTemplate.convertAndSend(
-                "/topic/matching/" + problemId,
-                Map.of("type", "MATCHED",
-                        "tutorId", tutorId,
-                        "studentId", studentId,
-                        "problemId", problemId,
-                        "lessonId", lessonId,
-                        "channelName", channelName)
-        );
+    public void notifyMatched(Long problemId, Long tutorId, Long studentId, Long lessonId, String channelName, List<String> imageUrls) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "MATCHED");
+        payload.put("tutorId", tutorId);
+        payload.put("studentId", studentId);
+        payload.put("problemId", problemId);
+        payload.put("lessonId", lessonId);
+        payload.put("channelName", channelName);
+        payload.put("imageUrls", imageUrls);
+        messagingTemplate.convertAndSend("/topic/matching/" + problemId, payload);
     }
 
     public void notifySearchExpiringSoon(Long studentId, Long problemId) {

@@ -98,7 +98,7 @@ public class MatchingService {
         String channelName = "problem-" + problemId;
         Lesson lesson = lessonService.createLesson(tutorId, problem.getStudentId(), channelName);
 
-        notificationService.notifyMatched(problemId, tutorId, problem.getStudentId(), lesson.getId(), channelName);
+        notificationService.notifyMatched(problemId, tutorId, problem.getStudentId(), lesson.getId(), channelName, problem.getImageUrls());
     }
 
     @Transactional

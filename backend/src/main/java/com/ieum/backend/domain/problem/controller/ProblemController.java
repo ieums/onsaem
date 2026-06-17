@@ -5,6 +5,7 @@ import com.ieum.backend.domain.problem.dto.request.ProblemCreateRequest;
 import com.ieum.backend.domain.problem.dto.response.ProblemCreateResponse;
 import com.ieum.backend.domain.problem.dto.response.ProblemDetailResponse;
 import com.ieum.backend.domain.problem.dto.response.SearchingProblemResponse;
+import com.ieum.backend.domain.problem.dto.response.StudentProblemResponse;
 import com.ieum.backend.domain.problem.service.ProblemService;
 import com.ieum.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -44,6 +45,15 @@ public class ProblemController {
     @GetMapping("/searching")
     public ApiResponse<List<SearchingProblemResponse>> getSearchingProblems(@RequestParam Long tutorId) {
         return ApiResponse.ok("강사 탐색 중인 문제 목록입니다", problemService.getSearchingProblems(tutorId));
+    }
+
+    /**
+     * 학생 문제 목록 조회
+     * GET /api/v1/problems/student?studentId={studentId}
+     */
+    @GetMapping("/student")
+    public ApiResponse<List<StudentProblemResponse>> getStudentProblems(@RequestParam Long studentId) {
+        return ApiResponse.ok("학생 문제 목록입니다", problemService.getStudentProblems(studentId));
     }
 
     /**

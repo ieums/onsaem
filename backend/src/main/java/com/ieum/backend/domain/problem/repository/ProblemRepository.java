@@ -18,4 +18,6 @@ public interface ProblemRepository extends JpaRepository<Problem, Long> {
 
     @Query("SELECT p FROM Problem p WHERE p.searching = true AND p.searchDeadline < :now")
     List<Problem> findAllExpired(@Param("now") LocalDateTime now);
+
+    List<Problem> findAllByStudentId(Long studentId);
 }

@@ -4,9 +4,11 @@ import com.ieum.backend.domain.matching.repository.MatchingApplicationRepository
 import com.ieum.backend.domain.problem.dto.internal.AiAnalysisResult;
 import com.ieum.backend.domain.problem.dto.request.ClassificationUpdateRequest;
 import com.ieum.backend.domain.problem.dto.request.ProblemCreateRequest;
+import com.ieum.backend.domain.matching.entity.ApplicationStatus;
 import com.ieum.backend.domain.problem.dto.response.ProblemCreateResponse;
 import com.ieum.backend.domain.problem.dto.response.ProblemDetailResponse;
 import com.ieum.backend.domain.problem.dto.response.SearchingProblemResponse;
+import com.ieum.backend.domain.problem.dto.response.StudentProblemResponse;
 import com.ieum.backend.domain.problem.entity.Problem;
 import com.ieum.backend.domain.problem.repository.ProblemRepository;
 import lombok.RequiredArgsConstructor;
@@ -125,6 +127,19 @@ public class ProblemService {
         return problems.stream()
                 .map(p -> SearchingProblemResponse.from(p,
                         matchingApplicationRepository.existsByProblemIdAndTutorId(p.getId(), tutorId)))
+                .toList();
+    }
+
+    /**
+     * 학생 문제 목록 조회
+     */
+    public List<StudentProblemResponse> getStudentProblems(Long studentId) {
+        List<ApplicationStatus> countStatuses = List.of(ApplicationStatus.PENDING, ApplicationStatus.UNAVAILABLE);
+        return problemRepository.findAllByStudentId(studentId).stream()
+                .map(problem -> {
+                    int count = matchingApplicationRepository.countByProblemIdAndStatusIn(problem.getId(), countStatuses);
+                    return StudentProblemResponse.from(problem, count);
+                })
                 .toList();
     }
 
