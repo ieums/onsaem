@@ -10,6 +10,8 @@ import 'package:ieum/features/student/screens/student_shell_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_shell_screen.dart';
 import '../features/auth/screens/temp_login_screen.dart';
 import '../features/lesson/presentation/lesson_screen.dart';
+import '../features/matching/models/searching_problem_model.dart';
+import '../features/matching/screens/problem_detail_screen.dart';
 
 final appRouter = GoRouter(
   navigatorKey: GlobalKey<NavigatorState>(),
@@ -56,6 +58,12 @@ final appRouter = GoRouter(
       path: '/lesson',
       builder: (_, state) => LessonScreen(
         channelName: state.extra as String,
+      ),
+    ),
+    GoRoute(
+      path: '/problem-detail',
+      builder: (_, state) => ProblemDetailScreen(
+        problem: state.extra as SearchingProblemModel,
       ),
     ),
   ],

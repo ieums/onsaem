@@ -1,17 +1,18 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:ieum/features/tutor/data/tutor_request_list_dummy_data.dart';
 
 /// 리스트 썸네일 — 탭 시 [showTutorRequestProblemImageViewer].
 class TutorRequestProblemThumbnail extends StatelessWidget {
   const TutorRequestProblemThumbnail({
     super.key,
-    required this.item,
+    this.imageUrl,
+    this.title,
     this.size = 88,
   });
 
-  final TutorRequestListItem item;
+  final String? imageUrl;
+  final String? title;
   final double size;
 
   @override
@@ -19,25 +20,43 @@ class TutorRequestProblemThumbnail extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => showTutorRequestProblemImageViewer(context, item),
+        onTap: () => showTutorRequestProblemImageViewer(
+          context,
+          imageUrl: imageUrl,
+          title: title,
+        ),
         borderRadius: BorderRadius.circular(12),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: _ProblemImagePlaceholder(
-            width: size,
-            height: size,
-          ),
+          child: _buildThumbnailContent(context),
         ),
       ),
     );
+  }
+
+  Widget _buildThumbnailContent(BuildContext context) {
+    if (imageUrl != null) {
+      return Image.network(
+        imageUrl!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _ProblemImagePlaceholder(
+          width: size,
+          height: size,
+        ),
+      );
+    }
+    return _ProblemImagePlaceholder(width: size, height: size);
   }
 }
 
 /// 문제 이미지 확대 뷰어.
 void showTutorRequestProblemImageViewer(
-  BuildContext context,
-  TutorRequestListItem item,
-) {
+  BuildContext context, {
+  String? imageUrl,
+  String? title,
+}) {
   showDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -46,9 +65,6 @@ void showTutorRequestProblemImageViewer(
       final scheme = Theme.of(dialogContext).colorScheme;
       final media = MediaQuery.of(dialogContext);
       final screenSize = media.size;
-      final title = item.chapter.isEmpty
-          ? item.detailSubject
-          : '${item.detailSubject} · ${item.chapter}';
 
       const horizontalInset = 20.0;
       const verticalInset = 24.0;
@@ -79,7 +95,7 @@ void showTutorRequestProblemImageViewer(
                   children: [
                     Expanded(
                       child: Text(
-                        title,
+                        title ?? '',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -122,11 +138,24 @@ void showTutorRequestProblemImageViewer(
                             maxScale: 4,
                             clipBehavior: Clip.hardEdge,
                             boundaryMargin: const EdgeInsets.all(48),
-                            child: _ProblemImagePlaceholder(
-                              width: displaySize.width,
-                              height: displaySize.height,
-                              large: true,
-                            ),
+                            child: imageUrl != null
+                                ? Image.network(
+                                    imageUrl,
+                                    width: displaySize.width,
+                                    height: displaySize.height,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, _, _) =>
+                                        _ProblemImagePlaceholder(
+                                      width: displaySize.width,
+                                      height: displaySize.height,
+                                      large: true,
+                                    ),
+                                  )
+                                : _ProblemImagePlaceholder(
+                                    width: displaySize.width,
+                                    height: displaySize.height,
+                                    large: true,
+                                  ),
                           ),
                         ),
                       ),
@@ -142,7 +171,6 @@ void showTutorRequestProblemImageViewer(
   );
 }
 
-/// 뷰어 영역 — 화면에 맞는 3:4 비율 (API 이미지 연동 시 확장).
 Size _resolveViewerImageSize({
   required double maxWidth,
   required double maxHeight,

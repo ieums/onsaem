@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/features/matching/models/searching_problem_model.dart';
+import 'package:ieum/features/matching/providers/matching_provider.dart';
 import 'package:ieum/features/tutor/providers/tutor_availability_provider.dart';
-import 'package:ieum/features/tutor/data/tutor_request_list_dummy_data.dart';
-import 'package:ieum/features/tutor/widgets/tutor_request_accept_dialog.dart';
 import 'package:ieum/features/tutor/widgets/tutor_request_problem_image.dart';
 import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
 
@@ -16,55 +17,57 @@ class TutorHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
+  static const int _pageSize = 5;
+
   int _questionPageIndex = 0;
-  final Set<String> _rejectedQuestionIds = {};
+  final Set<int> _rejectedProblemIds = {};
 
-  List<TutorRequestListItem> get _allRecentQuestions =>
-      TutorRequestDummyData.recentQuestions();
-
-  List<TutorRequestListItem> get _visibleRecentQuestions {
-    return _allRecentQuestions
-        .where((q) => !_rejectedQuestionIds.contains(q.id))
-        .toList();
+  List<SearchingProblemModel> _pagedProblems(
+      List<SearchingProblemModel> visible) {
+    if (visible.isEmpty) return [];
+    final pageCount = (visible.length / _pageSize).ceil();
+    final safeIndex = _questionPageIndex.clamp(0, pageCount - 1);
+    final start = safeIndex * _pageSize;
+    final end = (start + _pageSize).clamp(0, visible.length);
+    return visible.sublist(start, end);
   }
 
-  void _rejectQuestion(TutorRequestListItem item) {
-    setState(() {
-      _rejectedQuestionIds.add(item.id);
-      final pageCount = _questionPageCount;
-      if (pageCount == 0) {
-        _questionPageIndex = 0;
-      } else if (_questionPageIndex >= pageCount) {
-        _questionPageIndex = pageCount - 1;
-      }
-    });
+  int _pageCount(int visibleCount) {
+    if (visibleCount == 0) return 0;
+    return (visibleCount / _pageSize).ceil();
   }
 
-  int get _questionPageCount {
-    final count = _visibleRecentQuestions.length;
-    if (count == 0) return 0;
-    return (count / TutorRequestDummyData.newQuestionPageSize).ceil();
+  void _rejectProblem(int problemId) {
+    setState(() => _rejectedProblemIds.add(problemId));
   }
 
-  List<TutorRequestListItem> get _pagedQuestions {
-    final items = _visibleRecentQuestions;
-    if (items.isEmpty) return [];
+  Future<void> _navigateToDetail(SearchingProblemModel problem) async {
+    final rejected =
+        await context.push<int?>('/problem-detail', extra: problem);
+    if (mounted && rejected != null) {
+      setState(() => _rejectedProblemIds.add(rejected));
+    }
+  }
 
-    final pageCount = _questionPageCount;
-    final safeIndex = pageCount == 0
-        ? 0
-        : _questionPageIndex.clamp(0, pageCount - 1);
-    final start = safeIndex * TutorRequestDummyData.newQuestionPageSize;
-    final end = (start + TutorRequestDummyData.newQuestionPageSize).clamp(
-      0,
-      items.length,
-    );
-    return items.sublist(start, end);
+  String _timeAgo(DateTime createdAt) {
+    final diff = DateTime.now().difference(createdAt);
+    if (diff.inMinutes < 1) return '방금 전';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
+    if (diff.inHours < 24) return '${diff.inHours}시간 전';
+    return '${diff.inDays}일 전';
   }
 
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
+    final matchingState = ref.watch(matchingProvider);
+
+    final visibleList = matchingState.problems.whenOrNull(
+          data: (list) => list
+              .where((p) => !_rejectedProblemIds.contains(p.problemId))
+              .toList(),
+        ) ??
+        [];
 
     return Scaffold(
       backgroundColor: shell.scaffoldBackground,
@@ -85,27 +88,69 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
               const SizedBox(height: 16),
               _buildOnlineStatusCard(),
               const SizedBox(height: 24),
-              _buildQuestionListHeader(),
+              _buildQuestionListHeader(visibleList.length),
               const SizedBox(height: 12),
-              if (_visibleRecentQuestions.isEmpty)
-                Center(
+              matchingState.problems.when(
+                loading: () => Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 32),
-                    child: Text(
-                      _rejectedQuestionIds.isNotEmpty
-                          ? '표시할 새 질문이 없습니다.'
-                          : '5분 이내 새 질문이 없습니다.',
-                      style: TextStyle(color: shell.hintColor, fontSize: 14),
+                    child: CircularProgressIndicator(
+                      color: AppColors.primaryBlue,
                     ),
                   ),
-                )
-              else ...[
-                for (final question in _pagedQuestions) ...[
-                  _buildQuestionCard(question),
-                  const SizedBox(height: 12),
-                ],
-                _buildQuestionPagination(),
-              ],
+                ),
+                error: (_, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '불러오기에 실패했습니다.',
+                          style: TextStyle(
+                            color: shell.hintColor,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () =>
+                              ref.read(matchingProvider.notifier).refresh(),
+                          child: const Text(
+                            '다시 시도',
+                            style: TextStyle(color: AppColors.primaryBlue),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                data: (_) {
+                  if (visibleList.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Text(
+                          _rejectedProblemIds.isNotEmpty
+                              ? '표시할 새 질문이 없습니다.'
+                              : '탐색 중인 질문이 없습니다.',
+                          style:
+                              TextStyle(color: shell.hintColor, fontSize: 14),
+                        ),
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      for (final problem in _pagedProblems(visibleList)) ...[
+                        _buildQuestionCard(problem),
+                        const SizedBox(height: 12),
+                      ],
+                      _buildQuestionPagination(visibleList.length),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -209,7 +254,7 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
     );
   }
 
-  Widget _buildQuestionListHeader() {
+  Widget _buildQuestionListHeader(int count) {
     final shell = ShellTheme.of(context);
 
     return Row(
@@ -225,7 +270,7 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
           ),
         ),
         Text(
-          '${_visibleRecentQuestions.length}개',
+          '$count개',
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
@@ -236,13 +281,14 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
     );
   }
 
-  Widget _buildQuestionPagination() {
+  Widget _buildQuestionPagination(int visibleCount) {
     final shell = ShellTheme.of(context);
-    final pageCount = _questionPageCount;
+    final pageCount = _pageCount(visibleCount);
     if (pageCount <= 1) return const SizedBox.shrink();
 
-    final canGoPrev = _questionPageIndex > 0;
-    final canGoNext = _questionPageIndex < pageCount - 1;
+    final safeIndex = _questionPageIndex.clamp(0, pageCount - 1);
+    final canGoPrev = safeIndex > 0;
+    final canGoNext = safeIndex < pageCount - 1;
 
     return Padding(
       padding: const EdgeInsets.only(top: 4),
@@ -262,7 +308,7 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
           Text(
-            '${_questionPageIndex + 1} / $pageCount',
+            '${safeIndex + 1} / $pageCount',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -286,7 +332,7 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
     );
   }
 
-  Widget _buildQuestionCard(TutorRequestListItem question) {
+  Widget _buildQuestionCard(SearchingProblemModel problem) {
     final shell = ShellTheme.of(context);
 
     return Container(
@@ -300,16 +346,19 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TutorRequestProblemThumbnail(item: question),
+              TutorRequestProblemThumbnail(
+                imageUrl: problem.imageUrls.firstOrNull,
+                title: _cardTitle(problem),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TutorSubjectBadge(subject: question.subject),
+                    TutorSubjectBadge(subject: problem.subjectLabel),
                     const SizedBox(height: 8),
                     Text(
-                      question.detailSubject,
+                      problem.primaryType ?? '-',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -318,18 +367,20 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (question.chapter.isNotEmpty) ...[
+                    if (problem.secondaryType != null &&
+                        problem.secondaryType!.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
-                        question.chapter,
-                        style: TextStyle(fontSize: 13, color: shell.hintColor),
+                        problem.secondaryType!,
+                        style:
+                            TextStyle(fontSize: 13, color: shell.hintColor),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                     const SizedBox(height: 2),
                     Text(
-                      question.timeAgo,
+                      _timeAgo(problem.createdAt),
                       style: TextStyle(fontSize: 11, color: shell.hintColor),
                     ),
                   ],
@@ -338,41 +389,32 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          _buildActionButtons(question),
+          _buildActionButtons(problem),
         ],
       ),
     );
   }
 
-  Future<void> _showAcceptConfirmDialog(TutorRequestListItem item) async {
-    final confirmed = await showTutorRequestAcceptDialog(context, item);
-    if (!mounted || confirmed != true) return;
+  String _cardTitle(SearchingProblemModel problem) {
+    final primary = problem.primaryType ?? '';
+    final secondary = problem.secondaryType ?? '';
+    if (primary.isEmpty) return secondary;
+    if (secondary.isEmpty) return primary;
+    return '$primary · $secondary';
   }
 
-  Widget _buildActionButtons(TutorRequestListItem question) {
+  Widget _buildActionButtons(SearchingProblemModel problem) {
     final shell = ShellTheme.of(context);
-    final isOnline = ref.watch(tutorAvailabilityProvider);
-    final acceptBg = isOnline
-        ? AppColors.primaryBlue
-        : shell.offlineButtonColor;
-    final acceptFg = isOnline
-        ? AppColors.onPrimaryFill(Theme.of(context).brightness)
-        : shell.offlineButtonTextColor;
-    final rejectBorder = isOnline
-        ? shell.borderColor
-        : shell.offlineButtonColor;
-    final rejectFg = isOnline ? shell.titleColor : shell.offlineButtonTextColor;
 
     return Row(
       children: [
         Expanded(
           child: FilledButton(
-            onPressed: isOnline
-                ? () => _showAcceptConfirmDialog(question)
-                : null,
+            onPressed: () => _navigateToDetail(problem),
             style: FilledButton.styleFrom(
-              backgroundColor: acceptBg,
-              foregroundColor: acceptFg,
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor:
+                  AppColors.onPrimaryFill(Theme.of(context).brightness),
               elevation: 0,
               minimumSize: const Size.fromHeight(44),
               shape: RoundedRectangleBorder(
@@ -380,7 +422,7 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
               ),
             ),
             child: const Text(
-              '수락',
+              '자세히',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             ),
           ),
@@ -388,11 +430,11 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
         const SizedBox(width: 10),
         Expanded(
           child: OutlinedButton(
-            onPressed: isOnline ? () => _rejectQuestion(question) : null,
+            onPressed: () => _rejectProblem(problem.problemId),
             style: OutlinedButton.styleFrom(
-              foregroundColor: rejectFg,
+              foregroundColor: shell.titleColor,
               minimumSize: const Size.fromHeight(44),
-              side: BorderSide(color: rejectBorder, width: 1),
+              side: BorderSide(color: shell.borderColor, width: 1),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

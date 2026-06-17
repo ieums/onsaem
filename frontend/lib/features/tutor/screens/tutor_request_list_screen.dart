@@ -190,7 +190,10 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TutorRequestProblemThumbnail(item: item),
+              TutorRequestProblemThumbnail(
+                imageUrl: item.problemImageUrl,
+                title: item.detailSubject,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
