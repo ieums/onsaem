@@ -17,8 +17,7 @@ public class LessonScheduler {
     private final LessonRepository lessonRepository;
     private final S3Service s3Service;
 
-    // @Scheduled(fixedDelay = 3600000)
-    @Scheduled(fixedDelay = 10000) //확인용으로 10초만에 되는지
+    @Scheduled(fixedDelay = 3600000)
     @Transactional
     public void run() {
         cleanupStaleActive();
