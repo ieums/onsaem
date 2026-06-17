@@ -12,10 +12,10 @@ public class MatchingNotificationService {
 
     private final SimpMessagingTemplate messagingTemplate;
 
-    public void notifyTutorApplied(Long problemId, Long tutorId) {
+    public void notifyTutorApplied(Long problemId, Long tutorId, Long studentId) {
         messagingTemplate.convertAndSend(
-                "/topic/matching/" + problemId,
-                Map.of("type", "TUTOR_APPLIED", "tutorId", tutorId, "problemId", problemId)
+                "/topic/student/" + studentId,
+                Map.of("type", "TUTOR_APPLIED", "studentId", studentId, "problemId", problemId, "tutorId", tutorId)
         );
     }
 

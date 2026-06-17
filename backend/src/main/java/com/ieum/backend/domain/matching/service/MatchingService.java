@@ -62,7 +62,7 @@ public class MatchingService {
                 .build();
         applicationRepository.save(application);
 
-        notificationService.notifyTutorApplied(problemId, tutorId);
+        notificationService.notifyTutorApplied(problemId, tutorId, problem.getStudentId());
     }
 
     public List<ApplicantResponse> getApplicants(Long problemId) {
