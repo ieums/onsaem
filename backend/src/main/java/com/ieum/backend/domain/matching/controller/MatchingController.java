@@ -4,6 +4,7 @@ import com.ieum.backend.domain.matching.dto.request.MatchingAcceptRequest;
 import com.ieum.backend.domain.matching.dto.request.MatchingApplyRequest;
 import com.ieum.backend.domain.matching.dto.request.MatchingStartRequest;
 import com.ieum.backend.domain.matching.dto.response.ApplicantResponse;
+import com.ieum.backend.domain.matching.dto.response.TutorApplicationResponse;
 import com.ieum.backend.domain.matching.service.MatchingService;
 import com.ieum.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -63,6 +64,12 @@ public class MatchingController {
             @RequestParam Long tutorId) {
         matchingService.cancelApplication(problemId, tutorId);
         return ApiResponse.ok("신청이 취소되었습니다", null);
+    }
+
+    @GetMapping("/tutor/{tutorId}/applications")
+    public ApiResponse<List<TutorApplicationResponse>> getTutorApplications(
+            @PathVariable Long tutorId) {
+        return ApiResponse.ok("강사 신청 목록입니다", matchingService.getTutorApplications(tutorId));
     }
 
     @PostMapping("/tutor/{tutorId}/start-lesson")

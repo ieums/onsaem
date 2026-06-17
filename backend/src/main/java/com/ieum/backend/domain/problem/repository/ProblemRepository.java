@@ -20,4 +20,7 @@ public interface ProblemRepository extends JpaRepository<Problem, Long> {
     List<Problem> findAllExpired(@Param("now") LocalDateTime now);
 
     List<Problem> findAllByStudentId(Long studentId);
+
+    @Query("SELECT p FROM Problem p WHERE p.id IN :problemIds")
+    List<Problem> findAllByIdIn(@Param("problemIds") List<Long> problemIds);
 }

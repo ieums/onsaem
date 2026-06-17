@@ -107,3 +107,6 @@ DELETE http://localhost:8080/api/v1/matching/1/apply?tutorId=100
 
 ### Step 21 - 취소 후 목록 재조회 (applicantCount=0 확인)
 GET http://localhost:8080/api/v1/problems/student?studentId=1
+
+### Step 22 - 강사 신청 목록 조회
+GET http://localhost:8080/api/v1/matching/tutor/100/applications
