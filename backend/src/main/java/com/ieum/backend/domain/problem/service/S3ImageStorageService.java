@@ -18,7 +18,7 @@ public class S3ImageStorageService implements ImageStorageService {
 
     private final S3Client s3Client;
 
-    @Value("${cloud.aws.s3.bucket}")
+    @Value("${spring.cloud.aws.s3.bucket}")
     private String bucket;
 
     public S3ImageStorageService(S3Client s3Client) {
