@@ -110,3 +110,63 @@ GET http://localhost:8080/api/v1/problems/student?studentId=1
 
 ### Step 22 - 강사 신청 목록 조회
 GET http://localhost:8080/api/v1/matching/tutor/100/applications
+
+### Step 23 - 학생 강사 수락 (CONFIRMING)
+POST http://localhost:8080/api/v1/matching/1/accept
+Content-Type: application/json
+
+{
+  "tutorId": 1
+}
+
+### Step 24 - 강사 확인
+POST http://localhost:8080/api/v1/matching/1/confirm
+Content-Type: application/json
+
+{
+  "tutorId": 1,
+  "confirmedBy": "tutor"
+}
+
+### Step 25 - 학생 확인
+POST http://localhost:8080/api/v1/matching/1/confirm
+Content-Type: application/json
+
+{
+  "tutorId": 1,
+  "confirmedBy": "student"
+}
+
+### Step 26 - 학생 수락
+POST http://localhost:8080/api/v1/matching/1/accept
+Content-Type: application/json
+
+{
+  "tutorId": 1
+}
+
+### Step 27 - 강사가 취소
+POST http://localhost:8080/api/v1/matching/1/cancel-confirm
+Content-Type: application/json
+
+{
+  "tutorId": 1,
+  "cancelledBy": "tutor"
+}
+
+### Step 28 - 학생 수락
+POST http://localhost:8080/api/v1/matching/1/accept
+Content-Type: application/json
+
+{
+  "tutorId": 1
+}
+
+### Step 29 - 학생이 취소
+POST http://localhost:8080/api/v1/matching/1/cancel-confirm
+Content-Type: application/json
+
+{
+  "tutorId": 1,
+  "cancelledBy": "student"
+}

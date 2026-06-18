@@ -1,6 +1,7 @@
 package com.ieum.backend.domain.matching.scheduler;
 
 import com.ieum.backend.domain.matching.entity.ApplicationStatus;
+import com.ieum.backend.domain.matching.entity.MatchingApplication;
 import com.ieum.backend.domain.matching.repository.MatchingApplicationRepository;
 import com.ieum.backend.domain.matching.service.MatchingNotificationService;
 import com.ieum.backend.domain.problem.entity.Problem;
@@ -26,6 +27,7 @@ public class MatchingScheduler {
     public void run() {
         checkExpiringSoon();
         checkExpired();
+        checkConfirmingTimeout();
     }
 
     /** 1단계: 만료 1분 전 알림 */
@@ -48,6 +50,26 @@ public class MatchingScheduler {
                     .findByProblemIdAndStatusIn(problem.getId(), List.of(ApplicationStatus.PENDING))
                     .forEach(app -> app.expire());
             notificationService.notifySearchExpired(problem.getStudentId(), problem.getId());
+        }
+    }
+
+    /** 3단계: CONFIRMING 5분 타임아웃 처리 */
+    private void checkConfirmingTimeout() {
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(5);
+        List<MatchingApplication> timedOut = applicationRepository
+                .findByStatusAndConfirmedAtBefore(ApplicationStatus.CONFIRMING, cutoff);
+
+        for (MatchingApplication app : timedOut) {
+            Problem problem = problemRepository.findById(app.getProblemId()).orElse(null);
+            if (problem == null) continue;
+
+            String cancelledBy = !app.isTutorConfirmed() ? "timeout_tutor" : "timeout_student";
+
+            app.restorePending();
+            app.resetConfirmation();
+            notificationService.notifyMatchCancelled(
+                    app.getProblemId(), app.getTutorId(), problem.getStudentId(), cancelledBy
+            );
         }
     }
 }

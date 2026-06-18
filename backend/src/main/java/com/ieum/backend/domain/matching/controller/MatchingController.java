@@ -2,6 +2,8 @@ package com.ieum.backend.domain.matching.controller;
 
 import com.ieum.backend.domain.matching.dto.request.MatchingAcceptRequest;
 import com.ieum.backend.domain.matching.dto.request.MatchingApplyRequest;
+import com.ieum.backend.domain.matching.dto.request.MatchingCancelConfirmRequest;
+import com.ieum.backend.domain.matching.dto.request.MatchingConfirmRequest;
 import com.ieum.backend.domain.matching.dto.request.MatchingStartRequest;
 import com.ieum.backend.domain.matching.dto.response.ApplicantResponse;
 import com.ieum.backend.domain.matching.dto.response.TutorApplicationResponse;
@@ -64,6 +66,22 @@ public class MatchingController {
             @RequestParam Long tutorId) {
         matchingService.cancelApplication(problemId, tutorId);
         return ApiResponse.ok("신청이 취소되었습니다", null);
+    }
+
+    @PostMapping("/{problemId}/confirm")
+    public ApiResponse<Void> confirmMatch(
+            @PathVariable Long problemId,
+            @Valid @RequestBody MatchingConfirmRequest request) {
+        matchingService.confirmMatch(problemId, request.getTutorId(), request.getConfirmedBy());
+        return ApiResponse.ok("확인 처리되었습니다", null);
+    }
+
+    @PostMapping("/{problemId}/cancel-confirm")
+    public ApiResponse<Void> cancelMatch(
+            @PathVariable Long problemId,
+            @Valid @RequestBody MatchingCancelConfirmRequest request) {
+        matchingService.cancelMatch(problemId, request.getTutorId(), request.getCancelledBy());
+        return ApiResponse.ok("취소 처리되었습니다", null);
     }
 
     @PostMapping("/{problemId}/reject")

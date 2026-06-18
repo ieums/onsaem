@@ -67,4 +67,51 @@ public class MatchingNotificationService {
                 Map.of("type", "PROBLEM_MATCHED", "problemId", problemId)
         );
     }
+
+    public void notifyMatchRequested(Long problemId, Long tutorId, Long studentId) {
+        Map<String, Object> tutorPayload = new HashMap<>();
+        tutorPayload.put("type", "MATCH_REQUESTED");
+        tutorPayload.put("problemId", problemId);
+        tutorPayload.put("tutorId", tutorId);
+        tutorPayload.put("studentId", studentId);
+        tutorPayload.put("message", "매칭 요청이 왔습니다. 지금 바로 강의를 시작하시겠습니까?");
+
+        Map<String, Object> studentPayload = new HashMap<>();
+        studentPayload.put("type", "MATCH_REQUESTED");
+        studentPayload.put("problemId", problemId);
+        studentPayload.put("tutorId", tutorId);
+        studentPayload.put("studentId", studentId);
+        studentPayload.put("message", "매칭된 강사가 있습니다. 지금 바로 강의를 시작하시겠습니까?");
+
+        messagingTemplate.convertAndSend("/topic/tutor/" + tutorId, tutorPayload);
+        messagingTemplate.convertAndSend("/topic/student/" + studentId, studentPayload);
+    }
+
+    public void notifyMatchCancelled(Long problemId, Long tutorId, Long studentId, String cancelledBy) {
+        String tutorMsg;
+        String studentMsg;
+        switch (cancelledBy) {
+            case "tutor" -> {
+                tutorMsg   = "강의를 취소하셨습니다.";
+                studentMsg = "상대방이 강의를 취소하셨습니다.";
+            }
+            case "student" -> {
+                tutorMsg   = "상대방이 강의를 취소하셨습니다.";
+                studentMsg = "강의를 취소하셨습니다.";
+            }
+            case "timeout_tutor" -> {
+                tutorMsg   = "응답하지 않아 강의가 취소되었습니다.";
+                studentMsg = "상대방이 응답하지 않아 강의가 취소되었습니다.";
+            }
+            default -> {
+                tutorMsg   = "상대방이 응답하지 않아 강의가 취소되었습니다.";
+                studentMsg = "응답하지 않아 강의가 취소되었습니다.";
+            }
+        }
+
+        messagingTemplate.convertAndSend("/topic/tutor/" + tutorId,
+                Map.of("type", "MATCH_CANCELLED", "problemId", problemId, "message", tutorMsg));
+        messagingTemplate.convertAndSend("/topic/student/" + studentId,
+                Map.of("type", "MATCH_CANCELLED", "problemId", problemId, "message", studentMsg));
+    }
 }

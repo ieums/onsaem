@@ -33,12 +33,39 @@ public class MatchingApplication {
 
     private LocalDateTime respondedAt;
 
+    private LocalDateTime confirmedAt;
+
+    @Column(nullable = false)
+    private boolean tutorConfirmed = false;
+
+    @Column(nullable = false)
+    private boolean studentConfirmed = false;
+
     @Builder
     public MatchingApplication(Long problemId, Long tutorId) {
         this.problemId = problemId;
         this.tutorId = tutorId;
         this.status = ApplicationStatus.PENDING;
         this.appliedAt = LocalDateTime.now();
+    }
+
+    public void confirm() {
+        this.status = ApplicationStatus.CONFIRMING;
+        this.confirmedAt = LocalDateTime.now();
+    }
+
+    public void tutorConfirm() {
+        this.tutorConfirmed = true;
+    }
+
+    public void studentConfirm() {
+        this.studentConfirmed = true;
+    }
+
+    public void resetConfirmation() {
+        this.tutorConfirmed = false;
+        this.studentConfirmed = false;
+        this.confirmedAt = null;
     }
 
     public void accept() {

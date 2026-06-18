@@ -4,6 +4,7 @@ import com.ieum.backend.domain.matching.entity.ApplicationStatus;
 import com.ieum.backend.domain.matching.entity.MatchingApplication;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,4 +23,6 @@ public interface MatchingApplicationRepository extends JpaRepository<MatchingApp
     int countByProblemIdAndStatusIn(Long problemId, List<ApplicationStatus> statuses);
 
     List<MatchingApplication> findByTutorIdAndStatusIn(Long tutorId, List<ApplicationStatus> statuses);
+
+    List<MatchingApplication> findByStatusAndConfirmedAtBefore(ApplicationStatus status, LocalDateTime cutoff);
 }

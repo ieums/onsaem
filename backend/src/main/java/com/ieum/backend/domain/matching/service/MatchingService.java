@@ -85,23 +85,59 @@ public class MatchingService {
         Problem problem = problemRepository.findById(problemId)
                 .orElseThrow(() -> new IllegalStateException("문제를 찾을 수 없습니다. id=" + problemId));
 
-        MatchingApplication accepted = applicationRepository.findByProblemIdAndTutorId(problemId, tutorId)
+        MatchingApplication application = applicationRepository.findByProblemIdAndTutorId(problemId, tutorId)
                 .filter(a -> a.getStatus() == ApplicationStatus.PENDING)
                 .orElseThrow(() -> new IllegalStateException("해당 강사의 PENDING 신청을 찾을 수 없습니다. tutorId=" + tutorId));
 
-        accepted.accept();
-        problem.matchTutor();
+        application.confirm();
 
-        applicationRepository.findByProblemIdAndStatusIn(problemId, List.of(ApplicationStatus.PENDING))
-                .forEach(app -> {
+        notificationService.notifyMatchRequested(problemId, tutorId, problem.getStudentId());
+    }
+
+    @Transactional
+    public void confirmMatch(Long problemId, Long tutorId, String confirmedBy) {
+        MatchingApplication application = applicationRepository.findByProblemIdAndTutorId(problemId, tutorId)
+                .filter(a -> a.getStatus() == ApplicationStatus.CONFIRMING)
+                .orElseThrow(() -> new IllegalStateException("CONFIRMING 상태의 신청을 찾을 수 없습니다."));
+
+        if ("tutor".equals(confirmedBy)) {
+            application.tutorConfirm();
+        } else {
+            application.studentConfirm();
+        }
+
+        if (application.isTutorConfirmed() && application.isStudentConfirmed()) {
+            application.accept();
+
+            Problem problem = problemRepository.findById(problemId)
+                    .orElseThrow(() -> new IllegalStateException("문제를 찾을 수 없습니다. id=" + problemId));
+            Long studentId = problem.getStudentId();
+            problem.matchTutor();
+
+            applicationRepository.findByProblemIdAndStatusIn(problemId, List.of(ApplicationStatus.PENDING))
+                    .forEach(app -> {
+                        app.reject();
+                        notificationService.notifyProblemMatched(problemId, app.getTutorId());
+                    });
+
+            String channelName = "problem-" + problemId;
+            Lesson lesson = lessonService.createLesson(tutorId, studentId, channelName);
+            notificationService.notifyMatched(problemId, tutorId, studentId, lesson.getId(), channelName, problem.getImageUrls());
+        }
+    }
+
+    @Transactional
+    public void cancelMatch(Long problemId, Long tutorId, String cancelledBy) {
+        Problem problem = problemRepository.findById(problemId)
+                .orElseThrow(() -> new IllegalStateException("문제를 찾을 수 없습니다. id=" + problemId));
+        Long studentId = problem.getStudentId();
+
+        applicationRepository.findByProblemIdAndTutorId(problemId, tutorId)
+                .filter(a -> a.getStatus() == ApplicationStatus.CONFIRMING)
+                .ifPresent(app -> {
                     app.reject();
-                    notificationService.notifyProblemMatched(problemId, app.getTutorId());
+                    notificationService.notifyMatchCancelled(problemId, tutorId, studentId, cancelledBy);
                 });
-
-        String channelName = "problem-" + problemId;
-        Lesson lesson = lessonService.createLesson(tutorId, problem.getStudentId(), channelName);
-
-        notificationService.notifyMatched(problemId, tutorId, problem.getStudentId(), lesson.getId(), channelName, problem.getImageUrls());
     }
 
     @Transactional
@@ -177,6 +213,7 @@ public class MatchingService {
     public List<TutorApplicationResponse> getTutorApplications(Long tutorId) {
         List<ApplicationStatus> statuses = List.of(
                 ApplicationStatus.PENDING,
+                ApplicationStatus.CONFIRMING,
                 ApplicationStatus.UNAVAILABLE,
                 ApplicationStatus.ACCEPTED
         );
