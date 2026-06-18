@@ -68,6 +68,13 @@ public class MatchingNotificationService {
         );
     }
 
+    public void notifyNewProblem(Long problemId) {
+        messagingTemplate.convertAndSend(
+                "/topic/new-problem",
+                Map.of("type", "NEW_PROBLEM", "problemId", problemId)
+        );
+    }
+
     public void notifyMatchRequested(Long problemId, Long tutorId, Long studentId) {
         Map<String, Object> tutorPayload = new HashMap<>();
         tutorPayload.put("type", "MATCH_REQUESTED");

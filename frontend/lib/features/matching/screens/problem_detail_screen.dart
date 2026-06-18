@@ -139,9 +139,9 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        '거절',
-                        style: TextStyle(
+                      child: Text(
+                        problem.alreadyApplied ? '닫기' : '거절',
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),

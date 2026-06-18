@@ -320,21 +320,35 @@ class _TutorRequestListScreenState
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: OutlinedButton(
-            onPressed: () => _cancelApplication(app),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _shell.titleColor,
-              minimumSize: const Size.fromHeight(44),
-              side: BorderSide(color: _shell.borderColor, width: 1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              '취소',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-          ),
+          child: app.status == 'CONFIRMING'
+              ? SizedBox(
+                  height: 44,
+                  child: Center(
+                    child: Text(
+                      '확인 대기 중',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ),
+                  ),
+                )
+              : OutlinedButton(
+                  onPressed: () => _cancelApplication(app),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _shell.titleColor,
+                    minimumSize: const Size.fromHeight(44),
+                    side: BorderSide(color: _shell.borderColor, width: 1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    '취소',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ),
         ),
       ],
     );

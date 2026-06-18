@@ -47,4 +47,18 @@ class MatchingRepository {
       queryParameters: {'tutorId': tutorId},
     );
   }
+
+  Future<void> confirmMatch(int problemId, int tutorId) async {
+    await _dio.post(
+      '/matching/$problemId/confirm',
+      data: {'tutorId': tutorId, 'confirmedBy': 'tutor'},
+    );
+  }
+
+  Future<void> cancelConfirm(int problemId, int tutorId) async {
+    await _dio.post(
+      '/matching/$problemId/cancel-confirm',
+      data: {'tutorId': tutorId, 'cancelledBy': 'tutor'},
+    );
+  }
 }

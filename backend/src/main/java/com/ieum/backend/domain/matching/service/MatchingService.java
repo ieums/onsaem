@@ -39,6 +39,7 @@ public class MatchingService {
         }
 
         problem.startSearching(LocalDateTime.now().plusMinutes(minutes));
+        notificationService.notifyNewProblem(problemId);
     }
 
     @Transactional
@@ -214,8 +215,7 @@ public class MatchingService {
         List<ApplicationStatus> statuses = List.of(
                 ApplicationStatus.PENDING,
                 ApplicationStatus.CONFIRMING,
-                ApplicationStatus.UNAVAILABLE,
-                ApplicationStatus.ACCEPTED
+                ApplicationStatus.UNAVAILABLE
         );
 
         List<MatchingApplication> applications =
