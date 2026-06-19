@@ -42,3 +42,4 @@ uploads/
 ### yml ###
 application-local.yml
 data.sql
+application-local.properties
