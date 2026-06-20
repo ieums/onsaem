@@ -21,12 +21,19 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/health").permitAll()
+                        .requestMatchers("/api/v1/problems/**").permitAll()
+                        .requestMatchers("/api/v1/payments/**").permitAll()
+                        .requestMatchers("/api/v1/settlements/**").permitAll()
                         .requestMatchers(
                                 "/api/v1/health",
                                 "/api/v1/ai-tutor/**",
                                 "/api/v1/lesson/token",
                                 "/api/v1/lesson/*/images",
+                                "/api/v1/lesson/*/start",
+                                "/api/v1/lesson/*/extend",
                                 "/api/v1/lesson/*/complete",
+                                "/api/v1/lesson/*/cancel",
                                 "/api/v1/lesson/*/recording/start",
                                 "/api/v1/lesson/*/recording/stop",
                                 "/ws/**",

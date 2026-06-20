@@ -1,4 +1,4 @@
-package com.ieum.backend.domain.payment.entity.enums;
+package com.ieum.backend.domain.settlement.entity.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

@@ -2,6 +2,7 @@ package com.ieum.backend.domain.payment.entity;
 
 import com.ieum.backend.domain.payment.entity.enums.PaymentMethod;
 import com.ieum.backend.domain.payment.entity.enums.PaymentStatus;
+import com.ieum.backend.domain.payment.entity.enums.PaymentTargetType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -43,6 +44,14 @@ public class Payment {
     @Column(length = 100)
     private String productName;
 
+    @Column(name = "payment_target_type")
+    @Enumerated(EnumType.STRING)
+    private PaymentTargetType targetType;  // COIN_CHARGE | SUBSCRIPTION
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subscription_plan_id")
+    private SubscriptionPlan subscriptionPlan;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
@@ -51,13 +60,17 @@ public class Payment {
     @Builder
     public Payment(String merchantId, Long studentId, Integer amount,
                    Integer coinAmount, Integer bonusCoinAmount,
-                   String productName) {
+                   String productName,
+                   PaymentTargetType targetType,
+                   SubscriptionPlan subscriptionPlan) {
         this.merchantId = merchantId;
         this.studentId = studentId;
         this.amount = amount;
         this.coinAmount = coinAmount;
         this.bonusCoinAmount = bonusCoinAmount;
         this.productName = productName;
+        this.targetType = targetType;
+        this.subscriptionPlan = subscriptionPlan;
         this.status = PaymentStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }

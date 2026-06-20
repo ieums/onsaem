@@ -11,8 +11,10 @@ import com.ieum.backend.domain.problem.dto.response.SearchingProblemResponse;
 import com.ieum.backend.domain.problem.dto.response.StudentProblemResponse;
 import com.ieum.backend.domain.problem.entity.Problem;
 import com.ieum.backend.domain.problem.repository.ProblemRepository;
+import com.ieum.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -32,41 +34,53 @@ public class ProblemService {
 
     /**
      * 문제 등록 (이미지 1~N장)
+     *
+     * 이미지 저장 + 수 초 걸리는 Gemini 호출은 DB 트랜잭션 밖에서 수행한다(NOT_SUPPORTED).
+     * 트랜잭션은 실제 INSERT 시점(saveProblem → repository.save)에만 짧게 열려,
+     * 외부 호출이 DB 커넥션을 오래 점유하지 않는다.
+     *
+     * TODO: AI 분석이 실패하면 이미 저장된 이미지가 고아로 남는다.
+     *       ImageStorageService에 delete를 추가해 실패 시 정리 필요(별도 작업).
      */
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ProblemCreateResponse createProblem(List<MultipartFile> images,
                                                ProblemCreateRequest request) {
-        // 1. 이미지들 저장
+        // 1. 이미지들 저장 (트랜잭션 밖)
         List<String> imageUrls = imageStorageService.storeAll(images);
 
-        // 2. AI 분석 (Gemini가 detectedProblems 배열 반환)
-        AiAnalysisResult aiResult = geminiClient.analyze(images);
-        List<AiAnalysisResult.DetectedProblem> detected = aiResult.getDetectedProblems();
+        // 2~3. AI 분석 + 분기 처리. 실패하면 방금 저장한 이미지를 정리(고아 방지)
+        try {
+            AiAnalysisResult aiResult = geminiClient.analyze(images);
+            List<AiAnalysisResult.DetectedProblem> detected = aiResult.getDetectedProblems();
 
-        if (detected == null || detected.isEmpty()) {
-            throw new RuntimeException("이미지에서 문제를 감지하지 못했습니다.");
-        }
-
-        // 3. 분기 처리
-        Integer selectedIndex = request.getSelectedProblemIndex();
-
-        // (a) 1개만 감지 → 자동 등록
-        if (detected.size() == 1) {
-            Problem problem = saveProblem(detected.get(0), imageUrls, request);
-            return ProblemCreateResponse.from(problem);
-        }
-
-        // (b) 여러 개 감지 + 학생이 선택함 → 선택한 것만 등록
-        if (selectedIndex != null) {
-            if (selectedIndex < 0 || selectedIndex >= detected.size()) {
-                throw new RuntimeException("올바르지 않은 문제 인덱스입니다: " + selectedIndex);
+            if (detected == null || detected.isEmpty()) {
+                throw BusinessException.badRequest("이미지에서 문제를 감지하지 못했습니다.");
             }
-            Problem problem = saveProblem(detected.get(selectedIndex), imageUrls, request);
-            return ProblemCreateResponse.from(problem);
-        }
 
-        // (c) 여러 개 감지 + 학생 선택 안 함 → 선택 요청
-        return ProblemCreateResponse.fromDetection(detected, imageUrls);
+            Integer selectedIndex = request.getSelectedProblemIndex();
+
+            // (a) 1개만 감지 → 자동 등록
+            if (detected.size() == 1) {
+                Problem problem = saveProblem(detected.get(0), imageUrls, request);
+                return ProblemCreateResponse.from(problem);
+            }
+
+            // (b) 여러 개 감지 + 학생이 선택함 → 선택한 것만 등록
+            if (selectedIndex != null) {
+                if (selectedIndex < 0 || selectedIndex >= detected.size()) {
+                    throw BusinessException.badRequest("올바르지 않은 문제 인덱스입니다: " + selectedIndex);
+                }
+                Problem problem = saveProblem(detected.get(selectedIndex), imageUrls, request);
+                return ProblemCreateResponse.from(problem);
+            }
+
+            // (c) 여러 개 감지 + 학생 선택 안 함 → 선택 요청 (이미지는 유지: 재선택 시 사용)
+            return ProblemCreateResponse.fromDetection(detected, imageUrls);
+
+        } catch (RuntimeException e) {
+            imageStorageService.deleteAll(imageUrls);
+            throw e;
+        }
     }
 
     /**
@@ -96,7 +110,7 @@ public class ProblemService {
      */
     public ProblemDetailResponse getProblem(Long id) {
         Problem problem = problemRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("문제를 찾을 수 없습니다: " + id));
+                .orElseThrow(() -> BusinessException.notFound("문제를 찾을 수 없습니다: " + id));
         return ProblemDetailResponse.from(problem);
     }
 
@@ -106,7 +120,7 @@ public class ProblemService {
     @Transactional
     public ProblemDetailResponse updateClassification(Long id, ClassificationUpdateRequest request) {
         Problem problem = problemRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("문제를 찾을 수 없습니다. id=" + id));
+                .orElseThrow(() -> BusinessException.notFound("문제를 찾을 수 없습니다. id=" + id));
 
         problem.updateClassification(
                 request.getSubject(),
@@ -149,7 +163,7 @@ public class ProblemService {
     @Transactional
     public void cancelProblem(Long id) {
         Problem problem = problemRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("문제를 찾을 수 없습니다. id=" + id));
+                .orElseThrow(() -> BusinessException.notFound("문제를 찾을 수 없습니다. id=" + id));
         problem.cancel();
     }
 }
