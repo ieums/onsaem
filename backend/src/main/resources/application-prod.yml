@@ -8,8 +8,13 @@ spring:
     hibernate:
       ddl-auto: update
 
-cloud:
-  aws:
-    credentials:
-      access-key: ${AWS_ACCESS_KEY_ID}
-      secret-key: ${AWS_SECRET_ACCESS_KEY}
+  cloud:
+    aws:
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID}
+        secret-key: ${AWS_SECRET_ACCESS_KEY}
+
+portone:
+  api-secret: ${PORTONE_API_SECRET:}
+  api-base-url: https://api.portone.io
+  verification-enabled: ${PORTONE_VERIFY:false}

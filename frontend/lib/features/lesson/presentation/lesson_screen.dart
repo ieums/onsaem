@@ -4,20 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/providers/current_user_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import 'lesson_provider.dart';
 import 'whiteboard_painter.dart';
 
 class LessonScreen extends ConsumerStatefulWidget {
   final String channelName;
-  final int uid;
-  final bool isTutor;
 
   const LessonScreen({
     super.key,
     required this.channelName,
-    required this.uid,
-    required this.isTutor,
   });
 
   @override
@@ -65,10 +62,11 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final session = ref.read(currentUserProvider);
       ref.read(lessonProvider.notifier).initialize(
             widget.channelName,
-            widget.uid,
-            widget.isTutor,
+            session?.id ?? 0,
+            session?.isTutor ?? false,
           );
     });
   }
@@ -147,7 +145,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
 
   Widget _buildVideoArea(LessonState state) {
     // 튜터: 자신의 카메라 상태 기준 / 학생: 강사의 카메라 상태(STOMP 동기화) 기준
-    final showVideo = widget.isTutor
+    final showVideo = state.isTutor
         ? state.localCameraEnabled
         : state.remoteCameraEnabled;
     final videoHeight =
@@ -170,7 +168,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     final engine = ref.read(lessonProvider.notifier).engine;
     if (engine == null) return _buildVideoPlaceholder();
 
-    if (widget.isTutor) {
+    if (state.isTutor) {
       return AgoraVideoView(
         controller: VideoViewController(
           rtcEngine: engine,
@@ -188,7 +186,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
       controller: VideoViewController.remote(
         rtcEngine: engine,
         canvas: VideoCanvas(uid: remoteUid),
-        connection: RtcConnection(channelId: widget.channelName),
+        connection: RtcConnection(channelId: state.channelName!),
       ),
     );
   }
@@ -446,7 +444,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                 color: AppColors.buttonDanger,
                 onTap: () => _confirmComplete(),
               ),
-              if (widget.isTutor)
+              if (state.isTutor)
                 _ActionButton(
                   icon: state.localCameraEnabled
                       ? Icons.videocam_outlined

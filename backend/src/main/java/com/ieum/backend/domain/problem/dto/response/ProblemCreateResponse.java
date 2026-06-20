@@ -58,7 +58,7 @@ public class ProblemCreateResponse {
                 .totalDifficultyScore(problem.getTotalDifficultyScore())
                 .examType(problem.getExamType())
                 .status(problem.getStatus())
-                .studentDescription(problem.getUserDescription())
+                .studentDescription(problem.getStudentDescription())
                 .createdAt(problem.getCreatedAt())
                 .build();
     }

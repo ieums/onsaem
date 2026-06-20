@@ -64,19 +64,27 @@ public class Problem {
     private ProblemStatus status;
 
     @Column(columnDefinition = "TEXT")
-    private String userDescription;
+    private String studentDescription;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime resolvedAt;
 
+    private LocalDateTime searchDeadline;
+
+    @Column(nullable = false)
+    private boolean searching = false;
+
+    @Column(nullable = false)
+    private boolean expiringSoonNotified = false;
+
     @Builder
     public Problem(Long studentId, List<String> imageUrls, String extractedText,
                    String summary, Subject subject, String primaryType,
                    String secondaryType, Difficulty difficulty,
                    Integer totalDifficultyScore, ExamType examType,
-                   String userDescription) {
+                   String studentDescription) {
         this.studentId = studentId;
         this.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
         this.extractedText = extractedText;
@@ -87,7 +95,7 @@ public class Problem {
         this.difficulty = difficulty;
         this.totalDifficultyScore = totalDifficultyScore;
         this.examType = examType;
-        this.userDescription = userDescription;
+        this.studentDescription = studentDescription;
         this.status = ProblemStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }
@@ -112,5 +120,29 @@ public class Problem {
     // 문제 등록 취소
     public void cancel() {
         this.status = ProblemStatus.CANCELED;
+    }
+
+    public void startSearching(LocalDateTime deadline) {
+        this.searching = true;
+        this.searchDeadline = deadline;
+    }
+
+    public void extendDeadline(LocalDateTime newDeadline) {
+        this.searchDeadline = newDeadline;
+        this.searching = true;
+        this.expiringSoonNotified = false;
+    }
+
+    public void markExpiringSoonNotified() {
+        this.expiringSoonNotified = true;
+    }
+
+    public void matchTutor() {
+        this.status = ProblemStatus.MATCHED;
+        this.searching = false;
+    }
+
+    public void stopSearching() {
+        this.searching = false;
     }
 }

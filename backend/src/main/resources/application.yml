@@ -24,19 +24,20 @@ spring:
 
 server:
   port: 8080
+
 file:
   upload-dir: uploads
 
 gemini:
   api:
-    key: ${GEMINI_API_KEY}
+    key: ${GEMINI_API_KEY:none}
 
 agora:
-  app-id: ${AGORA_APP_ID}
-  app-certificate: ${AGORA_APP_CERTIFICATE}
+  app-id: ${AGORA_APP_ID:none}
+  app-certificate: ${AGORA_APP_CERTIFICATE:none}
   token-expiry-seconds: 5400   # 90분 (최대 강의 60분 + 결제 대기 여유)
-  customer-id: ${AGORA_CUSTOMER_ID}
-  customer-secret: ${AGORA_CUSTOMER_SECRET}
+  customer-id: ${AGORA_CUSTOMER_ID:none}
+  customer-secret: ${AGORA_CUSTOMER_SECRET:none}
 
 portone:
   api-secret: ${PORTONE_API_SECRET:}

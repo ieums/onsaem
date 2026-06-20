@@ -1,16 +1,15 @@
 package com.ieum.backend.global.config;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -21,7 +20,6 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/health").permitAll()
                         .requestMatchers("/api/v1/problems/**").permitAll()
@@ -29,6 +27,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/settlements/**").permitAll()
                         .requestMatchers(
                                 "/api/v1/health",
+                                "/api/v1/ai-tutor/**",
                                 "/api/v1/lesson/token",
                                 "/api/v1/lesson/*/images",
                                 "/api/v1/lesson/*/start",
@@ -40,7 +39,10 @@ public class SecurityConfig {
                                 "/ws/**",
                                 "/ws-raw",
                                 "/api/v1/problems/**",
-                                "/api/v1/payments/**"
+                                "/api/v1/payments/**",
+                                "/api/v1/matching/**",
+                                "/api/v1/lesson-review/**",
+                                "/error"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );
