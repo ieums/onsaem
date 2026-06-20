@@ -37,6 +37,16 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     implementation 'software.amazon.awssdk:s3:2.25.60' //S3
     //implementation 'io.portone:server-sdk:0.16.0' // 포트원(
+
+    // PDF 생성
+    implementation 'com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10'
+    implementation 'com.openhtmltopdf:openhtmltopdf-slf4j:1.0.10'
+
+    // 마크다운 → HTML
+    implementation 'com.vladsch.flexmark:flexmark-all:0.64.8'
+
+    // AWS S3 Presigned URL
+    implementation platform('software.amazon.awssdk:bom:2.25.60')
 }
 
 tasks.named('test') {

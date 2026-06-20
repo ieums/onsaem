@@ -87,4 +87,8 @@ public class Lesson {
     public enum LessonStatus {
         WAITING, ACTIVE, COMPLETED
     }
+
+    @Column(name = "problem_id")
+    private Long problemId;
+
 }
