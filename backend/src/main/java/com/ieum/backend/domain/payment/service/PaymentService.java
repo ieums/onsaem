@@ -8,21 +8,21 @@ import com.ieum.backend.domain.payment.dto.response.SubscriptionResponse;
 import com.ieum.backend.domain.payment.entity.CoinPackage;
 import com.ieum.backend.domain.payment.entity.Payment;
 import com.ieum.backend.domain.payment.entity.SubscriptionPlan;
-import com.ieum.backend.domain.payment.entity.enums.PaymentMethod;
-import com.ieum.backend.domain.payment.entity.enums.PaymentStatus;
 import com.ieum.backend.domain.payment.entity.enums.PaymentTargetType;
 import com.ieum.backend.domain.payment.repository.CoinPackageRepository;
 import com.ieum.backend.domain.payment.repository.PaymentRepository;
 import com.ieum.backend.domain.payment.repository.SubscriptionPlanRepository;
+import com.ieum.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -35,10 +35,9 @@ public class PaymentService {
     private final CoinService coinService;
     private final SubscriptionService subscriptionService;
     private final PortOneClient portOneClient;
+    private final PaymentCompletionTx completionTx;
 
-    // ═══════════════════════════════════════════════
-    //  코인 결제
-    // ═══════════════════════════════════════════════
+    // ── 코인 결제 ──
 
     /**
      * 코인 결제 요청 생성 (포트원 결제창 호출 전)
@@ -46,7 +45,7 @@ public class PaymentService {
     @Transactional
     public PaymentResponse createCoinPayment(CoinChargeRequest request) {
         CoinPackage coinPackage = coinPackageRepository.findById(request.getCoinPackageId())
-                .orElseThrow(() -> new RuntimeException("존재하지 않는 코인 패키지입니다."));
+                .orElseThrow(() -> BusinessException.notFound("존재하지 않는 코인 패키지입니다."));
 
         String merchantId = "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
@@ -65,35 +64,27 @@ public class PaymentService {
     }
 
     /**
-     * 코인 결제 완료 처리
+     * 코인 결제 완료 처리.
+     *
+     * 포트원 검증(외부 HTTP)은 트랜잭션 밖(NOT_SUPPORTED)에서 수행하고,
+     * 락·상태확정·적립만 짧은 트랜잭션(completionTx)으로 처리한다.
+     * 검증 실패는 별도 트랜잭션으로 FAILED를 커밋해 메인 롤백에 휩쓸리지 않게 한다.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public CoinBalanceResponse completeCoinPayment(String merchantId, String paymentId, String method) {
-        Payment payment = paymentRepository.findByMerchantId(merchantId)
-                .orElseThrow(() -> new RuntimeException("결제 정보를 찾을 수 없습니다."));
-
-        // 코인 결제인지 검증
-        if (payment.getTargetType() != PaymentTargetType.COIN_CHARGE) {
-            throw new RuntimeException("코인 충전 결제가 아닙니다.");
+        var ctx = completionTx.beginComplete(merchantId, PaymentTargetType.COIN_CHARGE);
+        if (ctx.alreadyCompleted()) {                 // 멱등: 이미 완료된 결제
+            return coinService.getBalance(ctx.studentId());
         }
 
         try {
-            portOneClient.verifyPayment(paymentId, payment.getAmount());
+            portOneClient.verifyPayment(paymentId, ctx.amount());
         } catch (Exception e) {
-            payment.fail();
-            paymentRepository.save(payment);
+            completionTx.markFailed(merchantId);       // 별도 트랜잭션 → FAILED 보존
             throw e;
         }
 
-        PaymentMethod paymentMethod = PaymentMethod.fromString(method);
-        payment.complete(paymentId, paymentMethod);
-
-        return coinService.charge(
-                payment.getStudentId(),
-                payment.getCoinAmount(),
-                payment.getBonusCoinAmount(),
-                payment.getId()
-        );
+        return completionTx.finalizeCoinCharge(merchantId, paymentId, method);
     }
 
     /**
@@ -104,7 +95,7 @@ public class PaymentService {
                         studentId, PaymentTargetType.COIN_CHARGE
                 ).stream()
                 .map(PaymentResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -112,61 +103,36 @@ public class PaymentService {
      */
     public PaymentResponse getCoinPaymentDetail(Long paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new RuntimeException("결제 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> BusinessException.notFound("결제 정보를 찾을 수 없습니다."));
 
         if (payment.getTargetType() != PaymentTargetType.COIN_CHARGE) {
-            throw new RuntimeException("코인 충전 결제가 아닙니다.");
+            throw BusinessException.badRequest("코인 충전 결제가 아닙니다.");
         }
         return PaymentResponse.from(payment);
     }
 
     /**
-     * 코인 환불
-     * - 환불 가능 조건 체크
-     * - 포트원 결제 취소
-     * - 코인 차감 + REFUND 트랜잭션 기록
-     * - Payment 상태 REFUNDED로 변경
+     * 코인 환불.
+     *
+     * 순서: (1) 검증 (2) 포트원 취소[외부, 트랜잭션 밖] (3) 코인 차감 + REFUNDED 확정[트랜잭션].
+     * 포트원 취소를 먼저 해 사용자에게 돈을 돌려준 뒤 코인을 차감한다.
+     * (3)이 실패하면 "포트원은 취소됐으나 코인 미차감" 불일치 → 로그로 수동 보정 대상 표시.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public CoinBalanceResponse refundCoinPayment(Long paymentId, String reason) {
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new RuntimeException("결제 정보를 찾을 수 없습니다."));
+        String portonePaymentId = completionTx.beginRefund(paymentId);
 
-        // 1. 환불 가능 조건 체크
-        if (payment.getStatus() != PaymentStatus.COMPLETED) {
-            throw new RuntimeException("완료된 결제만 환불 가능합니다. 현재 상태: " + payment.getStatus());
+        portOneClient.cancelPayment(portonePaymentId, reason != null ? reason : "사용자 요청");
+
+        try {
+            return completionTx.finalizeRefund(paymentId);
+        } catch (Exception e) {
+            log.error("[환불 보상필요] 포트원 취소는 완료됐으나 코인 차감/상태변경 실패. paymentId={}", paymentId, e);
+            throw e;
         }
-        if (payment.getTargetType() != PaymentTargetType.COIN_CHARGE) {
-            throw new RuntimeException("코인 충전 결제만 환불 가능합니다.");
-        }
-        if (payment.getCompletedAt().isBefore(LocalDateTime.now().minusDays(7))) {
-            throw new RuntimeException("결제 후 7일이 지나 환불할 수 없습니다.");
-        }
-
-        // 2. 포트원 결제 취소
-        portOneClient.cancelPayment(
-                payment.getPortonePaymentId(),
-                reason != null ? reason : "사용자 요청"
-        );
-
-        // 3. 코인 차감 + 환불 트랜잭션 기록
-        int totalCoinToRefund = payment.getCoinAmount() +
-                (payment.getBonusCoinAmount() != null ? payment.getBonusCoinAmount() : 0);
-        CoinBalanceResponse balance = coinService.refund(
-                payment.getStudentId(),
-                totalCoinToRefund,
-                payment.getId()
-        );
-
-        // 4. Payment 상태 변경
-        payment.refund();
-
-        return balance;
     }
 
-    // ═══════════════════════════════════════════════
-    //  구독 결제
-    // ═══════════════════════════════════════════════
+    // ── 구독 결제 ──
 
     /**
      * 구독 결제 요청 생성 (포트원 결제창 호출 전)
@@ -174,7 +140,7 @@ public class PaymentService {
     @Transactional
     public PaymentResponse createSubscriptionPayment(SubscribeChargeRequest request) {
         SubscriptionPlan plan = subscriptionPlanRepository.findById(request.getSubscriptionPlanId())
-                .orElseThrow(() -> new RuntimeException("존재하지 않는 구독 플랜입니다."));
+                .orElseThrow(() -> BusinessException.notFound("존재하지 않는 구독 플랜입니다."));
 
         // 이미 활성 구독이 있는지 체크
         subscriptionService.checkNoActiveSubscription(request.getStudentId());
@@ -195,38 +161,29 @@ public class PaymentService {
     }
 
     /**
-     * 구독 결제 완료 처리 (포트원 검증 + 구독 활성화)
+     * 구독 결제 완료 처리 (포트원 검증 + 구독 활성화).
+     * 코인 완료와 동일하게 외부 검증은 트랜잭션 밖, 확정/활성화는 짧은 트랜잭션.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public SubscriptionResponse completeSubscriptionPayment(
             String merchantId, String paymentId, String method, boolean autoRenew) {
-        Payment payment = paymentRepository.findByMerchantId(merchantId)
-                .orElseThrow(() -> new RuntimeException("결제 정보를 찾을 수 없습니다."));
-
-        // 구독 결제인지 검증
-        if (payment.getTargetType() != PaymentTargetType.SUBSCRIPTION) {
-            throw new RuntimeException("구독 결제가 아닙니다.");
+        var ctx = completionTx.beginComplete(merchantId, PaymentTargetType.SUBSCRIPTION);
+        if (ctx.alreadyCompleted()) {                 // 멱등: 이미 완료된 결제 → 기존 구독
+            SubscriptionResponse existing = subscriptionService.getMySubscription(ctx.studentId());
+            if (existing == null) {
+                throw BusinessException.internalError("완료된 결제이나 활성 구독을 찾을 수 없습니다.");
+            }
+            return existing;
         }
 
         try {
-            portOneClient.verifyPayment(paymentId, payment.getAmount());
+            portOneClient.verifyPayment(paymentId, ctx.amount());
         } catch (Exception e) {
-            payment.fail();
-            paymentRepository.save(payment);
+            completionTx.markFailed(merchantId);
             throw e;
         }
 
-        PaymentMethod paymentMethod = PaymentMethod.fromString(method);
-        payment.complete(paymentId, paymentMethod);
-
-        // 구독 활성화
-        return subscriptionService.activateAfterPayment(
-                payment.getStudentId(),
-                payment.getSubscriptionPlan().getId(),
-                payment.getAmount(),
-                autoRenew,
-                payment.getId()
-        );
+        return completionTx.finalizeSubscription(merchantId, paymentId, method, autoRenew);
     }
 
     /**
@@ -237,7 +194,7 @@ public class PaymentService {
                         studentId, PaymentTargetType.SUBSCRIPTION
                 ).stream()
                 .map(PaymentResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -245,17 +202,15 @@ public class PaymentService {
      */
     public PaymentResponse getSubscriptionPaymentDetail(Long paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new RuntimeException("결제 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> BusinessException.notFound("결제 정보를 찾을 수 없습니다."));
 
         if (payment.getTargetType() != PaymentTargetType.SUBSCRIPTION) {
-            throw new RuntimeException("구독 결제가 아닙니다.");
+            throw BusinessException.badRequest("구독 결제가 아닙니다.");
         }
         return PaymentResponse.from(payment);
     }
 
-    // ═══════════════════════════════════════════════
-    //  공통
-    // ═══════════════════════════════════════════════
+    // ── 공통 ──
 
     /**
      * 결제 실패 처리
@@ -263,7 +218,7 @@ public class PaymentService {
     @Transactional
     public void failPayment(String merchantId) {
         Payment payment = paymentRepository.findByMerchantId(merchantId)
-                .orElseThrow(() -> new RuntimeException("결제 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> BusinessException.notFound("결제 정보를 찾을 수 없습니다."));
         payment.fail();
     }
 }

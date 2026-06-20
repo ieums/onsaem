@@ -2,6 +2,7 @@ package com.ieum.backend.domain.payment.service;
 
 import com.ieum.backend.domain.payment.dto.external.PortOnePaymentResponse;
 import com.ieum.backend.domain.payment.exception.*;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +21,14 @@ public class PortOneClient {
 
     @Value("${portone.verification-enabled:false}")
     private boolean verificationEnabled;
+
+    @PostConstruct
+    void warnIfVerificationDisabled() {
+        if (!verificationEnabled) {
+            log.warn("⚠️ [PortOne] 결제 검증이 비활성(verification-enabled=false) 상태입니다. " +
+                    "운영 환경이라면 PORTONE_VERIFY=true로 반드시 켜세요 — 현재 무검증으로 결제가 통과됩니다.");
+        }
+    }
 
     /**
      * V2 결제 검증

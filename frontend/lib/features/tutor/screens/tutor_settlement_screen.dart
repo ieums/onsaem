@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/utils/won_format_util.dart';
 import 'package:ieum/core/utils/date_format_util.dart';
-import 'package:ieum/features/tutor/data/tutor_settlement_dummy_data.dart';
+import 'package:ieum/features/tutor/data/settlement_models.dart';
+import 'package:ieum/features/tutor/providers/settlement_provider.dart';
 
 enum _ChartPeriod { weekly, monthly, yearly }
 
@@ -195,14 +197,15 @@ class _CalendarTransaction {
   String get fullDateTimeLabel => formatDotDateTime(date);
 }
 
-class TutorSettlementScreen extends StatefulWidget {
+class TutorSettlementScreen extends ConsumerStatefulWidget {
   const TutorSettlementScreen({super.key});
 
   @override
-  State<TutorSettlementScreen> createState() => _TutorSettlementScreenState();
+  ConsumerState<TutorSettlementScreen> createState() =>
+      _TutorSettlementScreenState();
 }
 
-class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
+class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
   /// 포인트 컬러(#BFA2DB)와 어울리는 입금(녹색)·출금(붉은) 톤
   static const _incomeColor = AppColors.incomeGreen;
   static const _expenseColor = Color(0xFFD46878);
@@ -225,9 +228,8 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     '12월',
   ];
 
-  /// 더미 기준일 (개발 중 고정, 출시 시 DateTime.now()로 교체)
-  static DateTime get _chartReferenceDate =>
-      TutorSettlementDummyData.referenceDate;
+  /// 차트·잔액 계산 기준일 (오늘).
+  DateTime get _chartReferenceDate => DateTime.now();
 
   static const _historyMaxItems = 10;
   static const _historyPageSize = 5;
@@ -281,6 +283,24 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     ];
   }
 
+  /// 백엔드에서 받아 변환한 거래 목록 (provider 데이터로 채워짐).
+  List<TutorSettlementCalendarTransaction>? _sourceTransactions;
+
+  /// 상태 뱃지·출금 요청에 쓰는 원본 정산 건 목록.
+  List<SettlementResponse> _records = const [];
+  SettlementSummaryResponse? _summary;
+
+  /// provider가 새 데이터를 내려주면 캐시를 비우고 소스를 교체한다.
+  void _applyData(TutorSettlementData data) {
+    if (identical(_sourceTransactions, data.transactions)) return;
+    _sourceTransactions = data.transactions;
+    _records = data.records;
+    _summary = data.summary;
+    _allCalendarTransactionsCache = null;
+    _transactionsByDayCache = null;
+    _realizedCalendarTransactionsCache = null;
+  }
+
   List<_CalendarTransaction>? _allCalendarTransactionsCache;
   Map<String, List<_CalendarTransaction>>? _transactionsByDayCache;
   List<_CalendarTransaction>? _realizedCalendarTransactionsCache;
@@ -292,9 +312,10 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
     if (_allCalendarTransactionsCache != null) return;
 
     final refDay = _dateOnly(_chartReferenceDate);
-    final transactions = TutorSettlementDummyData.build(
-      asOf: _chartReferenceDate,
-    ).map(_CalendarTransaction.fromDummy).toList();
+    final transactions =
+        (_sourceTransactions ?? const <TutorSettlementCalendarTransaction>[])
+            .map(_CalendarTransaction.fromDummy)
+            .toList();
 
     final byDay = <String, List<_CalendarTransaction>>{};
     for (final tx in transactions) {
@@ -443,25 +464,72 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final async = ref.watch(settlementDataProvider);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 16),
-              _buildWithdrawCard(context),
-              const SizedBox(height: 12),
-              _buildLastMonthCard(context),
-              const SizedBox(height: 20),
-              _buildChartSection(context),
-              const SizedBox(height: 24),
-              _buildHistorySection(context),
-            ],
-          ),
+        child: async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => _buildErrorState(context, error),
+          data: (data) {
+            _applyData(data);
+            return _buildContent(context);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(context),
+          const SizedBox(height: 16),
+          _buildWithdrawCard(context),
+          const SizedBox(height: 12),
+          _buildSummaryCard(context),
+          const SizedBox(height: 12),
+          _buildLastMonthCard(context),
+          const SizedBox(height: 20),
+          _buildChartSection(context),
+          const SizedBox(height: 24),
+          _buildHistorySection(context),
+          const SizedBox(height: 24),
+          _buildSettlementRecordsSection(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(BuildContext context, Object error) {
+    final scheme = _scheme(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 40, color: scheme.error),
+            const SizedBox(height: 12),
+            Text(
+              '정산 정보를 불러오지 못했습니다.',
+              style: TextStyle(fontSize: 15, color: scheme.onSurface),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$error',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => ref.invalidate(settlementDataProvider),
+              child: const Text('다시 시도'),
+            ),
+          ],
         ),
       ),
     );
@@ -1366,12 +1434,32 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
 
   Widget _buildWithdrawCard(BuildContext context) {
     final scheme = _scheme(context);
+    final withdrawableCount = _records
+        .where((r) => r.status == SettlementStatus.calculated)
+        .length;
+    final withdrawableAmount = _records
+        .where((r) => r.status == SettlementStatus.calculated)
+        .fold<int>(0, (sum, r) => sum + r.tutorAmount);
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outline),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primaryBlue,
+            AppColors.primaryBlue.withValues(alpha: 0.85),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryBlue.withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1379,54 +1467,177 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
           Row(
             children: [
               const Icon(
-                Icons.account_balance_wallet_outlined,
-                color: AppColors.primaryBlue,
-                size: 24,
+                Icons.account_balance_wallet,
+                color: Colors.white,
+                size: 22,
               ),
               const SizedBox(width: 8),
-              Text(
+              const Text(
                 '출금 가능 금액',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: scheme.onSurface,
+                  color: Colors.white,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            formatWon(_withdrawableBalance),
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurface,
-              height: 1.2,
-            ),
-          ),
           const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                formatWon(withdrawableAmount),
+                style: const TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1.0,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (withdrawableCount > 0)
+            Text(
+              '정산 대기 $withdrawableCount건',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
+            ),
+          const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: () {},
+              onPressed: withdrawableCount > 0 ? _onBulkWithdraw : null,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryBlue,
-                foregroundColor: scheme.onPrimary,
-                elevation: 0,
-                minimumSize: const Size.fromHeight(44),
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.primaryBlue,
+                disabledBackgroundColor: Colors.white.withValues(alpha: 0.5),
+                disabledForegroundColor: AppColors.primaryBlue.withValues(alpha: 0.4),
+                minimumSize: const Size.fromHeight(48),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
+                elevation: 0,
               ),
-              child: const Text(
-                '출금 신청하기',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              child: Text(
+                withdrawableCount > 0
+                    ? '전체 출금 신청 ($withdrawableCount건)'
+                    : '출금 가능한 정산이 없습니다',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _onBulkWithdraw() async {
+    final withdrawableCount = _records
+        .where((r) => r.status == SettlementStatus.calculated)
+        .length;
+    final withdrawableAmount = _records
+        .where((r) => r.status == SettlementStatus.calculated)
+        .fold<int>(0, (sum, r) => sum + r.tutorAmount);
+
+    // 확인 다이얼로그
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          '일괄 출금 요청',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '총 $withdrawableCount건의 정산을\n일괄 출금 요청합니다.',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlue.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '출금 합계',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formatWon(withdrawableAmount),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryBlue,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+            ),
+            child: const Text('출금 요청'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final result = await ref
+          .read(settlementRepositoryProvider)
+          .requestBulkWithdraw(settlementTutorId);
+      ref.invalidate(settlementDataProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${result.settlementCount}건 / ${formatWon(result.totalAmount)} 출금 요청 완료',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('출금 요청 실패: $error')),
+        );
+      }
+    }
   }
 
   Widget _buildLastMonthCard(BuildContext context) {
@@ -1816,5 +2027,216 @@ class _TutorSettlementScreenState extends State<TutorSettlementScreen> {
         ],
       ),
     );
+  }
+
+  // ─── 정산 요약 / 정산 건 목록 ──────────────────────────────────────────────
+
+  Widget _buildSummaryCard(BuildContext context) {
+    final scheme = _scheme(context);
+    final summary = _summary;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outline),
+      ),
+      child: Row(
+        children: [
+          _buildSummaryItem(context, '총 정산액', summary?.totalAmount ?? 0),
+          _buildSummaryDivider(scheme),
+          _buildSummaryItem(context, '송금 완료', summary?.transferredAmount ?? 0),
+          _buildSummaryDivider(scheme),
+          _buildSummaryItem(context, '정산 대기', summary?.pendingAmount ?? 0),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryItem(BuildContext context, String label, int amount) {
+    final scheme = _scheme(context);
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            formatWon(amount),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryDivider(ColorScheme scheme) => Container(
+        width: 1,
+        height: 32,
+        color: scheme.outline,
+      );
+
+  /// 상태별 (라벨, 색).
+  (String, Color) _statusBadge(SettlementStatus status) {
+    switch (status) {
+      case SettlementStatus.calculated:
+        return ('출금 가능', AppColors.primaryBlue);
+      case SettlementStatus.pending:
+        return ('송금 대기', const Color(0xFFE08E3C));
+      case SettlementStatus.transferred:
+        return ('송금 완료', _incomeColor);
+      case SettlementStatus.failed:
+        return ('실패', _expenseColor);
+      case SettlementStatus.unknown:
+        return ('알 수 없음', _scheme(context).onSurfaceVariant);
+    }
+  }
+
+  Widget _buildSettlementRecordsSection(BuildContext context) {
+    final scheme = _scheme(context);
+    final records = [..._records]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '정산 관리',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (records.isEmpty)
+          Text(
+            '정산 건이 없습니다.',
+            style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+          )
+        else
+          for (final record in records) ...[
+            _buildSettlementRecordCard(context, record),
+            const SizedBox(height: 10),
+          ],
+      ],
+    );
+  }
+
+  Widget _buildSettlementRecordCard(
+    BuildContext context,
+    SettlementResponse record,
+  ) {
+    final scheme = _scheme(context);
+    final (badgeLabel, badgeColor) = _statusBadge(record.status);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '수업 #${record.lessonId}',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badgeLabel,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: badgeColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                formatDotDateTime(record.createdAt),
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ),
+              const Spacer(),
+              Text(
+                '+${formatWon(record.tutorAmount)}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: _incomeColor,
+                ),
+              ),
+            ],
+          ),
+          if (record.isWithdrawable) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => _onRequestWithdraw(record.id),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryBlue,
+                  side: const BorderSide(color: AppColors.primaryBlue),
+                  minimumSize: const Size.fromHeight(40),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text(
+                  '출금 요청',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onRequestWithdraw(int settlementId) async {
+    try {
+      await ref
+          .read(settlementRepositoryProvider)
+          .requestWithdraw(settlementId, settlementTutorId);
+      ref.invalidate(settlementDataProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('출금 요청이 접수되었습니다.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('출금 요청에 실패했습니다: $error')),
+        );
+      }
+    }
   }
 }

@@ -26,13 +26,19 @@ server:
   port: 8080
 file:
   upload-dir: uploads
+
 gemini:
   api:
-    key: ${GEMINI_API_KEY:none}
+    key: ${GEMINI_API_KEY}
 
 agora:
   app-id: ${AGORA_APP_ID}
   app-certificate: ${AGORA_APP_CERTIFICATE}
-  token-expiry-seconds: 3600
+  token-expiry-seconds: 5400   # 90분 (최대 강의 60분 + 결제 대기 여유)
   customer-id: ${AGORA_CUSTOMER_ID}
   customer-secret: ${AGORA_CUSTOMER_SECRET}
+
+portone:
+  api-secret: ${PORTONE_API_SECRET:}
+  api-base-url: ${PORTONE_API_BASE_URL:https://api.portone.io}
+  verification-enabled: ${PORTONE_VERIFY:false}

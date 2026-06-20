@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -27,9 +26,7 @@ public class PaymentController {
     private final CoinPackageRepository coinPackageRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
 
-    // ═══════════════════════════════════════════════
-    //  코인 — 잔액 · 거래내역 · 패키지
-    // ═══════════════════════════════════════════════
+    // ── 코인 — 잔액 · 거래내역 · 패키지 ──
 
     /**
      * 코인 잔액 조회
@@ -58,13 +55,11 @@ public class PaymentController {
         List<CoinPackageResponse> packages = coinPackageRepository.findByActiveTrueOrderByPriceAsc()
                 .stream()
                 .map(CoinPackageResponse::from)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(packages);
     }
 
-    // ═══════════════════════════════════════════════
-    //  코인 — 결제 (충전)
-    // ═══════════════════════════════════════════════
+    // ── 코인 — 결제 (충전) ──
 
     /**
      * 코인 충전 결제 요청 생성 (포트원 결제창 호출 전)
@@ -122,9 +117,7 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.refundCoinPayment(id, reason));
     }
 
-    // ═══════════════════════════════════════════════
-    //  구독 — 플랜 · 내 구독
-    // ═══════════════════════════════════════════════
+    // ── 구독 — 플랜 · 내 구독 ──
 
     /**
      * 구독 플랜 목록
@@ -135,7 +128,7 @@ public class PaymentController {
         List<SubscriptionPlanResponse> plans = subscriptionPlanRepository.findByActiveTrueOrderByPriceAsc()
                 .stream()
                 .map(SubscriptionPlanResponse::from)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(plans);
     }
 
@@ -173,9 +166,7 @@ public class PaymentController {
         );
     }
 
-    // ═══════════════════════════════════════════════
-    //  구독 — 결제
-    // ═══════════════════════════════════════════════
+    // ── 구독 — 결제 ──
 
     /**
      * 구독 결제 요청 생성 (포트원 결제창 호출 전)

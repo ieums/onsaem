@@ -3,6 +3,8 @@ package com.ieum.backend.domain.payment.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import com.ieum.backend.global.exception.BusinessException;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -52,7 +54,7 @@ public class CoinWallet {
     // 코인 홀드 (강의 시작 시)
     public void hold(int amount) {
         if (this.availableBalance < amount) {
-            throw new RuntimeException("코인이 부족합니다. 잔액: " + this.availableBalance);
+            throw BusinessException.badRequest("코인이 부족합니다. 잔액: " + this.availableBalance);
         }
         this.availableBalance -= amount;
         this.updatedAt = LocalDateTime.now();
@@ -72,8 +74,8 @@ public class CoinWallet {
 
     // AI 사용 (즉시 차감)
     public void useForAi(int amount) {
-        if (this.availableBalance < amount) {
-            throw new RuntimeException("코인이 부족합니다. 잔액: " + this.availableBalance);
+        if (this.availableBalance < amount) { //race condition: check-then-act
+            throw BusinessException.badRequest("코인이 부족합니다. 잔액: " + this.availableBalance);
         }
         this.balance -= amount;
         this.availableBalance -= amount;

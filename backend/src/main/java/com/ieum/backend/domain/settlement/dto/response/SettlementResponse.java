@@ -1,7 +1,7 @@
 package com.ieum.backend.domain.settlement.dto.response;
 
 import com.ieum.backend.domain.settlement.entity.Settlement;
-import com.ieum.backend.domain.payment.entity.enums.SettlementStatus;
+import com.ieum.backend.domain.settlement.entity.enums.SettlementStatus;
 
 import java.time.LocalDateTime;
 

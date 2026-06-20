@@ -1,13 +1,19 @@
 package com.ieum.backend.domain.settlement.entity;
 
-import com.ieum.backend.domain.payment.entity.enums.SettlementStatus;
+import com.ieum.backend.domain.settlement.entity.enums.SettlementStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "settlements")
+@Table(
+        name = "settlements",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_settlements_lesson_id",
+                columnNames = "lesson_id"
+        )
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Settlement {
@@ -19,20 +25,20 @@ public class Settlement {
     @Column(nullable = false)
     private Long tutorId;
 
-    @Column(nullable = false)
+    @Column(name = "lesson_id", nullable = false)
     private Long lessonId;
 
     @Column(nullable = false)
-    private Integer totalCoin;          // 총 코인 (학생이 낸 것)
+    private Integer totalCoin;          // 총 코인: 학생이 제출한 것
 
     @Column(nullable = false)
-    private Integer platformFeeCoin;    // 플랫폼 수수료 (20%)
+    private Integer platformFeeCoin;    // 플랫폼 수수료 코인
 
     @Column(nullable = false)
-    private Integer tutorCoin;          // 강사 몫 (80%)
+    private Integer tutorCoin;          // 강사 몫 코인
 
     @Column(nullable = false)
-    private Integer tutorAmount;        // 강사 정산금 (원)
+    private Integer tutorAmount;        // 강사 정산금 현금금액
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -44,13 +50,14 @@ public class Settlement {
     private LocalDateTime transferredAt;  // 실제 송금 시각
 
     @Builder
-    public Settlement(Long tutorId, Long lessonId, Integer totalCoin) {
+    public Settlement(Long tutorId, Long lessonId, Integer totalCoin,
+                      Integer platformFeeCoin, Integer tutorCoin, Integer tutorAmount) {
         this.tutorId = tutorId;
         this.lessonId = lessonId;
         this.totalCoin = totalCoin;
-        this.platformFeeCoin = (int) (totalCoin * 0.2);   // 20%
-        this.tutorCoin = totalCoin - this.platformFeeCoin; // 80%
-        this.tutorAmount = this.tutorCoin * 100;           // 1코인 = 100원
+        this.platformFeeCoin = platformFeeCoin;
+        this.tutorCoin = tutorCoin;
+        this.tutorAmount = tutorAmount;
         this.status = SettlementStatus.CALCULATED;
         this.createdAt = LocalDateTime.now();
     }

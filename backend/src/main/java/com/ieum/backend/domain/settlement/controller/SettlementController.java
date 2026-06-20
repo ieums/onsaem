@@ -1,9 +1,10 @@
 package com.ieum.backend.domain.settlement.controller;
 
 import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
+import com.ieum.backend.domain.settlement.dto.response.BulkWithdrawResponse;
 import com.ieum.backend.domain.settlement.dto.response.SettlementResponse;
 import com.ieum.backend.domain.settlement.dto.response.SettlementSummaryResponse;
-import com.ieum.backend.domain.payment.entity.enums.SettlementStatus;
+import com.ieum.backend.domain.settlement.entity.enums.SettlementStatus;
 import com.ieum.backend.domain.settlement.service.SettlementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -73,6 +74,16 @@ public class SettlementController {
             @PathVariable Long id,
             @RequestParam Long tutorId) {
         return ResponseEntity.ok(settlementService.requestWithdraw(id, tutorId));
+    }
+
+    /**
+     * 일괄 출금 요청
+     * POST /api/v1/settlements/withdraw-all?tutorId=1
+     */
+    @PostMapping("/withdraw-all")
+    public ResponseEntity<BulkWithdrawResponse> requestBulkWithdraw(
+            @RequestParam Long tutorId) {
+        return ResponseEntity.ok(settlementService.requestBulkWithdraw(tutorId));
     }
 
     /**

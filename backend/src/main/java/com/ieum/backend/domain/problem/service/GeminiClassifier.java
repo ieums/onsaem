@@ -1,5 +1,7 @@
 package com.ieum.backend.domain.problem.service;
 
+import com.ieum.backend.global.exception.BusinessException;
+
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -156,7 +158,7 @@ public class GeminiClassifier {
             return callApi(problemText, examCode);
         } catch (Exception e) {
             log.error("분류 API 호출 실패", e);
-            throw new RuntimeException("분류 API 호출 실패: " + e.getMessage(), e);
+            throw BusinessException.internalError("분류 API 호출 실패: " + e.getMessage(), e);
         }
     }
 
@@ -225,7 +227,7 @@ public class GeminiClassifier {
             return r;
 
         } catch (Exception e) {
-            throw new RuntimeException("분류 응답 파싱 실패: " + e.getMessage(), e);
+            throw BusinessException.internalError("분류 응답 파싱 실패: " + e.getMessage(), e);
         }
     }
 

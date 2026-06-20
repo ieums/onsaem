@@ -5,7 +5,9 @@ import com.ieum.backend.domain.payment.entity.Subscription;
 import com.ieum.backend.domain.payment.entity.SubscriptionPlan;
 import com.ieum.backend.domain.payment.repository.SubscriptionPlanRepository;
 import com.ieum.backend.domain.payment.repository.SubscriptionRepository;
+import com.ieum.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +26,7 @@ public class SubscriptionService {
     public void checkNoActiveSubscription(Long studentId) {
         subscriptionRepository.findByStudentIdAndActiveTrue(studentId)
                 .ifPresent(existing -> {
-                    throw new RuntimeException("이미 활성 구독이 있습니다. 기존 구독: " + existing.getId());
+                    throw BusinessException.conflict("이미 활성 구독이 있습니다. 기존 구독: " + existing.getId());
                 });
     }
 
@@ -46,11 +48,11 @@ public class SubscriptionService {
             boolean autoRenew,
             Long paymentId
     ) {
-        // 한 번 더 체크 (동시성 방어)
+        // 1차 방어: 앱 레벨 체크 (일반 경로의 친절한 에러)
         checkNoActiveSubscription(studentId);
 
         SubscriptionPlan plan = planRepository.findById(planId)
-                .orElseThrow(() -> new RuntimeException("존재하지 않는 구독 플랜입니다."));
+                .orElseThrow(() -> BusinessException.notFound("존재하지 않는 구독 플랜입니다."));
 
         Subscription subscription = Subscription.builder()
                 .studentId(studentId)
@@ -58,7 +60,13 @@ public class SubscriptionService {
                 .autoRenew(autoRenew)
                 .build();
 
-        subscriptionRepository.save(subscription);
+        // 2차 방어: 서로 다른 결제 2건이 동시에 활성화돼 위 체크를 둘 다 통과해도
+        // active_student_id UNIQUE 제약이 두 번째 활성 구독 생성을 DB에서 막는다.
+        try {
+            subscriptionRepository.saveAndFlush(subscription);
+        } catch (DataIntegrityViolationException e) {
+            throw BusinessException.conflict("이미 활성 구독이 있습니다. studentId: " + studentId, e);
+        }
         return SubscriptionResponse.from(subscription);
     }
 
@@ -88,7 +96,7 @@ public class SubscriptionService {
     @Transactional
     public SubscriptionResponse cancelSubscription(Long studentId) {
         Subscription subscription = subscriptionRepository.findByStudentIdAndActiveTrue(studentId)
-                .orElseThrow(() -> new RuntimeException("활성 구독이 없습니다."));
+                .orElseThrow(() -> BusinessException.notFound("활성 구독이 없습니다."));
 
         subscription.cancel();
         return SubscriptionResponse.from(subscription);
@@ -101,7 +109,7 @@ public class SubscriptionService {
     @Transactional
     public SubscriptionResponse toggleAutoRenew(Long studentId, boolean autoRenew) {
         Subscription subscription = subscriptionRepository.findByStudentIdAndActiveTrue(studentId)
-                .orElseThrow(() -> new RuntimeException("활성 구독이 없습니다."));
+                .orElseThrow(() -> BusinessException.notFound("활성 구독이 없습니다."));
 
         subscription.updateAutoRenew(autoRenew);
         return SubscriptionResponse.from(subscription);
