@@ -1,0 +1,43 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  sql:
+    init:
+      mode: never   # 운영용 data.sql(MySQL 문법) 실행 안 함 — 테스트는 자체 데이터 사용
+
+  # 실제 외부 자격증명 대신 더미 값으로 컨텍스트 로딩만 통과시킨다
+  cloud:
+    aws:
+      region:
+        static: ap-northeast-2
+      s3:
+        bucket: test-bucket
+      credentials:
+        access-key: test
+        secret-key: test
+
+gemini:
+  api:
+    key: none   # GeminiOcrClient가 Mock 모드로 동작
+
+agora:
+  app-id: test
+  app-certificate: test
+  token-expiry-seconds: 3600
+  customer-id: test
+  customer-secret: test
+
+portone:
+  api-secret: test
+  api-base-url: http://localhost
+  verification-enabled: false   # 검증 건너뜀 (멱등성 로직만 검증)

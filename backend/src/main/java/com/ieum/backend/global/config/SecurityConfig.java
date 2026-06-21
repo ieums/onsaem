@@ -42,15 +42,19 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/health",
+                                "/api/v1/problems/**",
+                                "/api/v1/payments/**",
+                                "/api/v1/settlements/**",
                                 "/api/v1/lesson/token",
                                 "/api/v1/lesson/*/images",
+                                "/api/v1/lesson/*/start",
+                                "/api/v1/lesson/*/extend",
                                 "/api/v1/lesson/*/complete",
+                                "/api/v1/lesson/*/cancel",
                                 "/api/v1/lesson/*/recording/start",
                                 "/api/v1/lesson/*/recording/stop",
                                 "/ws/**",
                                 "/ws-raw",
-                                "/api/v1/problems/**",
-                                "/api/v1/payments/**",
                                 "/api/v1/matching/**",
                                 "/error"
                         ).permitAll()

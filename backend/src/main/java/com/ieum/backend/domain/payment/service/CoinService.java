@@ -5,14 +5,15 @@ import com.ieum.backend.domain.payment.dto.response.CoinTransactionResponse;
 import com.ieum.backend.domain.payment.entity.CoinTransaction;
 import com.ieum.backend.domain.payment.entity.CoinWallet;
 import com.ieum.backend.domain.payment.entity.enums.TransactionType;
+import com.ieum.backend.domain.payment.policy.PaymentPolicy;
 import com.ieum.backend.domain.payment.repository.CoinTransactionRepository;
 import com.ieum.backend.domain.payment.repository.CoinWalletRepository;
+import com.ieum.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +33,16 @@ public class CoinService {
     }
 
     /**
+     * 잔액을 변경하는 연산용 지갑 조회 — 행에 쓰기 락을 걸어 동시 변경을 직렬화.
+     * 지갑이 없으면 생성(첫 거래). studentId UNIQUE 제약이 생성 race를 막는다.
+     */
+    @Transactional
+    public CoinWallet getWalletForUpdate(Long studentId) {
+        return walletRepository.findByStudentIdForUpdate(studentId)
+                .orElseGet(() -> walletRepository.save(new CoinWallet(studentId)));
+    }
+
+    /**
      * 잔액 조회
      */
     public CoinBalanceResponse getBalance(Long studentId) {
@@ -44,7 +55,7 @@ public class CoinService {
      */
     @Transactional
     public CoinBalanceResponse charge(Long studentId, int coinAmount, int bonusAmount, Long paymentId) {
-        CoinWallet wallet = getOrCreateWallet(studentId);
+        CoinWallet wallet = getWalletForUpdate(studentId);
 
         // 기본 코인 충전
         wallet.charge(coinAmount);
@@ -78,8 +89,8 @@ public class CoinService {
      */
     @Transactional
     public CoinBalanceResponse giveSignupBonus(Long studentId) {
-        CoinWallet wallet = getOrCreateWallet(studentId);
-        int bonus = 30;
+        CoinWallet wallet = getWalletForUpdate(studentId);
+        int bonus = PaymentPolicy.SIGNUP_BONUS_COIN;
 
         wallet.charge(bonus);
         transactionRepository.save(CoinTransaction.builder()
@@ -98,7 +109,7 @@ public class CoinService {
      */
     @Transactional
     public void hold(Long studentId, int amount, Long lessonId) {
-        CoinWallet wallet = getOrCreateWallet(studentId);
+        CoinWallet wallet = getWalletForUpdate(studentId);
         wallet.hold(amount);
 
         transactionRepository.save(CoinTransaction.builder()
@@ -116,7 +127,7 @@ public class CoinService {
      */
     @Transactional
     public void confirmDeduct(Long studentId, int amount, Long lessonId) {
-        CoinWallet wallet = getOrCreateWallet(studentId);
+        CoinWallet wallet = getWalletForUpdate(studentId);
         wallet.confirmDeduct(amount);
 
         transactionRepository.save(CoinTransaction.builder()
@@ -134,7 +145,7 @@ public class CoinService {
      */
     @Transactional
     public void releaseHold(Long studentId, int amount, Long lessonId) {
-        CoinWallet wallet = getOrCreateWallet(studentId);
+        CoinWallet wallet = getWalletForUpdate(studentId);
         wallet.releaseHold(amount);
 
         transactionRepository.save(CoinTransaction.builder()
@@ -152,8 +163,8 @@ public class CoinService {
      */
     @Transactional
     public CoinBalanceResponse useForAi(Long studentId) {
-        CoinWallet wallet = getOrCreateWallet(studentId);
-        int cost = 3;
+        CoinWallet wallet = getWalletForUpdate(studentId);
+        int cost = PaymentPolicy.AI_USE_COST_COIN;
 
         wallet.useForAi(cost);
         transactionRepository.save(CoinTransaction.builder()
@@ -174,6 +185,41 @@ public class CoinService {
         return transactionRepository.findByStudentIdOrderByCreatedAtDesc(studentId)
                 .stream()
                 .map(CoinTransactionResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
+    /**
+     * 코인 환불 처리
+     * - 잔액에서 코인 차감
+     * - REFUND 트랜잭션 기록
+     *
+     * @param studentId  학생 ID
+     * @param coinAmount 환불할 코인 (충전 + 보너스 합산)
+     * @param paymentId  원본 Payment ID (트랜잭션 추적용)
+     */
+    @Transactional
+    public CoinBalanceResponse refund(Long studentId, Integer coinAmount, Long paymentId) {
+        CoinWallet wallet = getWalletForUpdate(studentId);
+
+        // 잔액 부족 체크
+        if (wallet.getBalance() < coinAmount) {
+            throw BusinessException.badRequest("환불 불가: 잔액 부족. 현재 잔액 " + wallet.getBalance() + " < 환불 요청 " + coinAmount);
+        }
+
+        // 잔액 차감
+        wallet.subtract(coinAmount);
+
+        // 환불 트랜잭션 기록
+        CoinTransaction tx = CoinTransaction.builder()
+                .studentId(studentId)
+                .type(TransactionType.REFUND)
+                .amount(-coinAmount)
+                .balanceAfter(wallet.getBalance())
+                .description("결제 환불 (paymentId: " + paymentId + ")")
+                .paymentId(paymentId)
+                .build();
+        transactionRepository.save(tx);
+
+        return CoinBalanceResponse.from(wallet);
+    }
+
 }
