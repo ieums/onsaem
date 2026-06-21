@@ -655,6 +655,8 @@ class _TutorMyPageScreenState extends ConsumerState<TutorMyPageScreen> {
           label: _reviewSortLabels[0],
           menuWidth: menuWidth,
           isSelected: _reviewSort == _ReviewSort.latest,
+          isFirst: true,
+          isLast: false,
         ),
         buildShellPopupMenuItem(
           context: anchorContext,
@@ -676,6 +678,8 @@ class _TutorMyPageScreenState extends ConsumerState<TutorMyPageScreen> {
           label: _reviewSortLabels[3],
           menuWidth: menuWidth,
           isSelected: _reviewSort == _ReviewSort.ratingLow,
+          isFirst: false,
+          isLast: true,
         ),
       ],
     );

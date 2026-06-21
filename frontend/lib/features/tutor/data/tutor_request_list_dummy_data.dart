@@ -36,8 +36,8 @@ class TutorRequestListItem {
   final double? problemImageHeight;
 
   String get timeAgo => formatDotDateTime(
-    tutorRequestReferenceDate.subtract(Duration(minutes: minutesAgo)),
-  );
+        tutorRequestReferenceDate.subtract(Duration(minutes: minutesAgo)),
+      );
 }
 
 class TutorRequestSubjectTheme {
@@ -314,9 +314,10 @@ class TutorRequestDummyData {
   static List<TutorRequestListItem> recentQuestions({
     int withinMinutes = newQuestionWithinMinutes,
   }) {
-    final list =
-        build().where((item) => item.minutesAgo <= withinMinutes).toList()
-          ..sort((a, b) => a.minutesAgo.compareTo(b.minutesAgo));
+    final list = build()
+        .where((item) => item.minutesAgo <= withinMinutes)
+        .toList()
+      ..sort((a, b) => a.minutesAgo.compareTo(b.minutesAgo));
     return list;
   }
 }
