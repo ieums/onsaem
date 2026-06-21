@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>WebSocket STOMP 테스트</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: monospace; }
+body { background: #1a1a1a; color: #e0e0e0; padding: 20px; font-size: 13px; }
+h2 { color: #fff; font-size: 16px; margin-bottom: 16px; font-weight: 500; }
+.section { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 6px; padding: 14px; margin-bottom: 14px; }
+.row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+label { color: #aaa; min-width: 90px; font-size: 12px; }
+input { background: #1a1a1a; border: 1px solid #444; color: #e0e0e0; padding: 6px 8px; border-radius: 4px; font-family: monospace; font-size: 12px; flex: 1; min-width: 120px; }
+button { background: #333; border: 1px solid #555; color: #e0e0e0; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 12px; white-space: nowrap; }
+button:hover { background: #444; }
+button.primary { background: #1a5c2e; border-color: #2d8a48; color: #7fff9f; }
+button.primary:hover { background: #226b38; }
+button.danger { background: #5c1a1a; border-color: #8a2d2d; color: #ff9f9f; }
+button.danger:hover { background: #6b2222; }
+.status { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #f44; margin-right: 6px; }
+.status.connected { background: #4f4; }
+.log { background: #111; border: 1px solid #333; border-radius: 4px; padding: 12px; height: 320px; overflow-y: auto; font-size: 11px; line-height: 1.7; }
+.log .time { color: #666; }
+.log .recv { color: #7af; }
+.log .send { color: #af7; }
+.log .info { color: #fa7; }
+.log .err { color: #f77; }
+.subs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.sub-badge { background: #1a3a5c; border: 1px solid #2d5a8a; color: #9fd; border-radius: 4px; padding: 3px 10px; font-size: 11px; display: flex; align-items: center; gap: 8px; }
+.sub-badge button { background: none; border: none; color: #f99; padding: 0; font-size: 12px; cursor: pointer; }
+.title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.sect-title { color: #ccc; font-size: 12px; font-weight: 500; letter-spacing: 0.5px; }
+.hint { color: #666; font-size: 11px; margin-top: 6px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h2>WebSocket (STOMP) 테스트 도구 — 온샘 매칭</h2>
+
+<div class="section">
+  <div class="title-row">
+    <span class="status" id="dot"></span>
+    <span class="sect-title">서버 연결</span>
+    <span id="statusText" style="color:#aaa;font-size:11px;">미연결</span>
+  </div>
+  <div class="row">
+    <label>서버 URL</label>
+    <input id="wsUrl" value="ws://localhost:8080/ws-raw" ... />
+    <button class="primary" onclick="connect()">연결</button>
+    <button class="danger" onclick="disconnect()">해제</button>
+  </div>
+  <p class="hint">※ 모바일(실기기)은 ws://[PC IP]:8080/ws-raw 으로 변경</p>
+</div>
+
+<div class="section">
+  <div class="title-row"><span class="sect-title">구독 설정</span></div>
+  <div class="row">
+    <label>문제 알림</label>
+    <input id="subTopic" value="/topic/matching/1" style="flex:2;" />
+    <button onclick="subscribe()">구독</button>
+  </div>
+  <div class="row">
+    <label>학생 알림</label>
+    <input id="subStudent" value="/topic/student/1" style="flex:2;" />
+    <button onclick="subscribeStudent()">구독</button>
+  </div>
+  <div class="row">
+    <label>강사 알림</label>
+    <input id="subTutor" value="/topic/tutor/200" style="flex:2;" />
+    <button onclick="subscribeTutor()">구독</button>
+  </div>
+  <p class="hint">※ problemId=1, studentId=1 기준. 필요 시 숫자 변경</p>
+  <div class="subs" id="subList"></div>
+</div>
+
+<div class="section">
+  <div class="title-row">
+    <span class="sect-title">수신 로그</span>
+    <button onclick="clearLog()" style="margin-left:auto;font-size:11px;padding:3px 8px;">지우기</button>
+  </div>
+  <div class="log" id="log"></div>
+  <p class="hint" style="margin-top:8px;">
+    수신 이벤트: TUTOR_APPLIED / MATCHED / TUTOR_UNAVAILABLE / TUTOR_AVAILABLE / SEARCH_EXPIRED
+  </p>
+</div>
+
+<script>
+let stompClient = null;
+let subscriptions = {};
+
+function log(msg, type='info') {
+  const el = document.getElementById('log');
+  const time = new Date().toLocaleTimeString('ko-KR');
+  const div = document.createElement('div');
+  div.innerHTML = `<span class="time">[${time}]</span> <span class="${type}">${msg}</span>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setStatus(connected) {
+  document.getElementById('dot').className = 'status' + (connected ? ' connected' : '');
+  document.getElementById('statusText').textContent = connected ? '연결됨' : '미연결';
+  document.getElementById('statusText').style.color = connected ? '#4f4' : '#aaa';
+}
+
+function connect() {
+  const url = document.getElementById('wsUrl').value;
+  try {
+    const socket = new WebSocket(url);  // SockJS 대신 기본 WebSocket
+    stompClient = Stomp.over(socket);
+    stompClient.debug = null;
+    stompClient.connect({}, () => {
+      setStatus(true);
+      log('서버 연결 성공: ' + url, 'send');
+    }, (err) => {
+      setStatus(false);
+      log('연결 실패: ' + JSON.stringify(err), 'err');
+    });
+  } catch(e) {
+    log('오류: ' + e.message, 'err');
+  }
+}
+
+function disconnect() {
+  if (stompClient) {
+    stompClient.disconnect(() => {
+      setStatus(false);
+      subscriptions = {};
+      document.getElementById('subList').innerHTML = '';
+      log('연결 해제됨', 'info');
+    });
+  }
+}
+
+function subscribe(topic) {
+  if (!stompClient || !stompClient.connected) { log('먼저 서버에 연결하세요', 'err'); return; }
+  const t = topic || document.getElementById('subTopic').value;
+  if (subscriptions[t]) { log('이미 구독 중: ' + t, 'info'); return; }
+  const sub = stompClient.subscribe(t, (msg) => {
+    try {
+      const data = JSON.parse(msg.body);
+      log('← 수신 [' + t + ']<br>&nbsp;&nbsp;&nbsp;' +
+        JSON.stringify(data).replace(/,/g, ', '), 'recv');
+    } catch(e) {
+      log('← 수신 [' + t + ']: ' + msg.body, 'recv');
+    }
+  });
+  subscriptions[t] = sub;
+  log('구독 시작: ' + t, 'send');
+  renderSubs();
+}
+
+function subscribeStudent() {
+  subscribe(document.getElementById('subStudent').value);
+}
+
+function subscribeTutor() {
+  subscribe(document.getElementById('subTutor').value);
+}
+
+function unsubscribe(topic) {
+  if (subscriptions[topic]) {
+    subscriptions[topic].unsubscribe();
+    delete subscriptions[topic];
+    log('구독 해제: ' + topic, 'info');
+    renderSubs();
+  }
+}
+
+function renderSubs() {
+  const el = document.getElementById('subList');
+  el.innerHTML = Object.keys(subscriptions).map(t =>
+    `<div class="sub-badge">${t} <button onclick="unsubscribe('${t}')">✕</button></div>`
+  ).join('');
+}
+
+function clearLog() {
+  document.getElementById('log').innerHTML = '';
+}
+</script>
+</body>
+</html>

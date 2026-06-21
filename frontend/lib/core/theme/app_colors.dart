@@ -1,7 +1,20 @@
 import 'package:flutter/material.dart';
 
-/// 온샘 앱 공통 컬러
 abstract final class AppColors {
+
+  /// ─── 화상강의 ───────────────────────────
+  static const Color primary = Color(0xFF5B8DEF);
+  static const Color background = Color(0xFFF5F7FF);
+  static const Color surface = Colors.white;
+  static const Color textPrimary = Color(0xFF1A1A1A);
+  static const Color textSecondary = Color(0xFF6B6B6B);
+  static const Color error = Color(0xFFE53935);
+  static const Color whiteboardBackground = Color(0xFFFAFAFA);
+  static const Color penDefault = Colors.black;
+  static const Color buttonDanger = Color(0xFFE53935);
+  
+  /// 온샘 앱 공통 컬러
+
   static const Color primaryBlue = Color(0xFFBFA2DB);
   static const Color studentPoint = Color(0xFF5B9BD5);
   /// 액션 강조용 선명 블루 (studentPoint보다 쨍함)

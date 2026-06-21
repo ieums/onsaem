@@ -7,21 +7,47 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
+  cloud:
+    aws:
+      region:
+        static: ap-northeast-2
+      s3:
+        bucket: onsaem-bucket
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID}
+        secret-key: ${AWS_SECRET_ACCESS_KEY}
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 20MB
+      max-request-size: 20MB
+
 server:
   port: 8080
+
 file:
   upload-dir: uploads
+
 gemini:
   api:
     key: ${GEMINI_API_KEY:none}
 
-cloud:
-  aws:
-    region:
-      static: ap-northeast-2
-    s3:
-      bucket: onsaem-bucket
+agora:
+  app-id: ${AGORA_APP_ID:none}
+  app-certificate: ${AGORA_APP_CERTIFICATE:none}
+  token-expiry-seconds: 5400   # 90분 (최대 강의 60분 + 결제 대기 여유)
+  customer-id: ${AGORA_CUSTOMER_ID:none}
+  customer-secret: ${AGORA_CUSTOMER_SECRET:none}
+
+portone:
+  api-secret: ${PORTONE_API_SECRET:}
+  api-base-url: ${PORTONE_API_BASE_URL:https://api.portone.io}
+  verification-enabled: ${PORTONE_VERIFY:false}
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiry-ms: 3600000
+  refresh-token-expiry-ms: 1209600000
+
+oauth:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}

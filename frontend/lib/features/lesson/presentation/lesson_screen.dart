@@ -1,0 +1,617 @@
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../core/providers/current_user_provider.dart';
+import '../../../core/theme/app_colors.dart';
+import 'lesson_provider.dart';
+import 'whiteboard_painter.dart';
+
+class LessonScreen extends ConsumerStatefulWidget {
+  final String channelName;
+
+  const LessonScreen({
+    super.key,
+    required this.channelName,
+  });
+
+  @override
+  ConsumerState<LessonScreen> createState() => _LessonScreenState();
+}
+
+class _LessonScreenState extends ConsumerState<LessonScreen> {
+  final _imagePicker = ImagePicker();
+
+  // ─── 줌/팬 상태 (커스텀 Transform) ──────────────────────────────────────────
+  double _scale = 1.0;
+  Offset _offset = Offset.zero;
+
+  // 제스처 시작 시 스냅샷
+  double _baseScale = 1.0;
+  Offset _baseFocal = Offset.zero;
+  Offset _baseOffset = Offset.zero;
+  bool _isDrawingGesture = false;
+  bool _wasZoomGesture = false;
+
+  // ─── 이미지 편집 모드 상태 ────────────────────────────────────────────────
+  double _imageBaseX = 0;
+  double _imageBaseY = 0;
+  double _imageBaseWidth = 0;
+  double _imageBaseHeight = 0;
+  bool _imageDidMove = false;
+
+  /// 화면 좌표 → 캔버스 좌표 변환
+  /// Transform = T(offset) * S(scale) 이므로
+  /// screenPos = scale * canvasPos + offset → canvasPos = (screenPos - offset) / scale
+  Offset _toCanvas(Offset screenPos) {
+    return (screenPos - _offset) / _scale;
+  }
+
+  /// Transform 행렬: screenPos = scale * canvasPos + offset
+  Matrix4 _buildMatrix() {
+    final m = Matrix4.diagonal3Values(_scale, _scale, 1.0);
+    m.setTranslationRaw(_offset.dx, _offset.dy, 0.0);
+    return m;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final session = ref.read(currentUserProvider);
+      ref.read(lessonProvider.notifier).initialize(
+            widget.channelName,
+            session?.id ?? 0,
+            session?.isTutor ?? false,
+          );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 수업 완료 시 홈으로 이동
+    ref.listen<LessonState>(lessonProvider, (prev, next) {
+      if (next.isCompleted && !(prev?.isCompleted ?? false)) {
+        context.go('/');
+      }
+      // 원격 줌 동기화: 상대방이 핀치줌/팬하면 내 화면에도 반영
+      if (prev?.remoteScale != next.remoteScale ||
+          prev?.remoteOffsetX != next.remoteOffsetX ||
+          prev?.remoteOffsetY != next.remoteOffsetY) {
+        setState(() {
+          _scale = next.remoteScale;
+          _offset = Offset(next.remoteOffsetX, next.remoteOffsetY);
+        });
+      }
+    });
+
+    final state = ref.watch(lessonProvider);
+
+    if (state.isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (state.error != null && !state.isInChannel) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline,
+                    color: AppColors.error, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  state.error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.error),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => context.go('/'),
+                  child: const Text('돌아가기'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildVideoArea(state),
+            _buildWhiteboard(state),
+            _buildActionBar(state),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── 영상 영역 ──────────────────────────────────────────────────────────────
+
+  Widget _buildVideoArea(LessonState state) {
+    // 튜터: 자신의 카메라 상태 기준 / 학생: 강사의 카메라 상태(STOMP 동기화) 기준
+    final showVideo = state.isTutor
+        ? state.localCameraEnabled
+        : state.remoteCameraEnabled;
+    final videoHeight =
+        showVideo ? MediaQuery.of(context).size.height * 0.22 : 0.0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      height: videoHeight,
+      color: Colors.black,
+      child: showVideo
+          ? (state.isInChannel
+              ? _buildAgoraView(state)
+              : _buildVideoPlaceholder())
+          : const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildAgoraView(LessonState state) {
+    final engine = ref.read(lessonProvider.notifier).engine;
+    if (engine == null) return _buildVideoPlaceholder();
+
+    if (state.isTutor) {
+      return AgoraVideoView(
+        controller: VideoViewController(
+          rtcEngine: engine,
+          canvas: const VideoCanvas(uid: 0),
+        ),
+      );
+    }
+
+    final remoteUid = state.remoteUid;
+    if (remoteUid == null) {
+      return _buildVideoPlaceholder(label: '강사 연결 대기 중...');
+    }
+
+    return AgoraVideoView(
+      controller: VideoViewController.remote(
+        rtcEngine: engine,
+        canvas: VideoCanvas(uid: remoteUid),
+        connection: RtcConnection(channelId: state.channelName!),
+      ),
+    );
+  }
+
+  Widget _buildVideoPlaceholder({String label = '연결 중...'}) {
+    return Container(
+      color: Colors.grey[900],
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.videocam_off, color: Colors.white54, size: 36),
+            const SizedBox(height: 8),
+            Text(label,
+                style: const TextStyle(color: Colors.white54, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── 화이트보드 ─────────────────────────────────────────────────────────────
+
+  Widget _buildWhiteboard(LessonState state) {
+    final notifier = ref.read(lessonProvider.notifier);
+
+    return Expanded(
+      child: ClipPath(
+        clipper: const _WhiteboardClipper(), // 위쪽(카메라)만 차단, 좌우·아래 overflow 허용
+        child: Container(
+          color: AppColors.whiteboardBackground,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            // onScaleStart/Update/End으로 단일 손가락(드로잉)과
+            // 멀티 손가락(줌+팬)을 하나의 recognizer로 처리 → 충돌 없음
+            onScaleStart: (d) {
+              final s = ref.read(lessonProvider);
+              if (s.isImageEditMode) {
+                // 이전 드로잉 제스처 잔재 정리 (드로잉 중 이미지 편집 모드 진입 시 대비)
+                if (_isDrawingGesture) notifier.cancelCurrentStroke();
+                _isDrawingGesture = false;
+                _wasZoomGesture = false;
+                // 이미지 편집 모드: 드래그/핀치로 이미지 조작
+                _imageBaseX = s.imageX;
+                _imageBaseY = s.imageY;
+                _imageBaseWidth = s.imageWidth;
+                _imageBaseHeight = s.imageHeight;
+                _imageDidMove = false;
+                _baseFocal = d.localFocalPoint;
+                _baseScale = 1.0;
+                return;
+              }
+              // 일반 드로잉/줌 모드
+              _isDrawingGesture = true;
+              _wasZoomGesture = false;
+              _baseScale = _scale;
+              _baseFocal = d.localFocalPoint;
+              _baseOffset = _offset;
+              notifier.onPanStart(_toCanvas(d.localFocalPoint));
+            },
+            onScaleUpdate: (d) {
+              final s = ref.read(lessonProvider);
+              if (s.isImageEditMode) {
+                _imageDidMove = true;
+                if (d.pointerCount >= 2) {
+                  // 핀치: 이미지 중심 고정 리사이즈
+                  final newW = (_imageBaseWidth * d.scale).clamp(50.0, 3000.0);
+                  final newH = (_imageBaseHeight * d.scale).clamp(50.0, 3000.0);
+                  final cx = _imageBaseX + _imageBaseWidth / 2;
+                  final cy = _imageBaseY + _imageBaseHeight / 2;
+                  notifier.updateImageBounds(
+                    x: cx - newW / 2,
+                    y: cy - newH / 2,
+                    width: newW,
+                    height: newH,
+                  );
+                } else {
+                  // 드래그: 캔버스 좌표 delta로 이동
+                  final canvasDelta = (d.localFocalPoint - _baseFocal) / _scale;
+                  notifier.updateImageBounds(
+                    x: _imageBaseX + canvasDelta.dx,
+                    y: _imageBaseY + canvasDelta.dy,
+                    width: s.imageWidth,
+                    height: s.imageHeight,
+                  );
+                }
+                return;
+              }
+              if (d.pointerCount >= 2) {
+                // 두 손가락: 줌 + 팬
+                if (_isDrawingGesture) {
+                  notifier.cancelCurrentStroke(); // 두 손가락 감지 시 즉시 폐기 (점 방지)
+                  _isDrawingGesture = false;
+                }
+                _wasZoomGesture = true;
+                final newScale = (_baseScale * d.scale).clamp(0.5, 4.0);
+                // 시작 focal 아래의 캔버스 점이 현재 focal 아래에 유지되도록 offset 계산
+                final focalCanvas = (_baseFocal - _baseOffset) / _baseScale;
+                setState(() {
+                  _scale = newScale;
+                  _offset = d.localFocalPoint - focalCanvas * newScale;
+                });
+              } else if (_isDrawingGesture) {
+                // 한 손가락: 드로잉
+                notifier.onPanUpdate(_toCanvas(d.localFocalPoint));
+              }
+            },
+            onScaleEnd: (_) {
+              final s = ref.read(lessonProvider);
+              if (s.isImageEditMode) {
+                if (!_imageDidMove) {
+                  // 탭 감지: 이미지 밖이면 편집 모드 종료
+                  final p = _toCanvas(_baseFocal);
+                  final outside = p.dx < s.imageX ||
+                      p.dx > s.imageX + s.imageWidth ||
+                      p.dy < s.imageY ||
+                      p.dy > s.imageY + s.imageHeight;
+                  if (outside) notifier.exitImageEditMode();
+                } else {
+                  // 드래그/리사이즈 종료: STOMP 전송
+                  notifier.sendImageMove();
+                }
+                _imageDidMove = false;
+                _isDrawingGesture = false; // 이미지 편집 종료 후 드로잉 상태 초기화
+                _wasZoomGesture = false;   // 줌 상태도 초기화
+                return;
+              }
+              if (_isDrawingGesture) {
+                notifier.onPanEnd();
+                _isDrawingGesture = false;
+              }
+              if (_wasZoomGesture) {
+                // gesture 종료 시점에 한 번만 전송 → STOMP 과부하 방지
+                notifier.sendZoom(_scale, _offset);
+                _wasZoomGesture = false;
+              }
+            },
+            child: Transform(
+              transform: _buildMatrix(),
+              child: SizedBox(
+                width: 5000,
+                height: 5000,
+                child: Stack(
+                  fit: StackFit.expand,
+                  clipBehavior: Clip.none, // 이미지가 캔버스 경계 밖으로 이동해도 전체 클리핑 방지
+                  children: [
+                    if (state.backgroundImageUrl != null)
+                      state.imageWidth > 0
+                          ? Positioned(
+                              left: state.imageX,
+                              top: state.imageY,
+                              width: state.imageWidth,
+                              height: state.imageHeight,
+                              child: DecoratedBox(
+                                decoration: state.isImageEditMode
+                                    ? BoxDecoration(
+                                        border: Border.all(
+                                            color: Colors.blue, width: 2))
+                                    : const BoxDecoration(),
+                                child: Image.network(
+                                  state.backgroundImageUrl!,
+                                  fit: BoxFit.fill,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const SizedBox.shrink(),
+                                ),
+                              ),
+                            )
+                          : Image.network(
+                              state.backgroundImageUrl!,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const SizedBox.shrink(),
+                            ),
+                    CustomPaint(
+                      painter: WhiteboardPainter(
+                        strokes: state.strokes,
+                        currentStroke: state.currentStroke,
+                        remoteStroke: state.remoteStroke,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── 하단 액션 바 ───────────────────────────────────────────────────────────
+
+  static const _penColors = [
+    Colors.black,
+    Colors.red,
+    Colors.blue,
+    Colors.green,
+    Colors.orange,
+  ];
+
+  Widget _buildActionBar(LessonState state) {
+    final notifier = ref.read(lessonProvider.notifier);
+    final canUndo = state.undoHistory.isNotEmpty;
+    final canRedo = state.redoHistory.isNotEmpty;
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 행 1: 색상 팔레트 + 지우개
+          _buildColorPalette(state),
+          const SizedBox(height: 6),
+          // 행 2: Undo, Redo, 이미지, 수업완료, 카메라
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // Undo
+              IconButton(
+                onPressed: canUndo ? () => notifier.undo() : null,
+                icon: Icon(
+                  Icons.undo,
+                  color: canUndo ? AppColors.textPrimary : Colors.grey[400],
+                ),
+                tooltip: '실행 취소',
+              ),
+              // Redo
+              IconButton(
+                onPressed: canRedo ? () => notifier.redo() : null,
+                icon: Icon(
+                  Icons.redo,
+                  color: canRedo ? AppColors.textPrimary : Colors.grey[400],
+                ),
+                tooltip: '다시 실행',
+              ),
+              _ActionButton(
+                icon: Icons.image_outlined,
+                label: '이미지',
+                onTap: () => _pickAndUploadImage(),
+              ),
+              if (state.backgroundImageUrl != null)
+                _ActionButton(
+                  icon: Icons.open_with,
+                  label: state.isImageEditMode ? '편집 완료' : '이미지 편집',
+                  color: state.isImageEditMode
+                      ? Colors.blue
+                      : AppColors.textPrimary,
+                  onTap: () => notifier.toggleImageEditMode(),
+                ),
+              _ActionButton(
+                icon: Icons.check_circle_outline,
+                label: '수업완료',
+                color: AppColors.buttonDanger,
+                onTap: () => _confirmComplete(),
+              ),
+              if (state.isTutor)
+                _ActionButton(
+                  icon: state.localCameraEnabled
+                      ? Icons.videocam_outlined
+                      : Icons.videocam_off_outlined,
+                  label: state.localCameraEnabled ? '카메라 끄기' : '카메라 켜기',
+                  onTap: () => notifier.toggleCamera(),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColorPalette(LessonState state) {
+    final notifier = ref.read(lessonProvider.notifier);
+    final isEraser = state.isEraserMode;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // 색상 팔레트
+        ..._penColors.map((color) {
+          final isSelected = !isEraser && state.currentPenColor == color;
+          return GestureDetector(
+            onTap: () => notifier.setPenColor(color),
+            child: Opacity(
+              opacity: isEraser ? 0.4 : 1.0,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? Colors.black87 : Colors.transparent,
+                    width: 2.5,
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: color.withValues(alpha: 0.5),
+                            blurRadius: 4,
+                          )
+                        ]
+                      : null,
+                ),
+              ),
+            ),
+          );
+        }),
+        const SizedBox(width: 8),
+        // 지우개 버튼
+        GestureDetector(
+          onTap: () => notifier.toggleEraser(),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: isEraser ? Colors.grey[300] : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isEraser ? Colors.black54 : Colors.transparent,
+                width: 1.5,
+              ),
+            ),
+            child: Icon(
+              Icons.auto_fix_normal,
+              size: 22,
+              color: isEraser ? Colors.black87 : Colors.grey[600],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final file = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 1080,
+      imageQuality: 80,
+    );
+    if (file == null) return;
+    await ref.read(lessonProvider.notifier).uploadImage(file);
+  }
+
+  Future<void> _confirmComplete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('수업 완료'),
+        content: const Text('수업을 종료하시겠습니까?\n녹화가 저장됩니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.buttonDanger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('완료', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(lessonProvider.notifier).completeLesson();
+    }
+  }
+}
+
+// ─── 재사용 버튼 위젯 ──────────────────────────────────────────────────────────
+
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color = AppColors.textPrimary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 3),
+            Text(label, style: TextStyle(color: color, fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 화이트보드 overflow 클리퍼 ────────────────────────────────────────────────
+
+/// 위쪽(카메라 방향) overflow만 차단하는 CustomClipper.
+/// - 로컬 y < 0 영역(카메라 영역)은 클리핑하여 침범 방지
+/// - 좌우·아래 overflow는 허용하여 줌아웃 시 캔버스 전체가 표시됨
+class _WhiteboardClipper extends CustomClipper<Path> {
+  const _WhiteboardClipper();
+
+  @override
+  Path getClip(Size size) => Path()
+    ..addRect(Rect.fromLTRB(
+      -size.width * 100,  // 좌측 overflow 허용
+      0,                   // 위쪽 경계 — y < 0 클리핑 (카메라 영역 침범 방지)
+      size.width * 100,   // 우측 overflow 허용
+      size.height * 100,  // 아래 overflow 허용 (액션바가 덮어줌)
+    ));
+
+  @override
+  bool shouldReclip(_WhiteboardClipper oldClipper) => false;
+}

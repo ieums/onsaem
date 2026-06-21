@@ -1,59 +1,73 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
-import 'package:ieum/core/utils/won_format_util.dart';
 import 'package:ieum/core/widgets/shell_filter_chip.dart';
 import 'package:ieum/core/widgets/shell_popup_menu.dart';
-import 'package:ieum/features/tutor/data/tutor_request_list_dummy_data.dart';
-import 'package:ieum/features/tutor/widgets/tutor_request_accept_dialog.dart';
+import 'package:ieum/features/matching/models/tutor_application_model.dart';
+import 'package:ieum/features/matching/providers/matching_provider.dart';
 import 'package:ieum/features/tutor/widgets/tutor_request_problem_image.dart';
 import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
 
 enum _SortOrder { newest, oldest }
 
-class TutorRequestListScreen extends StatefulWidget {
+class TutorRequestListScreen extends ConsumerStatefulWidget {
   const TutorRequestListScreen({super.key});
 
   @override
-  State<TutorRequestListScreen> createState() => _TutorRequestListScreenState();
+  ConsumerState<TutorRequestListScreen> createState() =>
+      _TutorRequestListScreenState();
 }
 
-class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
+class _TutorRequestListScreenState
+    extends ConsumerState<TutorRequestListScreen> {
   ShellTheme get _shell => ShellTheme.of(context);
 
-  static const _subjectFilters = TutorRequestDummyData.subjectFilters;
+  static const _subjectFilters = ['전체', '국어', '수학', '영어', '사회', '과학'];
   static const _sortOptionLabels = ['최신순', '오래된 순'];
-
-  List<TutorRequestListItem> get _allRequests => TutorRequestDummyData.build();
 
   String _selectedFilter = '전체';
   _SortOrder _sortOrder = _SortOrder.newest;
-  final Set<String> _rejectedRequestIds = {};
 
-  void _rejectRequest(TutorRequestListItem item) {
-    setState(() => _rejectedRequestIds.add(item.id));
+  List<TutorApplicationModel> _getVisible(List<TutorApplicationModel> all) {
+    final filtered = _selectedFilter == '전체'
+        ? List<TutorApplicationModel>.from(all)
+        : all.where((a) => a.subjectLabel == _selectedFilter).toList();
+    filtered.sort((a, b) => _sortOrder == _SortOrder.newest
+        ? b.appliedAt.compareTo(a.appliedAt)
+        : a.appliedAt.compareTo(b.appliedAt));
+    return filtered;
   }
 
-  Future<void> _showAcceptConfirmDialog(TutorRequestListItem item) async {
-    final confirmed = await showTutorRequestAcceptDialog(context, item);
-    if (!mounted || confirmed != true) return;
+  String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return '방금 전';
+    if (diff.inHours < 1) return '${diff.inMinutes}분 전';
+    if (diff.inDays < 1) return '${diff.inHours}시간 전';
+    return '${diff.inDays}일 전';
   }
 
-  List<TutorRequestListItem> get _visibleRequests {
-    final list = (_selectedFilter == '전체'
-            ? List<TutorRequestListItem>.from(_allRequests)
-            : _allRequests.where((r) => r.subject == _selectedFilter).toList())
-        .where((r) => !_rejectedRequestIds.contains(r.id))
-        .toList();
-
-    list.sort(
-      (a, b) => _sortOrder == _SortOrder.newest
-          ? a.minutesAgo.compareTo(b.minutesAgo)
-          : b.minutesAgo.compareTo(a.minutesAgo),
-    );
-    return list;
+  Future<void> _cancelApplication(TutorApplicationModel app) async {
+    try {
+      await ref
+          .read(tutorApplicationsProvider.notifier)
+          .cancelApplication(app.problemId);
+      if (mounted) {
+        ref.invalidate(matchingProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('신청이 취소되었습니다.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('취소 실패: $e')),
+        );
+      }
+    }
   }
 
   double get _sortMenuWidth =>
@@ -95,7 +109,7 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final requests = _visibleRequests;
+    final appsState = ref.watch(tutorApplicationsProvider);
 
     return Scaffold(
       backgroundColor: _shell.scaffoldBackground,
@@ -138,33 +152,57 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: _subjectFilters.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  return _buildSubjectChip(_subjectFilters[index]);
-                },
+                itemBuilder: (context, index) =>
+                    _buildSubjectChip(_subjectFilters[index]),
               ),
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: requests.isEmpty
-                  ? Center(
+              child: appsState.applications.when(
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '목록을 불러오지 못했습니다.',
+                        style:
+                            TextStyle(color: _shell.hintColor, fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => ref
+                            .read(tutorApplicationsProvider.notifier)
+                            .refresh(),
+                        child: const Text('다시 시도'),
+                      ),
+                    ],
+                  ),
+                ),
+                data: (all) {
+                  final visible = _getVisible(all);
+                  if (visible.isEmpty) {
+                    return Center(
                       child: Text(
-                        _rejectedRequestIds.isNotEmpty &&
-                                _selectedFilter == '전체'
-                            ? '표시할 신청이 없습니다.'
+                        _selectedFilter == '전체'
+                            ? '신청한 문제가 없습니다.'
                             : '해당 과목의 신청이 없습니다.',
-                        style: TextStyle(color: _shell.hintColor, fontSize: 14),
+                        style:
+                            TextStyle(color: _shell.hintColor, fontSize: 14),
                       ),
-                    )
-                  : ListView.separated(
-                      key: ValueKey(
-                        '$_sortOrder-$_selectedFilter-${_rejectedRequestIds.length}',
-                      ),
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                      itemCount: requests.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) =>
-                          _buildRequestCard(requests[index]),
-                    ),
+                    );
+                  }
+                  return ListView.separated(
+                    key: ValueKey('$_sortOrder-$_selectedFilter'),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    itemCount: visible.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) =>
+                        _buildRequestCard(visible[index]),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -173,15 +211,14 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
   }
 
   Widget _buildSubjectChip(String label) {
-    final selected = _selectedFilter == label;
     return ShellFilterChip(
       label: label,
-      selected: selected,
+      selected: _selectedFilter == label,
       onTap: () => setState(() => _selectedFilter = label),
     );
   }
 
-  Widget _buildRequestCard(TutorRequestListItem item) {
+  Widget _buildRequestCard(TutorApplicationModel app) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -194,16 +231,34 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TutorRequestProblemThumbnail(item: item),
+              TutorRequestProblemThumbnail(
+                imageUrl: app.imageUrls.firstOrNull,
+                title: app.primaryType,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TutorSubjectBadge(subject: item.subject),
+                    Row(
+                      children: [
+                        TutorSubjectBadge(subject: app.subjectLabel),
+                        const Spacer(),
+                        Text(
+                          app.statusLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: app.status == 'ACCEPTED'
+                                ? AppColors.primaryBlue
+                                : _shell.hintColor,
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     Text(
-                      item.detailSubject,
+                      app.primaryType ?? '-',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -212,89 +267,44 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (item.chapter.isNotEmpty) ...[
+                    if (app.secondaryType != null &&
+                        app.secondaryType!.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
-                        item.chapter,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: _shell.hintColor,
-                        ),
+                        app.secondaryType!,
+                        style:
+                            TextStyle(fontSize: 13, color: _shell.hintColor),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                     const SizedBox(height: 4),
                     Text(
-                      item.timeAgo,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: _shell.hintColor,
-                      ),
+                      _timeAgo(app.appliedAt),
+                      style:
+                          TextStyle(fontSize: 11, color: _shell.hintColor),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: _shell.detailBackground,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                _buildInfoRow('예상 수업 시간', '${item.classMinutes}분'),
-                const SizedBox(height: 8),
-                _buildInfoRow(
-                  '예상 금액',
-                  formatWon(item.priceWon),
-                  valueColor: AppColors.primaryBlue,
-                  valueBold: true,
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 14),
-          _buildActionButtons(item),
+          _buildActionButtons(app),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(
-    String label,
-    String value, {
-    Color? valueColor,
-    bool valueBold = false,
-  }) {
-    return Row(
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 13, color: _shell.hintColor),
-        ),
-        const Spacer(),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: valueBold ? FontWeight.w700 : FontWeight.w500,
-            color: valueColor ?? _shell.titleColor,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons(TutorRequestListItem item) {
+  Widget _buildActionButtons(TutorApplicationModel app) {
     return Row(
       children: [
         Expanded(
           child: FilledButton(
-            onPressed: () => _showAcceptConfirmDialog(item),
+            onPressed: () => context.push(
+              '/problem-detail',
+              extra: app.toSearchingProblem(),
+            ),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primaryBlue,
               foregroundColor: AppColors.onPrimaryFill(
@@ -307,31 +317,44 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
               ),
             ),
             child: const Text(
-              '수락',
+              '자세히',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             ),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: OutlinedButton(
-            onPressed: () => _rejectRequest(item),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _shell.titleColor,
-              minimumSize: const Size.fromHeight(44),
-              side: BorderSide(color: _shell.borderColor, width: 1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              '거절',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-          ),
+          child: app.status == 'CONFIRMING'
+              ? SizedBox(
+                  height: 44,
+                  child: Center(
+                    child: Text(
+                      '확인 대기 중',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ),
+                  ),
+                )
+              : OutlinedButton(
+                  onPressed: () => _cancelApplication(app),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _shell.titleColor,
+                    minimumSize: const Size.fromHeight(44),
+                    side: BorderSide(color: _shell.borderColor, width: 1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    '취소',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ),
         ),
       ],
     );
   }
-
 }

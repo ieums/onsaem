@@ -1,10 +1,11 @@
 import 'package:dio/dio.dart';
-import 'package:ieum/core/constants/api_constants.dart';
+import '../constants/api_constants.dart';
 
-final dio = Dio(
+final dioClient = Dio(
   BaseOptions(
     baseUrl: ApiConstants.baseUrl,
-    connectTimeout: const Duration(seconds: 5),
-    receiveTimeout: const Duration(seconds: 3),
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 30),
+    headers: {'Content-Type': 'application/json'},
   ),
 );

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:ieum/core/providers/app_lifecycle_provider.dart';
 import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/network/health_provider.dart';
+import 'package:ieum/core/providers/app_lifecycle_provider.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/routes/app_router.dart';
-
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -45,7 +44,6 @@ class _OnsaemAppState extends ConsumerState<OnsaemApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // 온보딩 첫 화면 이후에 health 체크 (시작 직후 팝업/깜빡임 방지)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future<void>.delayed(const Duration(milliseconds: 500), () {
         if (mounted) ref.read(healthProvider.future);
