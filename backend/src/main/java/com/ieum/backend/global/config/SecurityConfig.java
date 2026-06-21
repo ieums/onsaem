@@ -25,6 +25,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/problems/**").permitAll()
                         .requestMatchers("/api/v1/payments/**").permitAll()
                         .requestMatchers("/api/v1/settlements/**").permitAll()
+                        .requestMatchers("/api/v1/reviews/**").permitAll()
+                        .requestMatchers("/api/v1/reports/**").permitAll()
                         .requestMatchers(
                                 "/api/v1/health",
                                 "/api/v1/ai-tutor/**",
