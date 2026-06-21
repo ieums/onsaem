@@ -1,10 +1,12 @@
 package com.ieum.backend.domain.lessonreview.controller;
 
+import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
 import com.ieum.backend.domain.lessonreview.service.LessonReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,33 +20,33 @@ public class LessonReviewController {
 
     @PostMapping("/sessions")
     public ResponseEntity<CreateReviewSessionResponse> createSession(
-            @RequestHeader("X-Student-Id") Long studentId,
+            @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody CreateReviewSessionRequest request) {
         CreateReviewSessionResponse response =
-                lessonReviewService.createSession(studentId, request.lessonId());
+                lessonReviewService.createSession(principal.id(), request.lessonId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/sessions/{sessionId}/messages")
     public ResponseEntity<SendReviewMessageResponse> sendMessage(
-            @RequestHeader("X-Student-Id") Long studentId,
+            @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable Long sessionId,
             @Valid @RequestBody SendReviewMessageRequest request) {
         SendReviewMessageResponse response =
-                lessonReviewService.sendMessage(studentId, sessionId, request.content());
+                lessonReviewService.sendMessage(principal.id(), sessionId, request.content());
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/sessions")
     public ResponseEntity<List<ReviewSessionListItemResponse>> listSessions(
-            @RequestHeader("X-Student-Id") Long studentId) {
-        return ResponseEntity.ok(lessonReviewService.listSessions(studentId));
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ResponseEntity.ok(lessonReviewService.listSessions(principal.id()));
     }
 
     @GetMapping("/lessons/{lessonId}/summary-pdf")
     public ResponseEntity<SummaryPdfResponse> getSummaryPdf(
-            @RequestHeader("X-Student-Id") Long studentId,
+            @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable Long lessonId) {
-        return ResponseEntity.ok(lessonReviewService.getSummaryPdf(studentId, lessonId));
+        return ResponseEntity.ok(lessonReviewService.getSummaryPdf(principal.id(), lessonId));
     }
 }

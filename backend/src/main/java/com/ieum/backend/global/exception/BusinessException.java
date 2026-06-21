@@ -45,6 +45,10 @@ public class BusinessException extends RuntimeException {
     }
 
     // 500 — 내부/외부 연동 오류
+    public static BusinessException unauthorized(String message) {
+        return new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", message);
+    }
+
     public static BusinessException internalError(String message) {
         return new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", message);
     }
