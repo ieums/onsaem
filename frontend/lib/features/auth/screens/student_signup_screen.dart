@@ -49,7 +49,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
 
   final _domainTriggerKey = GlobalKey();
 
-  String _selectedDomain = 'gmail.com';
+  String _selectedDomain = '직접입력';
   bool _isDomainMenuOpen = false;
   OverlayEntry? _domainOverlayEntry;
   bool _obscurePassword = true;

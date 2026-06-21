@@ -72,6 +72,8 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
           label: _sortOptionLabels[0],
           menuWidth: menuWidth,
           isSelected: _sortOrder == _SortOrder.newest,
+          isFirst: true,
+          isLast: false,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
         ),
         buildShellPopupMenuItem(
@@ -80,6 +82,8 @@ class _TutorRequestListScreenState extends State<TutorRequestListScreen> {
           label: _sortOptionLabels[1],
           menuWidth: menuWidth,
           isSelected: _sortOrder == _SortOrder.oldest,
+          isFirst: false,
+          isLast: true,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
         ),
       ],

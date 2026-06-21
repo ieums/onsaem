@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ieum/core/theme/app_fonts.dart';
+
 /// 학생·강사 셸 하단 탭 바 (높이·아이콘 크기 공통)
 class AppShellTabBar extends StatelessWidget {
   const AppShellTabBar({
@@ -38,6 +40,7 @@ class AppShellTabBar extends StatelessWidget {
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
             return TextStyle(
+              fontFamily: AppFonts.pretendard,
               fontSize: _labelSize,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               color: selected ? scheme.primary : scheme.onSurfaceVariant,

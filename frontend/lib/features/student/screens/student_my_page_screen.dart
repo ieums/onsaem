@@ -1,13 +1,17 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/features/student/data/student_home_dummy_data.dart';
+import 'package:ieum/features/student/providers/student_notification_provider.dart';
 import 'package:ieum/features/student/providers/student_wallet_provider.dart';
 import 'package:ieum/features/student/widgets/student_auto_pay_bottom_sheet.dart';
+
 class StudentMyPageScreen extends ConsumerStatefulWidget {
   const StudentMyPageScreen({super.key});
 
@@ -17,10 +21,6 @@ class StudentMyPageScreen extends ConsumerStatefulWidget {
 
 class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
   ShellTheme get _shell => ShellTheme.of(context);
-
-  bool _matchingAlert = true;
-  bool _aiTutorAlert = true;
-  bool _extendTimeAlert = true;
 
   Color get _pageBackground =>
       Theme.of(context).brightness == Brightness.dark
@@ -182,7 +182,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '테스트',
+                  StudentHomeDummyData.studentName,
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
@@ -318,6 +318,8 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
   }
 
   Widget _buildNotificationSettingsCard() {
+    final settings = ref.watch(studentNotificationSettingsProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -335,26 +337,53 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
             _buildNotificationRow(
               icon: Icons.handshake_outlined,
               title: '매칭 알림',
-              value: _matchingAlert,
-              onChanged: (v) => setState(() => _matchingAlert = v),
+              value: settings.matching,
+              onChanged: (v) => _updateNotificationSetting(
+                enabled: v,
+                update: (notifier) => notifier.setMatching(v),
+              ),
             ),
             _buildNotificationRow(
               icon: Icons.smart_toy_outlined,
               title: 'AI 튜터 알림',
-              value: _aiTutorAlert,
-              onChanged: (v) => setState(() => _aiTutorAlert = v),
+              value: settings.aiTutor,
+              onChanged: (v) => _updateNotificationSetting(
+                enabled: v,
+                update: (notifier) => notifier.setAiTutor(v),
+              ),
             ),
             _buildNotificationRow(
               icon: Icons.schedule_rounded,
               title: '시간 연장 알림',
-              value: _extendTimeAlert,
-              onChanged: (v) => setState(() => _extendTimeAlert = v),
+              value: settings.extendTime,
+              onChanged: (v) => _updateNotificationSetting(
+                enabled: v,
+                update: (notifier) => notifier.setExtendTime(v),
+              ),
               showDivider: false,
             ),
           ],
         ),
       ],
     );
+  }
+
+  Future<void> _updateNotificationSetting({
+    required bool enabled,
+    required Future<void> Function(StudentNotificationSettingsNotifier) update,
+  }) async {
+    if (enabled) {
+      final granted =
+          await ref.read(appNotificationServiceProvider).requestPermission();
+      if (!granted && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('알림 권한이 필요합니다. 기기 설정에서 허용해 주세요.'),
+          ),
+        );
+      }
+    }
+    await update(ref.read(studentNotificationSettingsProvider.notifier));
   }
 
   Widget _buildGroupedMenuCard({required List<Widget> children}) {

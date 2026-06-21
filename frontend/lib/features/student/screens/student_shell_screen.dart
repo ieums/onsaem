@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
+import 'package:ieum/features/student/providers/student_shell_tab_provider.dart';
 import 'package:ieum/features/student/screens/student_home_screen.dart';
 import 'package:ieum/features/student/screens/student_lessons_screen.dart';
 import 'package:ieum/features/student/screens/student_my_page_screen.dart';
@@ -17,8 +19,6 @@ class StudentShellScreen extends ConsumerStatefulWidget {
 }
 
 class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
-  int _index = 0;
-
   static const _tabs = [
     (icon: Icons.home_outlined, activeIcon: Icons.home, label: '홈'),
     (
@@ -42,7 +42,18 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppNotificationService.instance.initialize().then((_) {
+        AppNotificationService.instance.ensurePermission();
+      });
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final tabIndex = ref.watch(studentShellTabIndexProvider);
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
@@ -54,10 +65,11 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
     return Theme(
       data: theme,
       child: Scaffold(
-        body: IndexedStack(index: _index, children: _screens),
+        body: IndexedStack(index: tabIndex, children: _screens),
         bottomNavigationBar: AppShellTabBar(
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
+          selectedIndex: tabIndex,
+          onDestinationSelected: (i) =>
+              ref.read(studentShellTabIndexProvider.notifier).state = i,
           tabs: _tabs,
         ),
       ),

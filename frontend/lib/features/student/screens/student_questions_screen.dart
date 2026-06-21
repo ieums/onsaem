@@ -3,19 +3,24 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/features/student/providers/student_notification_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-class StudentQuestionsScreen extends StatefulWidget {
+class StudentQuestionsScreen extends ConsumerStatefulWidget {
   const StudentQuestionsScreen({super.key});
 
   @override
-  State<StudentQuestionsScreen> createState() => _StudentQuestionsScreenState();
+  ConsumerState<StudentQuestionsScreen> createState() =>
+      _StudentQuestionsScreenState();
 }
 
-class _StudentQuestionsScreenState extends State<StudentQuestionsScreen> {
+class _StudentQuestionsScreenState extends ConsumerState<StudentQuestionsScreen> {
   final _controller = TextEditingController();
   final _imagePicker = ImagePicker();
   final List<_ChatMessage> _messages = [];
@@ -52,23 +57,33 @@ class _StudentQuestionsScreenState extends State<StudentQuestionsScreen> {
   }
 
   void _pushSingleTurn(_ChatMessage userMessage) {
+    final dedupeKey = 'ai-tutor-${DateTime.now().millisecondsSinceEpoch}';
     setState(() {
-      // 과외앱 UX처럼 현재 질문/답변에 집중할 수 있게 이전 대화는 초기 인사만 유지.
       _messages
         ..removeRange(1, _messages.length)
         ..add(userMessage);
       _isResponding = true;
     });
-    _respondWithDisabledMessage();
+    ref.read(studentNotificationControllerProvider).scheduleAiTutorResponse(
+          dedupeKey: dedupeKey,
+          preview: '보내주신 질문에 대한 AI 튜터 안내가 도착했어요.',
+          delay: const Duration(milliseconds: 700),
+        );
+    _respondWithDisabledMessage(dedupeKey);
   }
 
-  Future<void> _respondWithDisabledMessage() async {
+  Future<void> _respondWithDisabledMessage(String dedupeKey) async {
     await Future<void>.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
     setState(() {
       _messages.add(const _ChatMessage(text: _disabledMessage, isUser: false));
       _isResponding = false;
     });
+
+    await ref.read(studentNotificationControllerProvider).onAiTutorResponseArrived(
+          dedupeKey: dedupeKey,
+          preview: '보내주신 질문에 대한 AI 튜터 안내가 도착했어요.',
+        );
   }
 
   void _showAttachBottomSheet() {
@@ -187,7 +202,7 @@ class _StudentQuestionsScreenState extends State<StudentQuestionsScreen> {
       color: shell.cardBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.roleStudentBorder, width: 1.2),
+        side: BorderSide(color: shell.cardBorder, width: 1.2),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -528,9 +543,7 @@ class _StudentQuestionsScreenState extends State<StudentQuestionsScreen> {
   }
 
   void _askRealTutor() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('실제 강사 연결 기능은 곧 제공될 예정이에요.')),
-    );
+    context.push(RoutePaths.studentProblemUpload);
   }
 
   Widget _buildComposer(ShellTheme shell) {

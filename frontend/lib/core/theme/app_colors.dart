@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 abstract final class AppColors {
   static const Color primaryBlue = Color(0xFFBFA2DB);
   static const Color studentPoint = Color(0xFF5B9BD5);
+  /// 액션 강조용 선명 블루 (studentPoint보다 쨍함)
+  static const Color vividBlue = Color(0xFF007AFF);
   static const Color incomeGreen = Color(0xFF5FA68A);
 
   /// 회원가입 역할 선택 — 학생 카드용 (강사는 [primaryBlue])
@@ -43,4 +45,7 @@ abstract final class AppColors {
   static const Color shellIconBgDark = Color(0xFF2A2E38);
   static const Color shellTabBarDark = Color(0xFF1A1D24);
   static const Color shellTrackOffDark = Color(0xFF4A4F5C);
+
+  /// 복습 북마크·TIP 강조
+  static const Color reviewHighlight = Color(0xFFF5A623);
 }
