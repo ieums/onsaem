@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/features/auth/data/auth_controller.dart';
 
 class TutorSignupScreen extends ConsumerStatefulWidget {
   const TutorSignupScreen({
@@ -70,6 +71,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   bool _obscureConfirmPassword = true;
   bool _showPasswordMismatch = false;
   int _introLength = 0;
+  bool _isSubmitting = false;
 
   final List<String> _subjectKeywords = [];
   final List<String> _lectureStyleKeywords = [];
@@ -233,6 +235,61 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     _introController.dispose();
     _lectureStyleInputController.dispose();
     super.dispose();
+  }
+    Future<void> _submit() async {
+    // ── 프로필 수정 모드: 기존 동작 보존 ──
+    if (widget.isEditMode) {
+      context.go(RoutePaths.tutorHome);
+      return;
+    }
+
+    // ── 신규 강사 회원가입 ──
+    final name = _nameController.text.trim();
+    final emailLocal = _emailLocalController.text.trim();
+    final email = _selectedDomain == '직접입력'
+        ? emailLocal
+        : '$emailLocal@$_selectedDomain';
+    final password = _passwordController.text;
+    final confirm = _confirmPasswordController.text;
+    final major = _majorController.text.trim();
+    final bio = _introController.text.trim();
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      _showSnack('이름·이메일·비밀번호를 모두 입력해주세요.');
+      return;
+    }
+    if (password.length < 8) {
+      _showSnack('비밀번호는 8자 이상이어야 해요.');
+      return;
+    }
+    if (password != confirm) {
+      setState(() => _showPasswordMismatch = true);
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(authControllerProvider).tutorSignup(
+            email: email,
+            password: password,
+            name: name,
+            major: major.isEmpty ? null : major,   // 전공 (선택)
+            bio: bio.isEmpty ? null : bio,          // 한줄소개 (선택)
+          );
+      if (!mounted) return;
+      context.go(RoutePaths.tutorHome); // 가입 즉시 로그인됨 → 강사 홈
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('회원가입에 실패했어요. 이미 가입된 이메일인지 확인해주세요.');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _showSnack(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text)),
+    );
   }
 
   void _removeAllOverlays() {
@@ -723,7 +780,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
               height: 54,
               width: double.infinity,
               child: FilledButton(
-                onPressed: () => context.go(RoutePaths.tutorHome),
+                onPressed: _isSubmitting ? null : _submit,
                 style: _primaryCtaStyle(context),
                 child: Text(
                   widget.isEditMode ? '저장하기' : '가입하기',

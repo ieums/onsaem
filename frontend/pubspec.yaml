@@ -48,6 +48,10 @@ dependencies:
   timezone: ^0.10.1
   flutter_svg: ^2.3.0
   flutter_secure_storage: ^9.2.4
+   # ─── 소셜 로그인 ───────────────────────────
+  google_sign_in: ^7.2.0
+  kakao_flutter_sdk_user: ^2.0.0
+  flutter_naver_login: ^2.1.1
 
 dev_dependencies:
   flutter_test:

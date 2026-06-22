@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/features/auth/data/auth_controller.dart';
 
 class StudentSignupScreen extends ConsumerStatefulWidget {
   const StudentSignupScreen({
@@ -56,6 +57,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   bool _obscureConfirmPassword = true;
   bool _showPasswordMismatch = false;
   Uint8List? _profileImageBytes;
+  bool _isSubmitting = false; 
 
   bool get _isShellThemed => widget.isEditMode;
 
@@ -297,7 +299,8 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     }
   }
 
-  void _submit() {
+    Future<void> _submit() async {
+    // ── 프로필 수정 모드: 기존 동작 그대로 ──
     if (widget.isEditMode) {
       if (context.canPop()) {
         context.pop();
@@ -309,7 +312,50 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
       );
       return;
     }
-    context.go(RoutePaths.studentHome);
+
+    // ── 신규 회원가입 ──
+    final name = _nameController.text.trim();
+    final emailLocal = _emailLocalController.text.trim();
+    final email = _selectedDomain == '직접입력'
+        ? emailLocal
+        : '$emailLocal@$_selectedDomain';
+    final password = _passwordController.text;
+    final confirm = _confirmPasswordController.text;
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      _showSnack('이름·이메일·비밀번호를 모두 입력해주세요.');
+      return;
+    }
+    if (password.length < 8) {
+      _showSnack('비밀번호는 8자 이상이어야 해요.');
+      return;
+    }
+    if (password != confirm) {
+      setState(() => _showPasswordMismatch = true);
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(authControllerProvider).studentSignup(
+            email: email,
+            password: password,
+            name: name,
+          );
+      if (!mounted) return;
+      context.go(RoutePaths.studentHome);
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('회원가입에 실패했어요. 이미 가입된 이메일인지 확인해주세요.');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _showSnack(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text)),
+    );
   }
 
   @override
@@ -507,7 +553,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
               height: 54,
               width: double.infinity,
               child: FilledButton(
-                onPressed: _submit,
+                onPressed: _isSubmitting ? null : _submit,
                 style: _primaryCtaStyle(context),
                 child: Text(
                   widget.isEditMode ? '저장하기' : '가입하기',

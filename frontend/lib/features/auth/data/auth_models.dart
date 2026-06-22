@@ -5,7 +5,7 @@ enum UserRole {
 
   /// 백엔드 문자열 → enum
   static UserRole fromString(String value) {
-    switch (value) {
+    switch (value.toLowerCase()) {
       case 'student':
         return UserRole.student;
       case 'tutor':

@@ -4,6 +4,7 @@ import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/network/health_provider.dart';
 import 'package:ieum/core/providers/app_lifecycle_provider.dart';
 import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/features/auth/data/auth_controller.dart'; 
 import 'package:ieum/routes/app_router.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -22,9 +23,17 @@ Future<void> main() async {
     debugPrint('[Onsaem] 알림 초기화 실패: $error');
     debugPrint('$stackTrace');
   }
+    // 저장된 토큰이 있으면 로그인 상태 복원 (토큰 없으면 즉시 통과)
+  final container = ProviderContainer();
+  try {
+    await container.read(authControllerProvider).restoreSession();
+  } catch (_) {}
+
+
   runApp(
-    const ProviderScope(
-      child: OnsaemApp(),
+    UncontrolledProviderScope(
+      container: container,
+      child: const OnsaemApp(),
     ),
   );
 }
