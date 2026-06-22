@@ -1,4 +1,5 @@
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -36,6 +37,9 @@ class LessonState {
   final Color currentPenColor;
   final bool isEraserMode;
 
+  final bool isMicEnabled;
+  final bool remoteMicEnabled;
+
   final bool isRecording;
   final String? recordingUrl;
 
@@ -72,6 +76,8 @@ class LessonState {
     this.remoteOffsetY = 0.0,
     this.currentPenColor = Colors.black,
     this.isEraserMode = false,
+    this.isMicEnabled = true,
+    this.remoteMicEnabled = true,
     this.isRecording = false,
     this.recordingUrl,
     this.strokes = const [],
@@ -106,6 +112,8 @@ class LessonState {
     double? remoteOffsetY,
     Color? currentPenColor,
     bool? isEraserMode,
+    bool? isMicEnabled,
+    bool? remoteMicEnabled,
     bool? isRecording,
     Object? recordingUrl = _sentinel,
     List<DrawingStroke>? strokes,
@@ -139,6 +147,8 @@ class LessonState {
       remoteOffsetY: remoteOffsetY ?? this.remoteOffsetY,
       currentPenColor: currentPenColor ?? this.currentPenColor,
       isEraserMode: isEraserMode ?? this.isEraserMode,
+      isMicEnabled: isMicEnabled ?? this.isMicEnabled,
+      remoteMicEnabled: remoteMicEnabled ?? this.remoteMicEnabled,
       isRecording: isRecording ?? this.isRecording,
       recordingUrl:
           recordingUrl == _sentinel ? this.recordingUrl : recordingUrl as String?,
@@ -208,50 +218,54 @@ class LessonNotifier extends StateNotifier<LessonState> {
         lessonId: tokenResp.lessonId,
       );
 
-      // 2. Agora 엔진 초기화
-      _engine = createAgoraRtcEngine();
-      await _engine!.initialize(RtcEngineContext(appId: tokenResp.appId));
+      // TODO: kIsWeb 체크 제거 후 실기기 테스트
+      if (!kIsWeb) {
+        // 2. Agora 엔진 초기화
+        _engine = createAgoraRtcEngine();
+        await _engine!.initialize(RtcEngineContext(appId: tokenResp.appId));
 
-      // 3. 이벤트 핸들러 등록
-      _engine!.registerEventHandler(
-        RtcEngineEventHandler(
-          onJoinChannelSuccess: (connection, elapsed) {
-            state = state.copyWith(isInChannel: true);
-          },
-          onUserJoined: (connection, remoteUid, elapsed) {
-            state = state.copyWith(remoteUid: remoteUid);
-          },
-          onUserOffline: (connection, remoteUid, reason) {
-            if (state.remoteUid == remoteUid) {
-              state = state.copyWith(remoteUid: null);
-            }
-          },
-        ),
-      );
+        // 3. 이벤트 핸들러 등록
+        _engine!.registerEventHandler(
+          RtcEngineEventHandler(
+            onJoinChannelSuccess: (connection, elapsed) {
+              state = state.copyWith(isInChannel: true);
+            },
+            onUserJoined: (connection, remoteUid, elapsed) {
+              state = state.copyWith(remoteUid: remoteUid);
+            },
+            onUserOffline: (connection, remoteUid, reason) {
+              if (state.remoteUid == remoteUid) {
+                state = state.copyWith(remoteUid: null);
+              }
+            },
+          ),
+        );
 
-      // 4. 오디오/비디오 활성화
-      await _engine!.enableAudio();
-      await _engine!.enableVideo(); // 원격 영상 수신에도 필요하므로 모든 역할에서 활성화
-      if (!isTutor) {
-        await _engine!.enableLocalVideo(false); // 학생: 로컬 캡처만 비활성화
+        // 4. 오디오/비디오 활성화
+        await _engine!.enableAudio();
+        await _engine!.enableVideo(); // 원격 영상 수신에도 필요하므로 모든 역할에서 활성화
+        if (!isTutor) {
+          await _engine!.enableLocalVideo(false); // 학생: 로컬 캡처만 비활성화
+        }
+
+        // 5. 채널 입장
+        await _engine!.joinChannel(
+          token: tokenResp.token,
+          channelId: channelName,
+          uid: uid,
+          options: const ChannelMediaOptions(
+            clientRoleType: ClientRoleType.clientRoleBroadcaster,
+            channelProfile: ChannelProfileType.channelProfileCommunication,
+          ),
+        );
       }
-
-      // 5. 채널 입장
-      await _engine!.joinChannel(
-        token: tokenResp.token,
-        channelId: channelName,
-        uid: uid,
-        options: const ChannelMediaOptions(
-          clientRoleType: ClientRoleType.clientRoleBroadcaster,
-          channelProfile: ChannelProfileType.channelProfileCommunication,
-        ),
-      );
 
       // 6. STOMP 연결
       _repo.connectStomp(channelName, _onRemoteDrawEvent);
 
+      // TODO: kIsWeb 체크 제거 후 실기기 테스트
       // 7. 녹화 자동 시작 (튜터만)
-      if (isTutor) {
+      if (!kIsWeb && isTutor) {
         await _startRecording();
       }
 
@@ -276,6 +290,26 @@ class LessonNotifier extends StateNotifier<LessonState> {
         DrawEvent(
           senderId: _repo.sessionId,
           type: next ? DrawType.cameraOn : DrawType.cameraOff,
+        ),
+      );
+    }
+  }
+
+  // ─── 마이크 토글 ────────────────────────────────────────────────────────────
+
+  Future<void> toggleMic() async {
+    final next = !state.isMicEnabled;
+    if (!kIsWeb) {
+      await _engine?.muteLocalAudioStream(!next);
+    }
+    state = state.copyWith(isMicEnabled: next);
+    final channelName = state.channelName;
+    if (channelName != null) {
+      _repo.sendDraw(
+        channelName,
+        DrawEvent(
+          senderId: _repo.sessionId,
+          type: next ? DrawType.micOn : DrawType.micOff,
         ),
       );
     }
@@ -472,6 +506,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
         state = state.copyWith(remoteCameraEnabled: true);
       case DrawType.cameraOff:
         state = state.copyWith(remoteCameraEnabled: false);
+      case DrawType.micOn:
+        state = state.copyWith(remoteMicEnabled: true);
+      case DrawType.micOff:
+        state = state.copyWith(remoteMicEnabled: false);
       case DrawType.lessonEnd:
         _applyRemoteComplete();
     }

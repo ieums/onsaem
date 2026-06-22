@@ -89,7 +89,9 @@ enum DrawType {
   cameraOff,
   zoom,
   imageMove,
-  lessonEnd;
+  lessonEnd,
+  micOn,
+  micOff;
 
   String get value {
     switch (this) {
@@ -115,6 +117,10 @@ enum DrawType {
         return 'IMAGE_MOVE';
       case DrawType.lessonEnd:
         return 'LESSON_END';
+      case DrawType.micOn:
+        return 'MIC_ON';
+      case DrawType.micOff:
+        return 'MIC_OFF';
     }
   }
 
@@ -142,6 +148,10 @@ enum DrawType {
         return DrawType.imageMove;
       case 'LESSON_END':
         return DrawType.lessonEnd;
+      case 'MIC_ON':
+        return DrawType.micOn;
+      case 'MIC_OFF':
+        return DrawType.micOff;
       default:
         return DrawType.draw;
     }
