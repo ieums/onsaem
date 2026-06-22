@@ -43,6 +43,8 @@ Future<T?> showShellAnchorPopupMenu<T>({
     context: anchorContext,
     color: scheme.surface,
     elevation: 6,
+    menuPadding: EdgeInsets.zero,
+    clipBehavior: Clip.antiAlias,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14),
       side: BorderSide(color: scheme.outline),
@@ -64,18 +66,35 @@ PopupMenuItem<T> buildShellPopupMenuItem<T>({
   required String label,
   required double menuWidth,
   required bool isSelected,
+  bool isFirst = false,
+  bool isLast = false,
+  double cornerRadius = 14,
   double height = 46,
   EdgeInsets padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
 }) {
   final scheme = Theme.of(context).colorScheme;
+  BorderRadius? rowRadius;
+  if (isSelected) {
+    if (isFirst && isLast) {
+      rowRadius = BorderRadius.circular(cornerRadius);
+    } else if (isFirst) {
+      rowRadius = BorderRadius.vertical(top: Radius.circular(cornerRadius));
+    } else if (isLast) {
+      rowRadius = BorderRadius.vertical(bottom: Radius.circular(cornerRadius));
+    }
+  }
+
   return PopupMenuItem<T>(
     value: value,
     height: height,
     padding: EdgeInsets.zero,
     child: SizedBox(
       width: menuWidth,
-      child: ColoredBox(
-        color: shellPopupMenuRowColor(context, selected: isSelected),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: shellPopupMenuRowColor(context, selected: isSelected),
+          borderRadius: rowRadius,
+        ),
         child: Padding(
           padding: padding,
           child: Text(

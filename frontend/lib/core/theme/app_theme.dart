@@ -1,24 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/app_fonts.dart';
 
 /// 강사·학생 탭 다크 모드 on/off (로그인·온보딩에는 미적용)
 final shellDarkModeProvider = StateProvider<bool>((ref) => false);
 
 abstract final class AppTheme {
+  static ThemeData _withFont(ThemeData theme) {
+    return theme.copyWith(
+      textTheme: theme.textTheme.apply(fontFamily: AppFonts.pretendard),
+      primaryTextTheme:
+          theme.primaryTextTheme.apply(fontFamily: AppFonts.pretendard),
+    );
+  }
+
   /// 로그인·온보딩·회원가입
-  static ThemeData get light => ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primaryBlue,
-          primary: AppColors.primaryBlue,
-        ),
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black87,
+  static ThemeData get light => _withFont(
+        ThemeData(
+          fontFamily: AppFonts.pretendard,
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: AppColors.primaryBlue,
+            primary: AppColors.primaryBlue,
+          ),
+          scaffoldBackgroundColor: Colors.white,
+          appBarTheme: const AppBarTheme(
+            centerTitle: true,
+            elevation: 0,
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black87,
+          ),
         ),
       );
 
@@ -58,7 +70,8 @@ abstract final class AppTheme {
             surfaceContainerLow: AppColors.shellTrackOffLight,
           );
 
-    return ThemeData(
+    return _withFont(ThemeData(
+      fontFamily: AppFonts.pretendard,
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
@@ -82,6 +95,7 @@ abstract final class AppTheme {
               : AppColors.shellOnSurfaceLight,
         ),
         titleTextStyle: TextStyle(
+          fontFamily: AppFonts.pretendard,
           fontSize: 18,
           fontWeight: FontWeight.bold,
           color: isDark
@@ -91,21 +105,25 @@ abstract final class AppTheme {
       ),
       textTheme: TextTheme(
         bodyLarge: TextStyle(
+          fontFamily: AppFonts.pretendard,
           color: isDark
               ? AppColors.shellOnSurfaceDark
               : AppColors.shellOnSurfaceLight,
         ),
         bodyMedium: TextStyle(
+          fontFamily: AppFonts.pretendard,
           color: isDark
               ? AppColors.shellOnSurfaceDark
               : AppColors.shellOnSurfaceLight,
         ),
         titleMedium: TextStyle(
+          fontFamily: AppFonts.pretendard,
           color: isDark
               ? AppColors.shellOnSurfaceDark
               : AppColors.shellOnSurfaceLight,
         ),
         labelLarge: TextStyle(
+          fontFamily: AppFonts.pretendard,
           color: isDark
               ? AppColors.shellOnSurfaceDark
               : AppColors.shellOnSurfaceLight,
@@ -123,6 +141,7 @@ abstract final class AppTheme {
             ? AppColors.shellSnackBarDark
             : const Color(0xFF323232),
         contentTextStyle: TextStyle(
+          fontFamily: AppFonts.pretendard,
           color: isDark ? AppColors.shellOnSurfaceDark : AppColors.white,
         ),
       ),
@@ -149,6 +168,7 @@ abstract final class AppTheme {
         filled: true,
         fillColor: isDark ? scheme.surface : scheme.surfaceContainerHigh,
         hintStyle: TextStyle(
+          fontFamily: AppFonts.pretendard,
           color: isDark ? AppColors.white70 : scheme.onSurfaceVariant,
           fontSize: 15,
         ),
@@ -167,6 +187,6 @@ abstract final class AppTheme {
           borderSide: const BorderSide(color: AppColors.primaryBlue, width: 1.5),
         ),
       ),
-    );
+    ));
   }
 }

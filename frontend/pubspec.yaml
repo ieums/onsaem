@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.5
+  sdk: '>=3.11.0 <4.0.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -35,15 +35,19 @@ dependencies:
   go_router: ^13.2.0
   agora_rtc_engine: ^6.3.2
   stomp_dart_client: ^3.0.1
-  image_picker: ^1.0.7
-  # ─── 인증 ─────────────────────────────────
-  # 토큰 보안 저장소 (소셜 SDK는 2단계에서 추가)
-  flutter_secure_storage: ^10.3.1
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   file_picker: ^11.0.2
+  image_picker: ^1.1.2
+  permission_handler: ^11.4.0
+  flutter_local_notifications: ^19.0.0
+  audioplayers: ^6.4.0
+  shared_preferences: ^2.5.3
+  timezone: ^0.10.1
+  flutter_svg: ^2.3.0
+  flutter_secure_storage: ^9.2.4
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +73,12 @@ flutter:
 
   assets:
     - assets/icons/
+    - assets/sounds/
+
+  fonts:
+    - family: Pretendard
+      fonts:
+        - asset: assets/fonts/PretendardVariable.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
