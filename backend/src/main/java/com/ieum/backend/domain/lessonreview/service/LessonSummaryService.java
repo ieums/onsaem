@@ -21,6 +21,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
@@ -51,6 +53,12 @@ public class LessonSummaryService {
 
     @Value("${cloud.aws.region.static:ap-northeast-2}")
     private String region;
+
+    @Value("${spring.cloud.aws.credentials.access-key}")
+    private String accessKey;
+
+    @Value("${spring.cloud.aws.credentials.secret-key}")
+    private String secretKey;
 
     private final LessonQueryRepository lessonQueryRepository;
     private final LessonTranscriptRepository lessonTranscriptRepository;
@@ -121,7 +129,11 @@ public class LessonSummaryService {
      */
     public String generatePresignedUrl(String s3Url) {
         String key = extractS3Key(s3Url);
-        try (S3Presigner presigner = S3Presigner.builder().region(Region.of(region)).build()) {
+        try (S3Presigner presigner = S3Presigner.builder()
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(accessKey, secretKey)))
+                .build()) {
             GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                     .signatureDuration(Duration.ofHours(1))
                     .getObjectRequest(b -> b.bucket(bucket).key(key))
