@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,6 +56,9 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   Offset _baseOffset = Offset.zero;
   bool _isDrawingGesture = false;
   bool _wasZoomGesture = false;
+
+  // ─── 카메라 분할 비율 ────────────────────────────────────────────────────────
+  double _cameraRatio = 0.25;
 
   // ─── 이미지 편집 모드 상태 ────────────────────────────────────────────────────
   double _imageBaseX = 0;
@@ -173,12 +177,33 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           children: [
             _buildTopBar(state, shell),
             Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _buildWhiteboard(state),
-                  _buildFloatingToolbar(state, shell),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final showCamera = !kIsWeb &&
+                      (state.isTutor
+                          ? state.localCameraEnabled
+                          : state.remoteCameraEnabled);
+                  return Column(
+                    children: [
+                      if (showCamera) ...[
+                        SizedBox(
+                          height: constraints.maxHeight * _cameraRatio,
+                          child: _buildCameraPanel(state),
+                        ),
+                        _buildDragHandle(constraints.maxHeight, shell),
+                      ],
+                      Expanded(
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _buildWhiteboard(state),
+                            _buildFloatingToolbar(state, shell),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             _buildBottomBar(state, shell),
@@ -546,6 +571,60 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  // ─── 카메라 패널 ─────────────────────────────────────────────────────────────
+
+  Widget _buildCameraPanel(LessonState state) {
+    final engine = ref.read(lessonProvider.notifier).engine;
+
+    Widget cameraView;
+
+    if (state.isTutor) {
+      cameraView = engine != null
+          ? AgoraVideoView(
+              controller: VideoViewController(
+                rtcEngine: engine,
+                canvas: const VideoCanvas(uid: 0),
+              ),
+            )
+          : const SizedBox.shrink();
+    } else {
+      final remoteUid = state.remoteUid;
+      final channelName = state.channelName;
+      cameraView = (engine != null && remoteUid != null && channelName != null)
+          ? AgoraVideoView(
+              controller: VideoViewController.remote(
+                rtcEngine: engine,
+                canvas: VideoCanvas(uid: remoteUid),
+                connection: RtcConnection(channelId: channelName),
+              ),
+            )
+          : const Center(
+              child: Icon(Icons.videocam_off, color: Colors.white54, size: 40),
+            );
+    }
+
+    return Container(color: Colors.black, child: cameraView);
+  }
+
+  Widget _buildDragHandle(double totalHeight, ShellTheme shell) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragUpdate: (d) {
+        setState(() {
+          _cameraRatio =
+              (_cameraRatio + d.delta.dy / totalHeight).clamp(0.1, 0.5);
+        });
+      },
+      child: Container(
+        height: 8,
+        color: shell.borderColor,
+        child: Center(
+          child: Icon(Icons.drag_handle, size: 16, color: shell.hintColor),
+        ),
       ),
     );
   }
