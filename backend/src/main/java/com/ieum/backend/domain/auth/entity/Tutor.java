@@ -12,6 +12,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.JoinColumn;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 강사 계정. 인증 공통 필드(Account) + 강사 도메인 필드.
@@ -38,6 +44,24 @@ public class Tutor extends Account {
     @Column(length = 100)
     private String major;
 
+    @Column(name = "experience_years")
+    private Integer experienceYears;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "education_status", length = 20)
+    private EducationStatus educationStatus;
+
+
+    @ElementCollection
+    @CollectionTable(name = "tutor_subject", joinColumns = @JoinColumn(name = "tutor_id"))
+    @Column(name = "subject", length = 50)
+    private List<String> subjects = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(name = "tutor_lecture_style", joinColumns = @JoinColumn(name = "tutor_id"))
+    @Column(name = "style", length = 50)
+    private List<String> lectureStyles = new ArrayList<>();
+
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_status", nullable = false, length = 20)
     private VerificationStatus verificationStatus;
@@ -55,11 +79,17 @@ public class Tutor extends Account {
     @Builder
     private Tutor(String name, String email, String password,
                   AuthProvider provider, String providerUserId, String profileImageUrl,
-                  String bio, String school, String major) {
-        super(name, email, password, provider, providerUserId, profileImageUrl);
+                  LocalDate birthDate, String phone,
+                  String bio, String school, String major,Integer experienceYears, EducationStatus educationStatus,
+                  List<String> subjects, List<String> lectureStyles) {
+        super(name, email, password, provider, providerUserId, profileImageUrl, birthDate, phone);
         this.bio = bio;
         this.school = school;
         this.major = major;
+        this.experienceYears = experienceYears;
+        this.educationStatus = educationStatus;
+        this.subjects = subjects != null ? subjects : new ArrayList<>();
+        this.lectureStyles = lectureStyles != null ? lectureStyles : new ArrayList<>();
         this.grade = TutorGrade.ROOKIE;
         this.verificationStatus = VerificationStatus.PENDING;
         this.reviewCount = 0;

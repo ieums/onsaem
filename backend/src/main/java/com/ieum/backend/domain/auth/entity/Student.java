@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
+
 /**
  * 학생 계정. 인증 공통 필드는 Account 에서 상속받고,
  * 학생 전용 도메인 필드는 추후 필요 시 여기에 추가한다.
@@ -22,7 +24,8 @@ public class Student extends Account {
 
     @Builder
     private Student(String name, String email, String password,
-                    AuthProvider provider, String providerUserId, String profileImageUrl) {
-        super(name, email, password, provider, providerUserId, profileImageUrl);
+                    AuthProvider provider, String providerUserId, String profileImageUrl,
+                    LocalDate birthDate, String phone) {
+        super(name, email, password, provider, providerUserId, profileImageUrl, birthDate, phone);
     }
 }
