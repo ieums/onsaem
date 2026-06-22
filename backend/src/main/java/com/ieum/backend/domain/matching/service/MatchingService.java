@@ -1,5 +1,7 @@
 package com.ieum.backend.domain.matching.service;
 
+import com.ieum.backend.domain.auth.entity.Tutor;
+import com.ieum.backend.domain.auth.repository.TutorRepository;
 import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.domain.lesson.service.LessonService;
 import com.ieum.backend.domain.matching.dto.response.ApplicantResponse;
@@ -28,6 +30,7 @@ public class MatchingService {
     private final MatchingApplicationRepository applicationRepository;
     private final MatchingNotificationService notificationService;
     private final LessonService lessonService;
+    private final TutorRepository tutorRepository;
 
     @Transactional
     public void startSearching(Long problemId, int minutes) {
@@ -75,9 +78,21 @@ public class MatchingService {
                 ApplicationStatus.UNAVAILABLE,
                 ApplicationStatus.ACCEPTED
         );
-        return applicationRepository.findByProblemIdAndStatusIn(problemId, visibleStatuses)
-                .stream()
-                .map(ApplicantResponse::from)
+
+        List<MatchingApplication> applications =
+                applicationRepository.findByProblemIdAndStatusIn(problemId, visibleStatuses);
+
+        List<Long> tutorIds = applications.stream()
+                .map(MatchingApplication::getTutorId)
+                .distinct()
+                .toList();
+
+        Map<Long, Tutor> tutorMap = tutorRepository.findAllByIdIn(tutorIds).stream()
+                .collect(Collectors.toMap(Tutor::getId, t -> t));
+
+        return applications.stream()
+                .filter(app -> tutorMap.containsKey(app.getTutorId()))
+                .map(app -> ApplicantResponse.from(app, tutorMap.get(app.getTutorId())))
                 .toList();
     }
 

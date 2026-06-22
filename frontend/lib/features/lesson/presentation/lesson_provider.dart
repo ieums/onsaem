@@ -29,10 +29,10 @@ class LessonState {
   final bool isInChannel;
   final int? remoteUid;
   final bool localCameraEnabled;
-  final bool remoteCameraEnabled; // 원격 측(강사)의 카메라 상태
-  final double remoteScale;       // 원격 측의 줌 배율
-  final double remoteOffsetX;     // 원격 측의 pan offset X
-  final double remoteOffsetY;     // 원격 측의 pan offset Y
+  final bool remoteCameraEnabled;
+  final double remoteScale;
+  final double remoteOffsetX;
+  final double remoteOffsetY;
 
   final Color currentPenColor;
   final bool isEraserMode;
@@ -46,12 +46,9 @@ class LessonState {
   final List<DrawingStroke> strokes;
   final DrawingStroke? currentStroke;
   final DrawingStroke? remoteStroke;
-  final String? backgroundImageUrl;
-  final double imageX;          // 이미지 캔버스 left (0이면 미배치)
-  final double imageY;          // 이미지 캔버스 top
-  final double imageWidth;      // 0이면 미배치 → BoxFit.contain 폴백
-  final double imageHeight;
-  final bool isImageEditMode;   // 이미지 편집 모드 여부
+
+  final List<ImageItem> backgroundImages;
+  final int? selectedImageIndex;
 
   final List<CanvasAction> undoHistory;
   final List<CanvasAction> redoHistory;
@@ -83,12 +80,8 @@ class LessonState {
     this.strokes = const [],
     this.currentStroke,
     this.remoteStroke,
-    this.backgroundImageUrl,
-    this.imageX = 0.0,
-    this.imageY = 0.0,
-    this.imageWidth = 0.0,
-    this.imageHeight = 0.0,
-    this.isImageEditMode = false,
+    this.backgroundImages = const [],
+    this.selectedImageIndex,
     this.undoHistory = const [],
     this.redoHistory = const [],
     this.isLoading = false,
@@ -119,12 +112,8 @@ class LessonState {
     List<DrawingStroke>? strokes,
     Object? currentStroke = _sentinel,
     Object? remoteStroke = _sentinel,
-    Object? backgroundImageUrl = _sentinel,
-    double? imageX,
-    double? imageY,
-    double? imageWidth,
-    double? imageHeight,
-    bool? isImageEditMode,
+    List<ImageItem>? backgroundImages,
+    Object? selectedImageIndex = _sentinel,
     List<CanvasAction>? undoHistory,
     List<CanvasAction>? redoHistory,
     bool? isLoading,
@@ -157,14 +146,10 @@ class LessonState {
           currentStroke == _sentinel ? this.currentStroke : currentStroke as DrawingStroke?,
       remoteStroke:
           remoteStroke == _sentinel ? this.remoteStroke : remoteStroke as DrawingStroke?,
-      backgroundImageUrl: backgroundImageUrl == _sentinel
-          ? this.backgroundImageUrl
-          : backgroundImageUrl as String?,
-      imageX: imageX ?? this.imageX,
-      imageY: imageY ?? this.imageY,
-      imageWidth: imageWidth ?? this.imageWidth,
-      imageHeight: imageHeight ?? this.imageHeight,
-      isImageEditMode: isImageEditMode ?? this.isImageEditMode,
+      backgroundImages: backgroundImages ?? this.backgroundImages,
+      selectedImageIndex: selectedImageIndex == _sentinel
+          ? this.selectedImageIndex
+          : selectedImageIndex as int?,
       undoHistory: undoHistory ?? this.undoHistory,
       redoHistory: redoHistory ?? this.redoHistory,
       isLoading: isLoading ?? this.isLoading,
@@ -181,8 +166,7 @@ const _sentinel = Object();
 class LessonNotifier extends StateNotifier<LessonState> {
   final LessonRepository _repo;
   RtcEngine? _engine;
-  String? _currentStrokeId; // 현재 그리는 스트로크의 고유 ID
-  // 원격 Undo로 제거된 스트로크 보관 → 원격 Redo 수신 시 복원에 사용
+  String? _currentStrokeId;
   final Map<String, DrawingStroke> _deletedStrokes = {};
 
   LessonNotifier(this._repo) : super(const LessonState());
@@ -194,8 +178,9 @@ class LessonNotifier extends StateNotifier<LessonState> {
   Future<void> initialize(
     String channelName,
     int uid,
-    bool isTutor,
-  ) async {
+    bool isTutor, {
+    List<String> imageUrls = const [],
+  }) async {
     state = state.copyWith(
       isLoading: true,
       channelName: channelName,
@@ -205,7 +190,6 @@ class LessonNotifier extends StateNotifier<LessonState> {
     );
 
     try {
-      // 1. 토큰 발급
       final tokenResp = await _repo.fetchToken(
         channelName: channelName,
         uid: uid.toString(),
@@ -218,13 +202,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
         lessonId: tokenResp.lessonId,
       );
 
-      // TODO: kIsWeb 체크 제거 후 실기기 테스트
       if (!kIsWeb) {
-        // 2. Agora 엔진 초기화
         _engine = createAgoraRtcEngine();
         await _engine!.initialize(RtcEngineContext(appId: tokenResp.appId));
 
-        // 3. 이벤트 핸들러 등록
         _engine!.registerEventHandler(
           RtcEngineEventHandler(
             onJoinChannelSuccess: (connection, elapsed) {
@@ -241,14 +222,12 @@ class LessonNotifier extends StateNotifier<LessonState> {
           ),
         );
 
-        // 4. 오디오/비디오 활성화
         await _engine!.enableAudio();
-        await _engine!.enableVideo(); // 원격 영상 수신에도 필요하므로 모든 역할에서 활성화
+        await _engine!.enableVideo();
         if (!isTutor) {
-          await _engine!.enableLocalVideo(false); // 학생: 로컬 캡처만 비활성화
+          await _engine!.enableLocalVideo(false);
         }
 
-        // 5. 채널 입장
         await _engine!.joinChannel(
           token: tokenResp.token,
           channelId: channelName,
@@ -260,16 +239,24 @@ class LessonNotifier extends StateNotifier<LessonState> {
         );
       }
 
-      // 6. STOMP 연결
       _repo.connectStomp(channelName, _onRemoteDrawEvent);
 
-      // TODO: kIsWeb 체크 제거 후 실기기 테스트
-      // 7. 녹화 자동 시작 (튜터만)
       if (!kIsWeb && isTutor) {
         await _startRecording();
       }
 
       state = state.copyWith(isLoading: false);
+
+      if (imageUrls.isNotEmpty) {
+        final images = imageUrls
+            .map((url) => ImageItem(
+                  url: url,
+                  width: _kDefaultImageWidth,
+                  height: _kDefaultImageHeight,
+                ))
+            .toList();
+        state = state.copyWith(backgroundImages: images);
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -282,7 +269,6 @@ class LessonNotifier extends StateNotifier<LessonState> {
     final next = !state.localCameraEnabled;
     await _engine!.enableLocalVideo(next);
     state = state.copyWith(localCameraEnabled: next);
-    // 카메라 상태를 STOMP로 브로드캐스트 → 학생 화면에서도 video 영역 동기화
     final channelName = state.channelName;
     if (channelName != null) {
       _repo.sendDraw(
@@ -334,35 +320,37 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
   // ─── 이미지 편집 ────────────────────────────────────────────────────────────
 
+  void selectImage(int? index) {
+    state = state.copyWith(selectedImageIndex: index);
+  }
+
   void updateImageBounds({
+    required int index,
     required double x,
     required double y,
     required double width,
     required double height,
   }) {
-    state = state.copyWith(imageX: x, imageY: y, imageWidth: width, imageHeight: height);
+    if (index < 0 || index >= state.backgroundImages.length) return;
+    final images = List<ImageItem>.from(state.backgroundImages);
+    images[index] = images[index].copyWith(x: x, y: y, width: width, height: height);
+    state = state.copyWith(backgroundImages: images);
   }
 
-  void toggleImageEditMode() {
-    state = state.copyWith(isImageEditMode: !state.isImageEditMode);
-  }
-
-  void exitImageEditMode() {
-    state = state.copyWith(isImageEditMode: false);
-  }
-
-  void sendImageMove() {
+  void sendImageMove(int index) {
     final channelName = state.channelName;
-    if (channelName == null) return;
+    if (channelName == null || index >= state.backgroundImages.length) return;
+    final image = state.backgroundImages[index];
     _repo.sendDraw(
       channelName,
       DrawEvent(
         senderId: _repo.sessionId,
         type: DrawType.imageMove,
-        x: state.imageX,
-        y: state.imageY,
-        width: state.imageWidth,
-        height: state.imageHeight,
+        index: index,
+        x: image.x,
+        y: image.y,
+        width: image.width,
+        height: image.height,
       ),
     );
   }
@@ -370,12 +358,18 @@ class LessonNotifier extends StateNotifier<LessonState> {
   // ─── 펜 도구 ───────────────────────────────────────────────────────────────
 
   void setPenColor(Color color) {
-    // 색상 선택 시 지우개·이미지 편집 모드 자동 해제
-    state = state.copyWith(currentPenColor: color, isEraserMode: false, isImageEditMode: false);
+    state = state.copyWith(
+      currentPenColor: color,
+      isEraserMode: false,
+      selectedImageIndex: null,
+    );
   }
 
   void toggleEraser() {
-    state = state.copyWith(isEraserMode: !state.isEraserMode, isImageEditMode: false);
+    state = state.copyWith(
+      isEraserMode: !state.isEraserMode,
+      selectedImageIndex: null,
+    );
   }
 
   // ─── 화이트보드 드로잉 ──────────────────────────────────────────────────────
@@ -386,7 +380,6 @@ class LessonNotifier extends StateNotifier<LessonState> {
     final width = isEraser ? _eraserWidth : AppConstants.defaultPenWidth;
     final type = isEraser ? DrawType.erase : DrawType.draw;
 
-    // 스트로크마다 고유 ID 생성 → Undo 동기화에 사용
     _currentStrokeId = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
 
     final stroke = DrawingStroke(
@@ -421,11 +414,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
       strokes: newStrokes,
       currentStroke: null,
       undoHistory: newUndo,
-      redoHistory: const [], // 새 동작 시 redo 초기화
+      redoHistory: const [],
     );
   }
 
-  /// 진행 중인 스트로크를 strokes에 추가하지 않고 즉시 폐기 (두 손가락 줌 시작 시 점 방지)
   void cancelCurrentStroke() {
     if (state.currentStroke == null) return;
     state = state.copyWith(currentStroke: null);
@@ -450,7 +442,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         color: colorToHex(isEraser ? Colors.white : state.currentPenColor),
         strokeWidth: isEraser ? _eraserWidth : AppConstants.defaultPenWidth,
         isStart: isStart ? true : null,
-        strokeId: strokeId, // isStart:true 일 때만 전달됨
+        strokeId: strokeId,
       ),
     );
   }
@@ -466,29 +458,35 @@ class LessonNotifier extends StateNotifier<LessonState> {
         state = state.copyWith(
           strokes: [],
           remoteStroke: null,
-          backgroundImageUrl: null,
+          backgroundImages: const [],
+          selectedImageIndex: null,
           undoHistory: const [],
           redoHistory: const [],
         );
       case DrawType.imageAdd:
         if (event.imageUrl != null) {
-          // 원격 이미지 추가 — undoHistory/redoHistory에 영향 없음
+          final newImage = ImageItem(
+            url: event.imageUrl!,
+            x: event.x ?? 0.0,
+            y: event.y ?? 0.0,
+            width: event.width ?? _kDefaultImageWidth,
+            height: event.height ?? _kDefaultImageHeight,
+          );
           state = state.copyWith(
-            backgroundImageUrl: event.imageUrl,
-            imageX: event.x ?? 0.0,
-            imageY: event.y ?? 0.0,
-            imageWidth: event.width ?? _kDefaultImageWidth,
-            imageHeight: event.height ?? _kDefaultImageHeight,
+            backgroundImages: [...state.backgroundImages, newImage],
           );
         }
       case DrawType.imageMove:
-        if (event.width != null) {
-          state = state.copyWith(
-            imageX: event.x ?? state.imageX,
-            imageY: event.y ?? state.imageY,
-            imageWidth: event.width!,
-            imageHeight: event.height ?? state.imageHeight,
+        final idx = event.index ?? 0;
+        if (event.width != null && idx < state.backgroundImages.length) {
+          final images = List<ImageItem>.from(state.backgroundImages);
+          images[idx] = images[idx].copyWith(
+            x: event.x,
+            y: event.y,
+            width: event.width,
+            height: event.height,
           );
+          state = state.copyWith(backgroundImages: images);
         }
       case DrawType.undo:
         _applyRemoteUndo(event);
@@ -515,11 +513,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
     }
   }
 
-  /// 상대방이 LESSON_END를 전송했을 때 로컬 정리만 수행 (API 재호출·STOMP 재전송 없음)
   void _applyRemoteComplete() {
-    _repo.disconnectStomp(); // 추가 이벤트 수신 방지
-    _engine?.leaveChannel(); // fire-and-forget (dispose에서도 호출됨)
-    state = state.copyWith(isCompleted: true); // 화면 → '/' 이동 트리거
+    _repo.disconnectStomp();
+    _engine?.leaveChannel();
+    state = state.copyWith(isCompleted: true);
   }
 
   void _applyRemoteDrawPoint(DrawEvent event) {
@@ -529,10 +526,9 @@ class LessonNotifier extends StateNotifier<LessonState> {
     final width = event.strokeWidth ?? AppConstants.defaultPenWidth;
 
     final current = state.remoteStroke;
-    final forceNew = event.isStart == true; // isStart 플래그로 강제 새 스트로크
+    final forceNew = event.isStart == true;
 
     if (current == null || forceNew || current.color != color || current.width != width) {
-      // 이전 원격 스트로크 확정 (strokes에만 추가 — undoHistory에는 추가하지 않음)
       List<DrawingStroke> confirmed = state.strokes;
       if (current != null) {
         confirmed = [...confirmed, current];
@@ -560,7 +556,6 @@ class LessonNotifier extends StateNotifier<LessonState> {
     if (state.undoHistory.isEmpty) return;
     final last = state.undoHistory.last;
     _doUndo();
-    // StrokeAction이면 strokeId 포함해서 전송 → 상대방이 동일 스트로크 제거 가능
     final strokeId = last is StrokeAction ? last.stroke.id : null;
     _sendUndoRedo(DrawType.undo, strokeId: strokeId);
   }
@@ -569,26 +564,21 @@ class LessonNotifier extends StateNotifier<LessonState> {
     if (state.redoHistory.isEmpty) return;
     final last = state.redoHistory.last;
     _doRedo();
-    // StrokeAction이면 strokeId 포함해서 전송 → 상대방이 동일 스트로크 복원 가능
     final strokeId = last is StrokeAction ? last.stroke.id : null;
     _sendUndoRedo(DrawType.redo, strokeId: strokeId);
   }
 
-  /// 원격에서 받은 UNDO — strokeId 기반으로 정확히 해당 스트로크 제거 (무한루프 방지)
   void _applyRemoteUndo(DrawEvent event) {
     final sid = event.strokeId;
     if (sid != null && sid.isNotEmpty) {
-      // 제거 전 스트로크 데이터 보존 → 이후 remote Redo에서 복원 가능
       final inStrokes = state.strokes.where((s) => s.id == sid);
       if (inStrokes.isNotEmpty) _deletedStrokes[sid] = inStrokes.first;
       if (state.remoteStroke?.id == sid) {
         _deletedStrokes[sid] = state.remoteStroke!;
       }
-      // ID로 정확히 해당 스트로크 제거
       final newStrokes = state.strokes.where((s) => s.id != sid).toList();
       final newRemote =
           (state.remoteStroke?.id == sid) ? null : state.remoteStroke;
-      // undoHistory에서 해당 StrokeAction 제거 (있으면)
       final newUndo = state.undoHistory
           .where((a) => !(a is StrokeAction && a.stroke.id == sid))
           .toList();
@@ -598,22 +588,18 @@ class LessonNotifier extends StateNotifier<LessonState> {
         undoHistory: newUndo,
       );
     } else {
-      _doUndo(); // strokeId 없는 경우 fallback: 마지막 항목 제거
+      _doUndo();
     }
   }
 
-  /// 원격에서 받은 REDO — strokeId 기반으로 해당 스트로크만 복원
-  /// 원격 스트로크는 로컬 undoHistory에 추가하지 않음 (자신의 스트로크만 undo/redo)
   void _applyRemoteRedo(DrawEvent event) {
     final sid = event.strokeId;
     if (sid != null && sid.isNotEmpty) {
-      // 1순위: remote Undo로 제거된 스트로크 맵에서 복원
       if (_deletedStrokes.containsKey(sid)) {
         final stroke = _deletedStrokes.remove(sid)!;
         state = state.copyWith(strokes: [...state.strokes, stroke]);
         return;
       }
-      // 2순위: redoHistory에서 찾기 (예외적 케이스)
       final idx = state.redoHistory
           .indexWhere((a) => a is StrokeAction && a.stroke.id == sid);
       if (idx >= 0) {
@@ -622,22 +608,19 @@ class LessonNotifier extends StateNotifier<LessonState> {
         state = state.copyWith(
           strokes: [...state.strokes, action.stroke],
           redoHistory: newRedo,
-          // undoHistory 없음 — 원격 스트로크는 로컬 undo stack에 추가하지 않음
         );
         return;
       }
     }
-    // fallback 없음: 원격 redo로 로컬 스택 조작하지 않음
   }
 
   void _doUndo() {
     if (state.undoHistory.isEmpty) return;
     final last = state.undoHistory.last;
     final newUndo = state.undoHistory.sublist(0, state.undoHistory.length - 1);
-    final newRedo = [...state.redoHistory, last];
 
     if (last is StrokeAction) {
-      // 해당 스트로크를 strokes 목록에서 제거 (마지막 일치 항목)
+      final newRedo = [...state.redoHistory, last];
       final idx = state.strokes.lastIndexWhere((s) => identical(s, last.stroke));
       final newStrokes = idx >= 0
           ? [...state.strokes.sublist(0, idx), ...state.strokes.sublist(idx + 1)]
@@ -648,8 +631,12 @@ class LessonNotifier extends StateNotifier<LessonState> {
         redoHistory: newRedo,
       );
     } else if (last is ImageAction) {
+      // redoHistory에는 현재 상태를 담은 새 액션 push (역방향으로 사용하기 위해)
+      final redoAction = ImageAction(prevImages: state.backgroundImages);
+      final newRedo = [...state.redoHistory, redoAction];
       state = state.copyWith(
-        backgroundImageUrl: last.prevUrl,
+        backgroundImages: last.prevImages,
+        selectedImageIndex: null,
         undoHistory: newUndo,
         redoHistory: newRedo,
       );
@@ -660,24 +647,20 @@ class LessonNotifier extends StateNotifier<LessonState> {
     if (state.redoHistory.isEmpty) return;
     final last = state.redoHistory.last;
     final newRedo = state.redoHistory.sublist(0, state.redoHistory.length - 1);
-    final newUndo = _appendToHistory(state.undoHistory, last);
 
     if (last is StrokeAction) {
+      final newUndo = _appendToHistory(state.undoHistory, last);
       state = state.copyWith(
         strokes: [...state.strokes, last.stroke],
         undoHistory: newUndo,
         redoHistory: newRedo,
       );
     } else if (last is ImageAction) {
-      // ImageAction에는 prevUrl(이전)만 있으므로, redo 시 undoHistory에서
-      // 다음 ImageAction의 prevUrl을 newUrl로 사용할 수 없다.
-      // 대신 redo 시 취소했던 이미지(마지막 undo 이전 상태)를 복원해야 하므로
-      // redoHistory에 "새 URL"도 보관할 필요가 있다.
-      // 현재 구현에서는 ImageAction.prevUrl로 undo, redo 시 다시 원래 url로 복원한다.
-      // ImageAction을 RedoImageAction으로 다르게 저장하는 대신 간단히:
-      // redo stack의 ImageAction은 "prevUrl = 복원할 URL"로 저장되어 있으므로 그대로 적용.
+      final undoAction = ImageAction(prevImages: state.backgroundImages);
+      final newUndo = _appendToHistory(state.undoHistory, undoAction);
       state = state.copyWith(
-        backgroundImageUrl: last.prevUrl,
+        backgroundImages: last.prevImages,
+        selectedImageIndex: null,
         undoHistory: newUndo,
         redoHistory: newRedo,
       );
@@ -712,16 +695,20 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
     try {
       final response = await _repo.uploadImage(lessonId, file);
+      final newImage = ImageItem(
+        url: response.imageUrl,
+        width: _kDefaultImageWidth,
+        height: _kDefaultImageHeight,
+      );
+      final prevImages = state.backgroundImages;
+      final newImages = [...prevImages, newImage];
       final newUndo = _appendToHistory(
         state.undoHistory,
-        ImageAction(prevUrl: state.backgroundImageUrl),
+        ImageAction(prevImages: prevImages),
       );
       state = state.copyWith(
-        backgroundImageUrl: response.imageUrl,
-        imageX: 0.0,
-        imageY: 0.0,
-        imageWidth: _kDefaultImageWidth,
-        imageHeight: _kDefaultImageHeight,
+        backgroundImages: newImages,
+        selectedImageIndex: newImages.length - 1,
         undoHistory: newUndo,
         redoHistory: const [],
       );
@@ -740,6 +727,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
     } catch (e) {
       state = state.copyWith(error: '이미지 업로드 실패: $e');
     }
+  }
+
+  void clearError() {
+    state = state.copyWith(error: null);
   }
 
   // ─── 녹화 관리 ─────────────────────────────────────────────────────────────
@@ -785,7 +776,6 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
       await _repo.completeLesson(lessonId, recordingUrl: recordingUrl);
 
-      // LESSON_END 브로드캐스트 — 상대방도 자동 종료
       final channelName = state.channelName;
       if (channelName != null) {
         _repo.sendDraw(
@@ -795,7 +785,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
             type: DrawType.lessonEnd,
           ),
         );
-        await Future.delayed(const Duration(milliseconds: 200)); // flush 대기
+        await Future.delayed(const Duration(milliseconds: 200));
       }
 
       await _engine?.leaveChannel();

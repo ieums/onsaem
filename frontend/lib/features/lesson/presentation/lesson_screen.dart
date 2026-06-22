@@ -14,8 +14,13 @@ import 'whiteboard_painter.dart';
 
 class LessonScreen extends ConsumerStatefulWidget {
   final String channelName;
+  final List<String> imageUrls;
 
-  const LessonScreen({super.key, required this.channelName});
+  const LessonScreen({
+    super.key,
+    required this.channelName,
+    this.imageUrls = const [],
+  });
 
   @override
   ConsumerState<LessonScreen> createState() => _LessonScreenState();
@@ -75,6 +80,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             widget.channelName,
             session?.id ?? 0,
             session?.isTutor ?? false,
+            imageUrls: widget.imageUrls,
           );
       // 웹에서는 isInChannel이 설정되지 않으므로 즉시 타이머 시작
       if (kIsWeb) _startTimer();
@@ -108,6 +114,18 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           _scale = next.remoteScale;
           _offset = Offset(next.remoteOffsetX, next.remoteOffsetY);
         });
+      }
+      // 이미지 업로드 한도 초과 에러 스낵바
+      if (prev?.error != next.error &&
+          next.error != null &&
+          next.error!.contains('최대 10장')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('이미지는 최대 10장까지 업로드할 수 있습니다.'),
+            backgroundColor: AppColors.buttonDanger,
+          ),
+        );
+        ref.read(lessonProvider.notifier).clearError();
       }
     });
 
@@ -198,7 +216,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           // 빨간 점 + 타이머 (과목명 바로 우측)
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -211,13 +229,13 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Text(
                 _formatTimer(_elapsedSeconds),
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: shell.hintColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: shell.titleColor,
                 ),
               ),
             ],
@@ -232,7 +250,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                   backgroundColor: AppColors.buttonDanger,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 child: const Text(
@@ -264,14 +282,16 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           behavior: HitTestBehavior.opaque,
           onScaleStart: (d) {
             final s = ref.read(lessonProvider);
-            if (s.isImageEditMode) {
+            if (s.selectedImageIndex != null) {
               if (_isDrawingGesture) notifier.cancelCurrentStroke();
               _isDrawingGesture = false;
               _wasZoomGesture = false;
-              _imageBaseX = s.imageX;
-              _imageBaseY = s.imageY;
-              _imageBaseWidth = s.imageWidth;
-              _imageBaseHeight = s.imageHeight;
+              final idx = s.selectedImageIndex!;
+              final img = s.backgroundImages[idx];
+              _imageBaseX = img.x;
+              _imageBaseY = img.y;
+              _imageBaseWidth = img.width;
+              _imageBaseHeight = img.height;
               _imageDidMove = false;
               _baseFocal = d.localFocalPoint;
               _baseScale = 1.0;
@@ -286,7 +306,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           },
           onScaleUpdate: (d) {
             final s = ref.read(lessonProvider);
-            if (s.isImageEditMode) {
+            if (s.selectedImageIndex != null) {
               _imageDidMove = true;
               if (d.pointerCount >= 2) {
                 final newW = (_imageBaseWidth * d.scale).clamp(50.0, 3000.0);
@@ -294,6 +314,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                 final cx = _imageBaseX + _imageBaseWidth / 2;
                 final cy = _imageBaseY + _imageBaseHeight / 2;
                 notifier.updateImageBounds(
+                  index: s.selectedImageIndex!,
                   x: cx - newW / 2,
                   y: cy - newH / 2,
                   width: newW,
@@ -302,10 +323,11 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               } else {
                 final canvasDelta = (d.localFocalPoint - _baseFocal) / _scale;
                 notifier.updateImageBounds(
+                  index: s.selectedImageIndex!,
                   x: _imageBaseX + canvasDelta.dx,
                   y: _imageBaseY + canvasDelta.dy,
-                  width: s.imageWidth,
-                  height: s.imageHeight,
+                  width: _imageBaseWidth,
+                  height: _imageBaseHeight,
                 );
               }
               return;
@@ -328,16 +350,18 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           },
           onScaleEnd: (_) {
             final s = ref.read(lessonProvider);
-            if (s.isImageEditMode) {
+            if (s.selectedImageIndex != null) {
+              final idx = s.selectedImageIndex!;
               if (!_imageDidMove) {
                 final p = _toCanvas(_baseFocal);
-                final outside = p.dx < s.imageX ||
-                    p.dx > s.imageX + s.imageWidth ||
-                    p.dy < s.imageY ||
-                    p.dy > s.imageY + s.imageHeight;
-                if (outside) notifier.exitImageEditMode();
+                final img = s.backgroundImages[idx];
+                final outside = p.dx < img.x ||
+                    p.dx > img.x + img.width ||
+                    p.dy < img.y ||
+                    p.dy > img.y + img.height;
+                if (outside) notifier.selectImage(null);
               } else {
-                notifier.sendImageMove();
+                notifier.sendImageMove(idx);
               }
               _imageDidMove = false;
               _isDrawingGesture = false;
@@ -362,32 +386,31 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                 fit: StackFit.expand,
                 clipBehavior: Clip.none,
                 children: [
-                  if (state.backgroundImageUrl != null)
-                    state.imageWidth > 0
-                        ? Positioned(
-                            left: state.imageX,
-                            top: state.imageY,
-                            width: state.imageWidth,
-                            height: state.imageHeight,
-                            child: DecoratedBox(
-                              decoration: state.isImageEditMode
-                                  ? BoxDecoration(
-                                      border: Border.all(
-                                          color: Colors.blue, width: 2))
-                                  : const BoxDecoration(),
-                              child: Image.network(
-                                state.backgroundImageUrl!,
-                                fit: BoxFit.fill,
-                                errorBuilder: (_, _, _) =>
-                                    const SizedBox.shrink(),
-                              ),
-                            ),
-                          )
-                        : Image.network(
-                            state.backgroundImageUrl!,
-                            fit: BoxFit.contain,
+                  ...state.backgroundImages.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final img = entry.value;
+                    final isSelected = state.selectedImageIndex == idx;
+                    return Positioned(
+                      left: img.x,
+                      top: img.y,
+                      width: img.width,
+                      height: img.height,
+                      child: GestureDetector(
+                        onTap: () => notifier.selectImage(isSelected ? null : idx),
+                        child: DecoratedBox(
+                          decoration: isSelected
+                              ? BoxDecoration(
+                                  border: Border.all(color: Colors.blue, width: 2))
+                              : const BoxDecoration(),
+                          child: Image.network(
+                            img.url,
+                            fit: BoxFit.fill,
                             errorBuilder: (_, _, _) => const SizedBox.shrink(),
                           ),
+                        ),
+                      ),
+                    );
+                  }),
                   CustomPaint(
                     painter: WhiteboardPainter(
                       strokes: state.strokes,
@@ -418,7 +441,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   Widget _buildFloatingToolbar(LessonState state, ShellTheme shell) {
     final notifier = ref.read(lessonProvider.notifier);
     final isEraser = state.isEraserMode;
-    final isImageEdit = state.isImageEditMode;
+    final isImageEdit = state.selectedImageIndex != null;
     final canUndo = state.undoHistory.isNotEmpty;
     final canRedo = state.redoHistory.isNotEmpty;
 
@@ -466,13 +489,6 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               shell: shell,
               onTap: () => _pickAndUploadImage(),
             ),
-            if (state.backgroundImageUrl != null)
-              _ToolBtn(
-                icon: Icons.open_with,
-                active: isImageEdit,
-                shell: shell,
-                onTap: () => notifier.toggleImageEditMode(),
-              ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Divider(height: 1, color: shell.borderColor),
@@ -494,7 +510,10 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     final notifier = ref.read(lessonProvider.notifier);
 
     return Container(
-      color: shell.cardBackground,
+      decoration: BoxDecoration(
+        color: shell.cardBackground,
+        border: Border(top: BorderSide(color: shell.borderColor, width: 1)),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -702,8 +721,8 @@ class _ControlBtn extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(
-        width: 48,
-        height: 48,
+        width: 46,
+        height: 46,
         decoration: BoxDecoration(
           color: active
               ? shell.iconBackground
