@@ -131,9 +131,16 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/lesson',
-      builder: (_, state) => LessonScreen(
-        channelName: state.extra as String,
-      ),
+      builder: (_, state) {
+        final extra = state.extra;
+        if (extra is Map<String, dynamic>) {
+          return LessonScreen(
+            channelName: extra['channelName'] as String,
+            imageUrls: (extra['imageUrls'] as List?)?.cast<String>() ?? const [],
+          );
+        }
+        return LessonScreen(channelName: extra as String);
+      },
     ),
     GoRoute(
       path: '/problem-detail',

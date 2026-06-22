@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
+import '../../../routes/app_router.dart';
 import '../models/searching_problem_model.dart';
 import '../models/tutor_application_model.dart';
 import '../repositories/matching_repository.dart';
@@ -204,9 +205,17 @@ class TutorApplicationsNotifier
           .toList();
       _stomp.connect(
         _tutorId,
-        _onProblemMatched,
+        (problemId) => _removeByProblemId(problemId),
         matchingProblemIds: matchingIds,
-        onMatched: _removeByProblemId,
+        onMatched: (problemId, channelName, imageUrls) {
+          _removeByProblemId(problemId);
+          if (channelName.isNotEmpty) {
+            appRouter.go('/lesson', extra: {
+              'channelName': channelName,
+              'imageUrls': imageUrls,
+            });
+          }
+        },
       );
     } catch (e, st) {
       state = state.copyWith(applications: AsyncError(e, st));
@@ -217,8 +226,6 @@ class TutorApplicationsNotifier
     await _repository.cancelApplication(problemId, _tutorId);
     _removeByProblemId(problemId);
   }
-
-  void _onProblemMatched(int problemId) => _removeByProblemId(problemId);
 
   void _removeByProblemId(int problemId) {
     state.applications.whenData((list) {

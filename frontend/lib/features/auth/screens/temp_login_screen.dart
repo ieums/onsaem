@@ -116,6 +116,17 @@ class _TempLoginScreenState extends ConsumerState<TempLoginScreen> {
                 ),
                 const SizedBox(height: 32),
                 CommonButton(label: '입장', onPressed: _enter),
+                TextButton(
+                  onPressed: () {
+                    ref.read(currentUserProvider.notifier).state =
+                        const UserSession(id: 1, isTutor: true);
+                    context.go('/lesson', extra: 'test-channel');
+                  },
+                  child: const Text(
+                    '화상강의 테스트',
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                ),
               ],
             ),
           ),

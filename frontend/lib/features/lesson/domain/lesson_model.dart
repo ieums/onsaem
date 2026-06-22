@@ -89,7 +89,9 @@ enum DrawType {
   cameraOff,
   zoom,
   imageMove,
-  lessonEnd;
+  lessonEnd,
+  micOn,
+  micOff;
 
   String get value {
     switch (this) {
@@ -115,6 +117,10 @@ enum DrawType {
         return 'IMAGE_MOVE';
       case DrawType.lessonEnd:
         return 'LESSON_END';
+      case DrawType.micOn:
+        return 'MIC_ON';
+      case DrawType.micOff:
+        return 'MIC_OFF';
     }
   }
 
@@ -142,6 +148,10 @@ enum DrawType {
         return DrawType.imageMove;
       case 'LESSON_END':
         return DrawType.lessonEnd;
+      case 'MIC_ON':
+        return DrawType.micOn;
+      case 'MIC_OFF':
+        return DrawType.micOff;
       default:
         return DrawType.draw;
     }
@@ -163,6 +173,7 @@ class DrawEvent {
   final double? offsetY;  // 줌 동기화 — pan offset Y
   final double? width;    // 이미지 너비 (imageAdd / imageMove)
   final double? height;   // 이미지 높이
+  final int? index;       // imageMove 시 어떤 이미지인지
 
   DrawEvent({
     required this.senderId,
@@ -179,6 +190,7 @@ class DrawEvent {
     this.offsetY,
     this.width,
     this.height,
+    this.index,
   });
 
   Map<String, dynamic> toJson() => {
@@ -196,6 +208,7 @@ class DrawEvent {
         if (offsetY != null) 'offsetY': offsetY,
         if (width != null) 'width': width,
         if (height != null) 'height': height,
+        if (index != null) 'index': index,
       };
 
   factory DrawEvent.fromJson(Map<String, dynamic> json) => DrawEvent(
@@ -213,6 +226,32 @@ class DrawEvent {
         offsetY: (json['offsetY'] as num?)?.toDouble(),
         width: (json['width'] as num?)?.toDouble(),
         height: (json['height'] as num?)?.toDouble(),
+        index: json['index'] as int?,
+      );
+}
+
+class ImageItem {
+  final String url;
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+
+  const ImageItem({
+    required this.url,
+    this.x = 0.0,
+    this.y = 0.0,
+    required this.width,
+    required this.height,
+  });
+
+  ImageItem copyWith({String? url, double? x, double? y, double? width, double? height}) =>
+      ImageItem(
+        url: url ?? this.url,
+        x: x ?? this.x,
+        y: y ?? this.y,
+        width: width ?? this.width,
+        height: height ?? this.height,
       );
 }
 
@@ -250,8 +289,8 @@ class StrokeAction extends CanvasAction {
 }
 
 class ImageAction extends CanvasAction {
-  final String? prevUrl; // undo 시 복원할 이전 URL
-  ImageAction({required this.prevUrl});
+  final List<ImageItem> prevImages;
+  ImageAction({required this.prevImages});
 }
 
 // ─── 색상 유틸 ────────────────────────────────────────────────────────────────
