@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.util.Set;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -31,37 +33,45 @@ class ReportServiceTest {
         reportRepository.deleteAll();
     }
 
-    private CreateReportRequest req(ReportReason reason) {
+    private CreateReportRequest req(Set<ReportReason> reasons) {
         return new CreateReportRequest(
                 100L, ReporterType.STUDENT,
                 ReportTargetType.TUTOR, 200L, 300L,
-                reason, "부적절했습니다");
+                reasons, "부적절했습니다");
     }
 
     @Test
-    @DisplayName("신고 접수 성공 — PENDING으로 저장")
-    void create_success() {
-        ReportResponse res = reportService.create(req(ReportReason.ABUSE));
+    @DisplayName("여러 사유를 한 건으로 접수 — PENDING으로 저장")
+    void create_multipleReasons_success() {
+        ReportResponse res = reportService.create(
+                req(Set.of(ReportReason.NO_SHOW, ReportReason.ABUSE)));
 
         assertThat(res.status()).isEqualTo(ReportStatus.PENDING);
-        assertThat(res.targetType()).isEqualTo(ReportTargetType.TUTOR);
+        assertThat(res.reasons()).containsExactlyInAnyOrder(ReportReason.NO_SHOW, ReportReason.ABUSE);
         assertThat(reportRepository.count()).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("같은 신고자가 같은 대상·사유로 중복 신고하면 거부")
-    void create_duplicate_rejected() {
-        reportService.create(req(ReportReason.ABUSE));
+    @DisplayName("같은 신고자가 같은 대상을 또 신고하면 거부 (대상당 1건)")
+    void create_duplicateTarget_rejected() {
+        reportService.create(req(Set.of(ReportReason.ABUSE)));
 
-        assertThatThrownBy(() -> reportService.create(req(ReportReason.ABUSE)))
+        // 사유가 달라도 같은 대상이면 차단
+        assertThatThrownBy(() -> reportService.create(req(Set.of(ReportReason.NO_SHOW))))
                 .isInstanceOf(BusinessException.class);
+        assertThat(reportRepository.count()).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("같은 대상이라도 사유가 다르면 신고 가능")
-    void create_differentReason_allowed() {
-        reportService.create(req(ReportReason.ABUSE));
-        reportService.create(req(ReportReason.NO_SHOW));   // 다른 사유
+    @DisplayName("대상이 다르면 신고 가능")
+    void create_differentTarget_allowed() {
+        reportService.create(req(Set.of(ReportReason.ABUSE)));   // 강사 200
+
+        // 같은 신고자, 다른 대상(강사 201)
+        reportService.create(new CreateReportRequest(
+                100L, ReporterType.STUDENT,
+                ReportTargetType.TUTOR, 201L, 300L,
+                Set.of(ReportReason.ABUSE), null));
 
         assertThat(reportRepository.count()).isEqualTo(2);
     }

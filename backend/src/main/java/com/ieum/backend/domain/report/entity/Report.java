@@ -11,18 +11,22 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * 신고 (양방향: 학생↔강사). 강의 종료 후 상대/콘텐츠를 신고.
  * v1은 접수(PENDING)까지만. 운영자 처리(상태변경)는 추후.
- * 같은 신고자가 같은 대상·사유로 중복 신고하는 것을 UNIQUE로 차단.
+ *
+ * 대상당 1건: 같은 신고자가 같은 대상을 중복 신고하는 것을 UNIQUE로 차단.
+ * 사유는 한 건에 여러 개 선택 가능(체크박스) → Set으로 보관.
  */
 @Entity
 @Table(
         name = "reports",
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_reports_dedup",
-                columnNames = {"reporter_id", "target_type", "target_id", "reason"}
+                columnNames = {"reporter_id", "target_type", "target_id"}
         )
 )
 @Getter
@@ -53,9 +57,15 @@ public class Report {
     @Column(name = "lesson_id")
     private Long lessonId;
 
+    /** 신고 사유 (한 건에 여러 개 선택 가능) */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "report_reasons",
+            joinColumns = @JoinColumn(name = "report_id")
+    )
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private ReportReason reason;
+    @Column(name = "reason", nullable = false, length = 20)
+    private Set<ReportReason> reasons = new HashSet<>();
 
     @Column(length = MAX_DESCRIPTION_LENGTH)
     private String description;
@@ -79,13 +89,13 @@ public class Report {
     @Builder
     public Report(Long reporterId, ReporterType reporterType,
                   ReportTargetType targetType, Long targetId, Long lessonId,
-                  ReportReason reason, String description) {
+                  Set<ReportReason> reasons, String description) {
         this.reporterId = reporterId;
         this.reporterType = reporterType;
         this.targetType = targetType;
         this.targetId = targetId;
         this.lessonId = lessonId;
-        this.reason = reason;
+        this.reasons = (reasons != null) ? new HashSet<>(reasons) : new HashSet<>();
         this.description = description;
         this.status = ReportStatus.PENDING;
         this.createdAt = LocalDateTime.now();

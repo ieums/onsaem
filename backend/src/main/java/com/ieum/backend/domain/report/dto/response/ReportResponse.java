@@ -7,6 +7,7 @@ import com.ieum.backend.domain.report.entity.enums.ReportTargetType;
 import com.ieum.backend.domain.report.entity.enums.ReporterType;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 
 public record ReportResponse(
         Long id,
@@ -15,7 +16,7 @@ public record ReportResponse(
         ReportTargetType targetType,
         Long targetId,
         Long lessonId,
-        ReportReason reason,
+        Set<ReportReason> reasons,
         String description,
         ReportStatus status,
         LocalDateTime createdAt
@@ -24,7 +25,7 @@ public record ReportResponse(
         return new ReportResponse(
                 r.getId(), r.getReporterId(), r.getReporterType(),
                 r.getTargetType(), r.getTargetId(), r.getLessonId(),
-                r.getReason(), r.getDescription(), r.getStatus(), r.getCreatedAt()
+                r.getReasons(), r.getDescription(), r.getStatus(), r.getCreatedAt()
         );
     }
 }

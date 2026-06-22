@@ -23,12 +23,11 @@ public class ReportService {
      */
     @Transactional
     public ReportResponse create(CreateReportRequest request) {
-        // 1차 방어 (친절한 에러)
-        boolean dup = reportRepository.existsByReporterIdAndTargetTypeAndTargetIdAndReason(
-                request.getReporterId(), request.getTargetType(),
-                request.getTargetId(), request.getReason());
+        // 1차 방어 (친절한 에러) — 대상당 1건
+        boolean dup = reportRepository.existsByReporterIdAndTargetTypeAndTargetId(
+                request.getReporterId(), request.getTargetType(), request.getTargetId());
         if (dup) {
-            throw BusinessException.conflict("이미 동일한 사유로 신고했습니다.");
+            throw BusinessException.conflict("이미 신고한 대상입니다.");
         }
 
         Report report = Report.builder()
@@ -37,7 +36,7 @@ public class ReportService {
                 .targetType(request.getTargetType())
                 .targetId(request.getTargetId())
                 .lessonId(request.getLessonId())
-                .reason(request.getReason())
+                .reasons(request.getReasons())
                 .description(request.getDescription())
                 .build();
 
@@ -45,7 +44,7 @@ public class ReportService {
         try {
             reportRepository.saveAndFlush(report);
         } catch (DataIntegrityViolationException e) {
-            throw BusinessException.conflict("이미 동일한 사유로 신고했습니다.", e);
+            throw BusinessException.conflict("이미 신고한 대상입니다.", e);
         }
         return ReportResponse.from(report);
     }
