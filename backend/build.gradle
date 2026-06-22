@@ -32,11 +32,27 @@ dependencies {
     runtimeOnly 'com.mysql:mysql-connector-j'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'com.h2database:h2'
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     implementation 'software.amazon.awssdk:s3:2.25.60' //S3
     //implementation 'io.portone:server-sdk:0.16.0' // 포트원(
+
+    // PDF 생성
+    implementation 'com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10'
+    implementation 'com.openhtmltopdf:openhtmltopdf-slf4j:1.0.10'
+
+    // 마크다운 → HTML
+    implementation 'com.vladsch.flexmark:flexmark-all:0.64.8'
+
+    // AWS S3 Presigned URL
+    implementation platform('software.amazon.awssdk:bom:2.25.60')
+
+    // JWT (jjwt 0.12.x)
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 }
 
 tasks.named('test') {

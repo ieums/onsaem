@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ieum.backend.domain.problem.dto.internal.OcrResult;
+import com.ieum.backend.global.exception.BusinessException;
 import com.ieum.backend.domain.problem.dto.internal.OcrResult.DetectedText;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -155,7 +156,7 @@ public class GeminiOcrClient {
             return callApi(images);
         } catch (Exception e) {
             log.error("OCR API 호출 실패", e);
-            throw new RuntimeException("OCR API 호출 실패: " + e.getMessage(), e);
+            throw BusinessException.internalError("OCR API 호출 실패: " + e.getMessage(), e);
         }
     }
 
@@ -232,7 +233,7 @@ public class GeminiOcrClient {
             return result;
 
         } catch (Exception e) {
-            throw new RuntimeException("OCR 응답 파싱 실패: " + e.getMessage(), e);
+            throw BusinessException.internalError("OCR 응답 파싱 실패: " + e.getMessage(), e);
         }
     }
 

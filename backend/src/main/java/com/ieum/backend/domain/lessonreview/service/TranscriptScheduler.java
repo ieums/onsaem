@@ -1,0 +1,66 @@
+package com.ieum.backend.domain.lessonreview.service;
+
+import com.ieum.backend.domain.lessonreview.repository.LessonQueryRepository;
+import com.ieum.backend.domain.lessonreview.repository.LessonTranscriptRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+/**
+ * 트랜스크립트 추출 + PDF 학습 자료 생성 폴링 잡.
+ * 한 폴링 사이클에서:
+ *   1) 전사 미완료 강의 → 트랜스크립트 추출
+ *   2) 전사 완료 + PDF 미완료 + problem_id·이미지 존재 강의 → PDF 생성
+ *
+ * fixedDelay — 이전 실행 끝난 뒤에 다음 실행 (동시 실행 방지).
+ * initialDelay 30초 — 서버 부팅 직후 폴링을 잠시 지연.
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class TranscriptScheduler {
+
+    private final LessonQueryRepository lessonQueryRepository;
+    private final LessonTranscriptRepository lessonTranscriptRepository;
+    private final TranscriptService transcriptService;
+    private final LessonSummaryService lessonSummaryService;
+
+    @Scheduled(
+            fixedDelayString = "${transcript.polling-interval-ms:300000}",
+            initialDelay = 30000
+    )
+    public void pollAndProcess() {
+        // 1) 전사 처리
+        List<Long> needsTranscript = lessonQueryRepository.findCompletedLessonIdsWithoutTranscript();
+        if (!needsTranscript.isEmpty()) {
+            log.info("[TranscriptScheduler] 전사 대상 {}건: {}", needsTranscript.size(), needsTranscript);
+            for (Long lessonId : needsTranscript) {
+                try {
+                    transcriptService.processLesson(lessonId);
+                } catch (Exception e) {
+                    log.error("[TranscriptScheduler] 전사 강의 {} 처리 중 예외 — 다음 강의로 진행", lessonId, e);
+                }
+            }
+        }
+
+        // 2) PDF 처리
+        List<Long> needsPdf = lessonTranscriptRepository.findLessonIdsNeedingSummaryPdf();
+        if (!needsPdf.isEmpty()) {
+            log.info("[TranscriptScheduler] PDF 대상 {}건: {}", needsPdf.size(), needsPdf);
+            for (Long lessonId : needsPdf) {
+                try {
+                    lessonSummaryService.generateAndUpload(lessonId);
+                } catch (Exception e) {
+                    log.error("[TranscriptScheduler] PDF 강의 {} 처리 중 예외 — 다음 강의로 진행", lessonId, e);
+                }
+            }
+        }
+
+        if (needsTranscript.isEmpty() && needsPdf.isEmpty()) {
+            log.debug("[TranscriptScheduler] 처리 대기 강의 없음");
+        }
+    }
+}
