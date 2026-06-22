@@ -51,3 +51,5 @@ app.*.map.json
 # iOS — flutter run / pod install 로컬 부산물 (Android·웹 위주일 때 커밋 제외)
 ios/Podfile
 ios/Podfile.lock
+
+.claude/worktrees/
