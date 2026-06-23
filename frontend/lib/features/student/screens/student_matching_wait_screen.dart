@@ -94,9 +94,7 @@ class _StudentMatchingWaitScreenState
                       ),
                       const SizedBox(height: 40),
                       Text(
-                        session.waitingForSubjectExpert
-                            ? '담당 과목 강사를 찾고 있어요...'
-                            : '강사를 찾고 있어요...',
+                        '강사를 찾고 있어요...',
                         style: TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.w800,
@@ -107,9 +105,7 @@ class _StudentMatchingWaitScreenState
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        session.waitingForSubjectExpert
-                            ? '배정되면 알림으로 알려드릴게요.\n앱을 켜 두지 않아도 괜찮아요.'
-                            : '곧 최적의 강사와 연결됩니다',
+                        '곧 최적의 강사와 연결됩니다',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,

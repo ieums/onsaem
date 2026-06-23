@@ -20,99 +20,6 @@ class StudentTutorSelectionScreen extends ConsumerStatefulWidget {
 
 class _StudentTutorSelectionScreenState
     extends ConsumerState<StudentTutorSelectionScreen> {
-  bool _nonSubjectDialogHandled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowNonSubjectDialog());
-  }
-
-  Future<void> _maybeShowNonSubjectDialog() async {
-    if (_nonSubjectDialogHandled || !mounted) return;
-
-    final session = ref.read(studentMatchingSessionProvider);
-    if (session == null ||
-        !session.isNonSubjectOnlyMatch ||
-        session.hasWaitedForSubjectExpert) {
-      return;
-    }
-
-    _nonSubjectDialogHandled = true;
-    final isDark = ref.read(shellDarkModeProvider);
-    final theme = _flowTheme(isDark);
-
-    final waitForExpert = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return Theme(
-          data: theme,
-          child: Builder(
-            builder: (themedContext) {
-              final shell = ShellTheme.of(themedContext);
-
-              return AlertDialog(
-                backgroundColor: shell.cardBackground,
-                surfaceTintColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                title: Text(
-                  '담당 과목 강사 대기',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: shell.titleColor,
-                  ),
-                ),
-                content: Text(
-                  '담당 과목이 아닌 강사들만 매칭되었어요.\n'
-                  '담당 과목 강사님이 매칭되실 때까지 기다리시겠습니까?',
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.55,
-                    color: shell.subtitleColor,
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, false),
-                    child: Text(
-                      '지금 선택할게요',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: shell.subtitleColor,
-                      ),
-                    ),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(dialogContext, true),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.studentPoint,
-                      foregroundColor: isDark
-                          ? AppColors.shellOnSurfaceLight
-                          : Colors.white,
-                    ),
-                    child: const Text(
-                      '기다릴게요',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-
-    if (!mounted || waitForExpert != true) return;
-
-    ref.read(studentMatchingSessionProvider.notifier).waitForSubjectExpert();
-    context.go(RoutePaths.studentHome);
-  }
-
   @override
   Widget build(BuildContext context) {
     ref.listen(studentMatchingSessionProvider, (previous, next) {
@@ -129,17 +36,6 @@ class _StudentTutorSelectionScreenState
 
     if (session == null ||
         session.status != StudentMatchingSessionStatus.selectingTutor) {
-      final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? false;
-      if (isCurrentRoute &&
-          session != null &&
-          session.showOnHomePending &&
-          context.mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!context.mounted) return;
-          if (ModalRoute.of(context)?.isCurrent != true) return;
-          context.go(RoutePaths.studentHome);
-        });
-      }
       return Theme(
         data: theme,
         child: const Scaffold(body: SizedBox.shrink()),

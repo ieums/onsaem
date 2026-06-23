@@ -72,7 +72,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     final shell = ShellTheme.of(context);
     final pageBg = Theme.of(context).scaffoldBackgroundColor;
     final matchingSession = ref.watch(studentMatchingSessionProvider);
-    _ensurePendingTickTimer(matchingSession?.showOnHomePending ?? false);
+    final isSessionActive = matchingSession != null &&
+        matchingSession.status != StudentMatchingSessionStatus.connected;
+    _ensurePendingTickTimer(isSessionActive);
 
     return ColoredBox(
       color: pageBg,
@@ -85,11 +87,11 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               _buildHeader(context, shell),
               const SizedBox(height: 20),
               _buildActionCards(context),
-              if (matchingSession?.showOnHomePending == true) ...[
+              if (matchingSession != null && isSessionActive) ...[
                 const SizedBox(height: 28),
                 _buildSectionTitle(context, shell, '매칭 대기 중인 질문'),
                 const SizedBox(height: 12),
-                _ActivePendingQuestionCard(session: matchingSession!),
+                _ActivePendingQuestionCard(session: matchingSession),
               ],
               const SizedBox(height: 28),
               _buildSectionTitle(context, shell, '최근 수업 이력'),

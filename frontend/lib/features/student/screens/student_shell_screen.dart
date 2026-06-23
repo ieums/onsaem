@@ -4,6 +4,7 @@ import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
+import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/providers/student_shell_tab_provider.dart';
 import 'package:ieum/features/student/screens/student_home_screen.dart';
 import 'package:ieum/features/student/screens/student_lessons_screen.dart';
@@ -53,6 +54,33 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<StudentMatchingSession?>(studentMatchingSessionProvider,
+        (prev, next) {
+      if (!mounted) return;
+      final prevTutorId = prev?.matchRequestedTutorId;
+      final nextTutorId = next?.matchRequestedTutorId;
+      if (nextTutorId != null && nextTutorId != prevTutorId) {
+        _showMatchRequestedDialog(context, ref, nextTutorId);
+      }
+
+      final prevMsg = prev?.matchCancelledMessage;
+      final nextMsg = next?.matchCancelledMessage;
+      if (nextMsg != null && nextMsg != prevMsg) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(nextMsg)),
+        );
+        ref
+            .read(studentMatchingSessionProvider.notifier)
+            .clearMatchCancelledMessage();
+      }
+
+      final wasExpiring = prev?.isSearchExpiringSoon ?? false;
+      final isExpiring = next?.isSearchExpiringSoon ?? false;
+      if (isExpiring && !wasExpiring) {
+        _showExtendDialog(context, ref);
+      }
+    });
+
     final tabIndex = ref.watch(studentShellTabIndexProvider);
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
@@ -74,5 +102,92 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showMatchRequestedDialog(
+      BuildContext context, WidgetRef ref, int tutorId) async {
+    final isDark = ref.read(shellDarkModeProvider);
+    final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
+    final theme = baseTheme.copyWith(
+      colorScheme:
+          baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+    );
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Theme(
+        data: theme,
+        child: AlertDialog(
+          title: const Text('매칭 요청', style: TextStyle(fontWeight: FontWeight.w800)),
+          content: const Text('강사님이 매칭을 요청했습니다. 수업을 시작하시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('거절'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.studentPoint,
+                  foregroundColor: isDark ? AppColors.shellOnSurfaceLight : Colors.white),
+              child: const Text('수락', style: TextStyle(fontWeight: FontWeight.w800)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (confirmed == true) {
+      await ref
+          .read(studentMatchingSessionProvider.notifier)
+          .confirmMatch(tutorId);
+    } else {
+      await ref
+          .read(studentMatchingSessionProvider.notifier)
+          .cancelConfirm(tutorId);
+    }
+  }
+
+  Future<void> _showExtendDialog(BuildContext context, WidgetRef ref) async {
+    final isDark = ref.read(shellDarkModeProvider);
+    final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
+    final theme = baseTheme.copyWith(
+      colorScheme:
+          baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+    );
+
+    final extended = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Theme(
+        data: theme,
+        child: AlertDialog(
+          title: const Text('탐색 종료 임박', style: TextStyle(fontWeight: FontWeight.w800)),
+          content: const Text('강사 탐색 시간이 거의 다 됐어요. 30분 연장하시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('탐색 취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.studentPoint,
+                  foregroundColor: isDark ? AppColors.shellOnSurfaceLight : Colors.white),
+              child: const Text('30분 연장', style: TextStyle(fontWeight: FontWeight.w800)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (extended == true) {
+      await ref.read(studentMatchingSessionProvider.notifier).extendSearch();
+    } else {
+      await ref.read(studentMatchingSessionProvider.notifier).cancelMatching();
+    }
   }
 }

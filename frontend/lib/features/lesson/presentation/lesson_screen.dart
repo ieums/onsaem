@@ -16,11 +16,13 @@ import 'whiteboard_painter.dart';
 class LessonScreen extends ConsumerStatefulWidget {
   final String channelName;
   final List<String> imageUrls;
+  final String? subject;
 
   const LessonScreen({
     super.key,
     required this.channelName,
     this.imageUrls = const [],
+    this.subject,
   });
 
   @override
@@ -233,7 +235,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               ),
             ),
             child: Text(
-              widget.channelName,
+              widget.subject ?? widget.channelName,
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,

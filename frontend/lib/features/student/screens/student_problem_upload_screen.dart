@@ -1,17 +1,22 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/core/network/dio_client.dart';
 import 'package:ieum/core/notifications/app_notification_service.dart';
+import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
-import 'package:ieum/features/student/utils/student_question_text_util.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
+import 'package:ieum/features/student/utils/student_question_text_util.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class StudentProblemUploadScreen extends ConsumerStatefulWidget {
@@ -236,6 +241,39 @@ class _StudentProblemUploadScreenState
     );
   }
 
+  Future<int?> _createProblemOnBackend(int studentId, String description) async {
+    try {
+      final formData = FormData.fromMap({
+        'images': MultipartFile.fromBytes(
+          _problemImageBytes!,
+          filename: 'problem.jpg',
+          contentType: MediaType('image', 'jpeg'),
+        ),
+        'data': MultipartFile.fromString(
+          jsonEncode({
+            'studentId': studentId,
+            'studentDescription': description.isEmpty ? null : description,
+          }),
+          contentType: MediaType('application', 'json'),
+        ),
+      });
+      final res = await dioClient.post('/problems', data: formData);
+      final rawData = res.data;
+      final Map<String, dynamic> body =
+          (rawData is Map && rawData.containsKey('data'))
+              ? (rawData['data'] as Map<String, dynamic>)
+              : (rawData as Map<String, dynamic>);
+      final problemId = body['problemId'] as int?;
+      if (problemId == null) {
+        _showSnack('문제 사진을 다시 찍어주세요 (문제가 여러 개 감지됐어요).');
+      }
+      return problemId;
+    } catch (_) {
+      _showSnack('문제 등록에 실패했어요. 다시 시도해 주세요.');
+      return null;
+    }
+  }
+
   Future<void> _submitMatchingRequest() async {
     if (_problemImageBytes == null) {
       _showSnack('문제 사진을 업로드해 주세요.');
@@ -254,16 +292,22 @@ class _StudentProblemUploadScreenState
       return;
     }
 
-    final sessionToken = DateTime.now().millisecondsSinceEpoch;
+    final studentId = ref.read(currentUserProvider)?.id ?? 0;
+    final problemId = await _createProblemOnBackend(
+      studentId,
+      _descriptionController.text,
+    );
+    if (!mounted || problemId == null) return;
+
     final questionSummary = StudentQuestionTextUtil.summarize(
       _descriptionController.text,
     );
     await ref.read(studentMatchingSessionProvider.notifier).startMatching(
+          problemId: problemId,
+          studentId: studentId,
           subject: _selectedSubject!,
           questionSummary: questionSummary,
           problemImageBytes: _problemImageBytes,
-          pendingId: 'upload-$sessionToken',
-          sessionToken: sessionToken,
         );
 
     if (!mounted) return;

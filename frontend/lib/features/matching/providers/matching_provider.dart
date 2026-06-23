@@ -207,12 +207,13 @@ class TutorApplicationsNotifier
         _tutorId,
         (problemId) => _removeByProblemId(problemId),
         matchingProblemIds: matchingIds,
-        onMatched: (problemId, channelName, imageUrls) {
+        onMatched: (problemId, channelName, imageUrls, subject) {
           _removeByProblemId(problemId);
           if (channelName.isNotEmpty) {
             appRouter.go('/lesson', extra: {
               'channelName': channelName,
               'imageUrls': imageUrls,
+              'subject': subject,
             });
           }
         },

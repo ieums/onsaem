@@ -8,7 +8,6 @@ import 'package:ieum/features/auth/screens/signup_role_screen.dart';
 import 'package:ieum/features/auth/screens/student_signup_screen.dart';
 import 'package:ieum/features/auth/screens/tutor_signup_screen.dart';
 import 'package:ieum/features/onboarding/screens/onboarding_screen.dart';
-import 'package:ieum/features/student/screens/student_classroom_screen.dart';
 import 'package:ieum/features/student/screens/student_credit_recharge_screen.dart';
 import 'package:ieum/features/student/screens/student_matching_wait_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_upload_screen.dart';
@@ -92,10 +91,6 @@ final appRouter = GoRouter(
       builder: (_, _) => const StudentQuestionStatusScreen(),
     ),
     GoRoute(
-      path: RoutePaths.studentClassroom,
-      builder: (_, _) => const StudentClassroomScreen(),
-    ),
-    GoRoute(
       path: RoutePaths.studentReviewWrite,
       builder: (_, state) {
         final extra = state.extra;
@@ -137,6 +132,7 @@ final appRouter = GoRouter(
           return LessonScreen(
             channelName: extra['channelName'] as String,
             imageUrls: (extra['imageUrls'] as List?)?.cast<String>() ?? const [],
+            subject: extra['subject'] as String?,
           );
         }
         return LessonScreen(channelName: extra as String);

@@ -12,6 +12,7 @@ import 'package:ieum/features/student/utils/student_question_text_util.dart';
 import 'package:ieum/features/student/widgets/student_problem_image_viewer.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
 import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
+import 'package:ieum/routes/app_router.dart';
 
 class StudentQuestionStatusScreen extends ConsumerWidget {
   const StudentQuestionStatusScreen({super.key});
@@ -35,7 +36,7 @@ class StudentQuestionStatusScreen extends ConsumerWidget {
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
 
-    if (session == null || !session.showOnHomePending) {
+    if (session == null) {
       return Theme(
         data: theme,
         child: const Scaffold(body: SizedBox.shrink()),
@@ -46,7 +47,6 @@ class StudentQuestionStatusScreen extends ConsumerWidget {
     final isConnected = session.status == StudentMatchingSessionStatus.connected;
     final isConnecting = session.status == StudentMatchingSessionStatus.connecting;
     final isSelecting = session.status == StudentMatchingSessionStatus.selectingTutor;
-    final isWaitingExpert = session.waitingForSubjectExpert;
 
     return Theme(
       data: theme,
@@ -69,7 +69,7 @@ class StudentQuestionStatusScreen extends ConsumerWidget {
                         _QuestionInfoCard(session: session),
                         const SizedBox(height: 24),
                         Text(
-                          isWaitingExpert ? '강사 배정' : '배정된 강사',
+                          '배정된 강사',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -77,13 +77,7 @@ class StudentQuestionStatusScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        if (isWaitingExpert)
-                          _TutorStatusCard(
-                            title: '담당 강사 배정 대기 중',
-                            subtitle:
-                                '${session.subject} 담당 강사가 배정되면 알림으로 알려드릴게요.',
-                          )
-                        else if (isSelecting)
+                        if (isSelecting)
                           _TutorStatusCard(
                             title: '강사를 선택해 주세요',
                             subtitle: '배정된 강사 후보 중 한 분을 선택하면 수업이 연결돼요.',
@@ -148,16 +142,6 @@ class StudentQuestionStatusScreen extends ConsumerWidget {
                               ),
                             ],
                           ),
-                        ] else if (isWaitingExpert) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            StudentQuestionTextUtil.waitingLabel(session.startedAt),
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: shell.subtitleColor,
-                            ),
-                          ),
                         ],
                       ],
                     ),
@@ -182,7 +166,10 @@ class StudentQuestionStatusScreen extends ConsumerWidget {
                             label: '강의실 입장하기',
                             enabled: isConnected,
                             onPressed: isConnected
-                                ? () => context.push(RoutePaths.studentClassroom)
+                                ? () => appRouter.go('/lesson', extra: {
+                                      'channelName': session.channelName!,
+                                      'imageUrls': session.imageUrls,
+                                    })
                                 : null,
                           ),
                         ],
@@ -271,7 +258,13 @@ class StudentQuestionStatusScreen extends ConsumerWidget {
 
     if (confirmed != true || !context.mounted) return;
 
-    ref.read(studentMatchingSessionProvider.notifier).returnToTutorSelection();
+    final session = ref.read(studentMatchingSessionProvider);
+    if (session?.selectedTutorId != null) {
+      await ref
+          .read(studentMatchingSessionProvider.notifier)
+          .cancelConfirm(int.parse(session!.selectedTutorId!));
+    }
+    if (!context.mounted) return;
     context.push(RoutePaths.studentTutorSelection);
   }
 }
@@ -362,8 +355,6 @@ class _QuestionInfoCard extends StatelessWidget {
         ('연결 중', AppColors.reviewHighlight),
       StudentMatchingSessionStatus.selectingTutor =>
         ('강사 선택', AppColors.studentPoint),
-      _ when session.waitingForSubjectExpert =>
-        ('배정 대기', AppColors.reviewHighlight),
       _ => ('매칭 중', shell.hintColor),
     };
 

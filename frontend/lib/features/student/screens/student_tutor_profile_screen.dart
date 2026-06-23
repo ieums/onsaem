@@ -32,8 +32,11 @@ class _StudentTutorProfileScreenState extends ConsumerState<StudentTutorProfileS
 
   bool get _canSelect {
     final session = ref.watch(studentMatchingSessionProvider);
-    return session?.status == StudentMatchingSessionStatus.selectingTutor &&
-        session!.candidateIds.contains(widget.tutorId);
+    if (session == null ||
+        session.status != StudentMatchingSessionStatus.selectingTutor) {
+      return false;
+    }
+    return session.applicants.any((a) => a.tutorId.toString() == widget.tutorId);
   }
 
   void _selectTutor() {
