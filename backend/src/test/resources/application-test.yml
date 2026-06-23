@@ -41,3 +41,13 @@ portone:
   api-secret: test
   api-base-url: http://localhost
   verification-enabled: false   # 검증 건너뜀 (멱등성 로직만 검증)
+
+# auth(JWT/OAuth) 컨텍스트 로딩용 더미 — secret은 base64 디코딩 후 ≥64바이트(HS512)
+jwt:
+  secret: b25zYWVtLXRlc3Qtand0LXNlY3JldC1rZXktZm9yLWNpLW9ubHktZG8tbm90LXVzZS1pbi1wcm9kLTAxMjM0NTY3ODlhYmNk
+  access-token-expiry-ms: 3600000
+  refresh-token-expiry-ms: 1209600000
+
+oauth:
+  google:
+    client-id: test-client-id
