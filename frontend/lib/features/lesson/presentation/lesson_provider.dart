@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../data/lesson_repository.dart';
@@ -186,7 +187,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
       channelName: channelName,
       uid: uid,
       isTutor: isTutor,
-      localCameraEnabled: isTutor,
+      localCameraEnabled: false,
     );
 
     try {
@@ -203,6 +204,19 @@ class LessonNotifier extends StateNotifier<LessonState> {
       );
 
       if (!kIsWeb) {
+        final statuses = await [
+          Permission.camera,
+          Permission.microphone,
+        ].request();
+        if (statuses[Permission.camera] != PermissionStatus.granted ||
+            statuses[Permission.microphone] != PermissionStatus.granted) {
+          state = state.copyWith(
+            isLoading: false,
+            error: '카메라/마이크 권한이 필요합니다',
+          );
+          return;
+        }
+
         _engine = createAgoraRtcEngine();
         await _engine!.initialize(RtcEngineContext(appId: tokenResp.appId));
 
@@ -224,9 +238,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
         await _engine!.enableAudio();
         await _engine!.enableVideo();
-        if (!isTutor) {
-          await _engine!.enableLocalVideo(false);
-        }
+        await _engine!.enableLocalVideo(false);
 
         await _engine!.joinChannel(
           token: tokenResp.token,
@@ -769,8 +781,12 @@ class LessonNotifier extends StateNotifier<LessonState> {
       String? recordingUrl = state.recordingUrl;
 
       if (state.isRecording) {
-        final resp = await _repo.stopRecording(lessonId);
-        recordingUrl = resp.recordingUrl ?? recordingUrl;
+        try {
+          final resp = await _repo.stopRecording(lessonId);
+          recordingUrl = resp.recordingUrl ?? recordingUrl;
+        } catch (e) {
+          debugPrint('녹화 중지 실패 (수업 완료는 계속 진행): $e');
+        }
         state = state.copyWith(isRecording: false, recordingUrl: recordingUrl);
       }
 
