@@ -34,7 +34,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
 
   static const _domainOptions = ['직접입력', 'gmail.com', 'naver.com'];
   static const _presetDomainsForWidth = ['gmail.com', 'naver.com'];
-  static const _educationOptions = ['재학중', '휴학중', '반수중', '졸업함'];
+  static const _educationOptions = ['재학', '휴학', '졸업'];
   static const _selectorTextStyle = TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w500,
@@ -52,7 +52,6 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   final _subjectInputController = TextEditingController();
   final _experienceController = TextEditingController();
   final _introController = TextEditingController();
-  final _lectureStyleInputController = TextEditingController();
 
   final _domainTriggerKey = GlobalKey();
   final _educationTriggerKey = GlobalKey();
@@ -60,7 +59,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   final _educationLayerLink = LayerLink();
 
   String _selectedDomain = '직접입력';
-  String _selectedEducation = '재학중';
+  String _selectedEducation = '재학';
   String? _proofFileName;
   Uint8List? _profileImageBytes;
   bool _isDomainMenuOpen = false;
@@ -74,7 +73,6 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   bool _isSubmitting = false;
 
   final List<String> _subjectKeywords = [];
-  final List<String> _lectureStyleKeywords = [];
 
   bool get _isShellThemed => widget.isEditMode;
 
@@ -233,10 +231,10 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     _subjectInputController.dispose();
     _experienceController.dispose();
     _introController.dispose();
-    _lectureStyleInputController.dispose();
     super.dispose();
   }
-    Future<void> _submit() async {
+
+  Future<void> _submit() async {
     // ── 프로필 수정 모드: 기존 동작 보존 ──
     if (widget.isEditMode) {
       context.go(RoutePaths.tutorHome);
@@ -254,8 +252,22 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     final major = _majorController.text.trim();
     final bio = _introController.text.trim();
 
+    final year = _yearController.text.trim();
+    final month = _monthController.text.trim();
+    final day = _dayController.text.trim();
+    final phone = _phoneController.text.trim();
+    final experienceYears = int.tryParse(_experienceController.text.trim());
+
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
       _showSnack('이름·이메일·비밀번호를 모두 입력해주세요.');
+      return;
+    }
+    if (year.length != 4 || month.isEmpty || day.isEmpty) {
+      _showSnack('생년월일을 정확히 입력해주세요.');
+      return;
+    }
+    if (phone.isEmpty) {
+      _showSnack('휴대폰 번호를 입력해주세요.');
       return;
     }
     if (password.length < 8) {
@@ -267,13 +279,22 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
       return;
     }
 
+    // 백엔드 LocalDate 형식 "yyyy-MM-dd" 로 조합 (월·일 zero-pad)
+    final birthDate =
+        '$year-${month.padLeft(2, '0')}-${day.padLeft(2, '0')}';
+
     setState(() => _isSubmitting = true);
     try {
       await ref.read(authControllerProvider).tutorSignup(
             email: email,
             password: password,
             name: name,
-            major: major.isEmpty ? null : major,   // 전공 (선택)
+            birthDate: birthDate,
+            phone: phone,
+            educationStatus: _selectedEducation,    // 재학/휴학/졸업
+            subjects: _subjectKeywords,             // 과외 가능 과목
+            experienceYears: experienceYears,       // 경력 연수 (선택)
+            major: major.isEmpty ? null : major,    // 전공 (선택)
             bio: bio.isEmpty ? null : bio,          // 한줄소개 (선택)
           );
       if (!mounted) return;
@@ -478,16 +499,6 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     setState(() {
       _subjectKeywords.add(value);
       _subjectInputController.clear();
-    });
-  }
-
-  void _addLectureStyleKeyword() {
-    if (_lectureStyleKeywords.length >= 5) return;
-    final value = _lectureStyleInputController.text.trim();
-    if (value.isEmpty) return;
-    setState(() {
-      _lectureStyleKeywords.add(value);
-      _lectureStyleInputController.clear();
     });
   }
 
@@ -750,26 +761,6 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                       style: TextStyle(fontSize: 12, color: _textHint(context)),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  _buildLabel(context, '강의 스타일 소개 (최대 5개)'),
-                  const SizedBox(height: 8),
-                  _buildKeywordInputRow(
-                    context,
-                    controller: _lectureStyleInputController,
-                    hint: '강의 스타일 키워드',
-                    onAdd: _addLectureStyleKeyword,
-                    enabled: _lectureStyleKeywords.length < 5,
-                  ),
-                  if (_lectureStyleKeywords.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    _buildKeywordWrap(
-                      context,
-                      _lectureStyleKeywords,
-                      (keyword) => setState(
-                        () => _lectureStyleKeywords.remove(keyword),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

@@ -314,6 +314,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     }
 
     // ── 신규 회원가입 ──
+        // ── 신규 회원가입 ──
     final name = _nameController.text.trim();
     final emailLocal = _emailLocalController.text.trim();
     final email = _selectedDomain == '직접입력'
@@ -322,8 +323,21 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     final password = _passwordController.text;
     final confirm = _confirmPasswordController.text;
 
+    final year = _yearController.text.trim();
+    final month = _monthController.text.trim();
+    final day = _dayController.text.trim();
+    final phone = _phoneController.text.trim();
+
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
       _showSnack('이름·이메일·비밀번호를 모두 입력해주세요.');
+      return;
+    }
+    if (year.length != 4 || month.isEmpty || day.isEmpty) {
+      _showSnack('생년월일을 정확히 입력해주세요.');
+      return;
+    }
+    if (phone.isEmpty) {
+      _showSnack('휴대폰 번호를 입력해주세요.');
       return;
     }
     if (password.length < 8) {
@@ -335,12 +349,18 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
       return;
     }
 
+    // 백엔드 LocalDate 형식 "yyyy-MM-dd" 로 조합 (월·일 zero-pad)
+    final birthDate =
+        '$year-${month.padLeft(2, '0')}-${day.padLeft(2, '0')}';
+
     setState(() => _isSubmitting = true);
     try {
       await ref.read(authControllerProvider).studentSignup(
             email: email,
             password: password,
             name: name,
+            birthDate: birthDate,
+            phone: phone,
           );
       if (!mounted) return;
       context.go(RoutePaths.studentHome);

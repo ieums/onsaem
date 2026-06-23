@@ -34,22 +34,35 @@ class AuthRepository {
   }
 
   // ─── 회원가입 (가입 즉시 토큰 발급됨) ──────────
-  Future<AuthTokens> studentSignup({
+    Future<AuthTokens> studentSignup({
     required String email,
     required String password,
     required String name,
+    required String birthDate, // "yyyy-MM-dd"
+    required String phone,
   }) async {
     final res = await _dio.post(
       '/auth/student/signup',
-      data: {'email': email, 'password': password, 'name': name},
+      data: {
+        'email': email,
+        'password': password,
+        'name': name,
+        'birthDate': birthDate,
+        'phone': phone,
+      },
     );
     return AuthTokens.fromJson(res.data['data'] as Map<String, dynamic>);
   }
 
-  Future<AuthTokens> tutorSignup({
+    Future<AuthTokens> tutorSignup({
     required String email,
     required String password,
     required String name,
+    required String birthDate, // "yyyy-MM-dd"
+    required String phone,
+    required String educationStatus, // "재학" | "휴학" | "졸업" (백엔드 라벨)
+    required List<String> subjects,
+    int? experienceYears,
     String? bio,
     String? school,
     String? major,
@@ -60,6 +73,11 @@ class AuthRepository {
         'email': email,
         'password': password,
         'name': name,
+        'birthDate': birthDate,
+        'phone': phone,
+        'educationStatus': educationStatus,
+        'subjects': subjects,
+        if (experienceYears != null) 'experienceYears': experienceYears,
         if (bio != null) 'bio': bio,
         if (school != null) 'school': school,
         if (major != null) 'major': major,

@@ -32,23 +32,32 @@ class AuthController {
   }
 
   // ─── 회원가입 (가입 즉시 로그인됨) ───────────
-  Future<void> studentSignup({
+    Future<void> studentSignup({
     required String email,
     required String password,
     required String name,
+    required String birthDate,
+    required String phone,
   }) async {
     final tokens = await _repo.studentSignup(
       email: email,
       password: password,
       name: name,
+      birthDate: birthDate,
+      phone: phone,
     );
     await _onAuthenticated(tokens);
   }
 
-  Future<void> tutorSignup({
+    Future<void> tutorSignup({
     required String email,
     required String password,
     required String name,
+    required String birthDate,
+    required String phone,
+    required String educationStatus,
+    required List<String> subjects,
+    int? experienceYears,
     String? bio,
     String? school,
     String? major,
@@ -57,6 +66,11 @@ class AuthController {
       email: email,
       password: password,
       name: name,
+      birthDate: birthDate,
+      phone: phone,
+      educationStatus: educationStatus,
+      subjects: subjects,
+      experienceYears: experienceYears,
       bio: bio,
       school: school,
       major: major,
