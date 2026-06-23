@@ -3,6 +3,7 @@ package com.ieum.backend.domain.auth.dto;
 import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public record TutorSignupRequest(
         @NotBlank @Email String email,
@@ -14,6 +15,7 @@ public record TutorSignupRequest(
         @Size(max = 100) String school,
         @Size(max = 100) String major,
         @PositiveOrZero Integer experienceYears,
-        @NotBlank String educationStatus
+        @NotBlank String educationStatus,
+        List<String> subjects
 ) {
 }

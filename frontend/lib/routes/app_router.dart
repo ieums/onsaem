@@ -25,12 +25,19 @@ import '../features/matching/screens/problem_detail_screen.dart';
 
 final appRouter = GoRouter(
   navigatorKey: GlobalKey<NavigatorState>(),
-  initialLocation: '/',
-  redirect: (context, state) {
+  initialLocation: '/login',
+    redirect: (context, state) {
     final container = ProviderScope.containerOf(context);
     final user = container.read(currentUserProvider);
-    final isProtected = state.matchedLocation.startsWith('/tutor') ||
-        state.matchedLocation.startsWith('/student');
+    final loc = state.matchedLocation;
+    final isProtected = loc.startsWith('/tutor') || loc.startsWith('/student');
+    final isEntry = loc == '/' || loc == RoutePaths.login;
+
+    // 로그인 상태인데 시작/로그인 화면이면 → 역할별 홈으로
+    if (user != null && isEntry) {
+      return user.isTutor ? RoutePaths.tutorHome : RoutePaths.studentHome;
+    }
+    // 미로그인인데 보호 화면이면 → 시작(/)으로
     if (user == null && isProtected) return '/';
     return null;
   },

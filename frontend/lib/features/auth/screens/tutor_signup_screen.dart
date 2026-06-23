@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/features/auth/data/auth_controller.dart';
+import 'package:ieum/core/network/api_error.dart';
 
 class TutorSignupScreen extends ConsumerStatefulWidget {
   const TutorSignupScreen({
@@ -33,7 +35,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
 
   static const _domainOptions = ['직접입력', 'gmail.com', 'naver.com'];
   static const _presetDomainsForWidth = ['gmail.com', 'naver.com'];
-  static const _educationOptions = ['재학중', '휴학중', '반수중', '졸업함'];
+  static const _educationOptions = ['재학', '휴학', '졸업'];
   static const _selectorTextStyle = TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w500,
@@ -51,7 +53,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   final _subjectInputController = TextEditingController();
   final _experienceController = TextEditingController();
   final _introController = TextEditingController();
-  final _lectureStyleInputController = TextEditingController();
+  final _schoolController = TextEditingController();
 
   final _domainTriggerKey = GlobalKey();
   final _educationTriggerKey = GlobalKey();
@@ -59,7 +61,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   final _educationLayerLink = LayerLink();
 
   String _selectedDomain = '직접입력';
-  String _selectedEducation = '재학중';
+  String _selectedEducation = '재학';
   String? _proofFileName;
   Uint8List? _profileImageBytes;
   bool _isDomainMenuOpen = false;
@@ -70,9 +72,9 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   bool _obscureConfirmPassword = true;
   bool _showPasswordMismatch = false;
   int _introLength = 0;
+  bool _isSubmitting = false;
 
   final List<String> _subjectKeywords = [];
-  final List<String> _lectureStyleKeywords = [];
 
   bool get _isShellThemed => widget.isEditMode;
 
@@ -228,11 +230,92 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _majorController.dispose();
+    _schoolController.dispose(); 
     _subjectInputController.dispose();
     _experienceController.dispose();
     _introController.dispose();
-    _lectureStyleInputController.dispose();
     super.dispose();
+  }
+
+  Future<void> _submit() async {
+    // ── 프로필 수정 모드: 기존 동작 보존 ──
+    if (widget.isEditMode) {
+      context.go(RoutePaths.tutorHome);
+      return;
+    }
+
+    // ── 신규 강사 회원가입 ──
+    final name = _nameController.text.trim();
+    final emailLocal = _emailLocalController.text.trim();
+    final email = _selectedDomain == '직접입력'
+        ? emailLocal
+        : '$emailLocal@$_selectedDomain';
+    final password = _passwordController.text;
+    final confirm = _confirmPasswordController.text;
+    final major = _majorController.text.trim();
+    final school = _schoolController.text.trim(); 
+    final bio = _introController.text.trim();
+
+    final year = _yearController.text.trim();
+    final month = _monthController.text.trim();
+    final day = _dayController.text.trim();
+    final phone = _phoneController.text.trim();
+    final experienceYears = int.tryParse(_experienceController.text.trim());
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      _showSnack('이름·이메일·비밀번호를 모두 입력해주세요.');
+      return;
+    }
+    if (year.length != 4 || month.isEmpty || day.isEmpty) {
+      _showSnack('생년월일을 정확히 입력해주세요.');
+      return;
+    }
+    if (phone.isEmpty) {
+      _showSnack('휴대폰 번호를 입력해주세요.');
+      return;
+    }
+    if (password.length < 8) {
+      _showSnack('비밀번호는 8자 이상이어야 해요.');
+      return;
+    }
+    if (password != confirm) {
+      setState(() => _showPasswordMismatch = true);
+      return;
+    }
+
+    // 백엔드 LocalDate 형식 "yyyy-MM-dd" 로 조합 (월·일 zero-pad)
+    final birthDate =
+        '$year-${month.padLeft(2, '0')}-${day.padLeft(2, '0')}';
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(authControllerProvider).tutorSignup(
+            email: email,
+            password: password,
+            name: name,
+            birthDate: birthDate,
+            phone: phone,
+            educationStatus: _selectedEducation,    // 재학/휴학/졸업
+            subjects: _subjectKeywords,             // 과외 가능 과목
+            experienceYears: experienceYears,       // 경력 연수 (선택)
+            school: school.isEmpty ? null : school,  //학교
+            major: major.isEmpty ? null : major,    // 전공 (선택)
+            bio: bio.isEmpty ? null : bio,          // 한줄소개 (선택)
+          );
+      if (!mounted) return;
+      context.go(RoutePaths.tutorHome); // 가입 즉시 로그인됨 → 강사 홈
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack(apiErrorMessage(e, fallback: '회원가입에 실패했어요. 이미 가입된 이메일인지 확인해주세요.'));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _showSnack(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text)),
+    );
   }
 
   void _removeAllOverlays() {
@@ -421,16 +504,6 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     setState(() {
       _subjectKeywords.add(value);
       _subjectInputController.clear();
-    });
-  }
-
-  void _addLectureStyleKeyword() {
-    if (_lectureStyleKeywords.length >= 5) return;
-    final value = _lectureStyleInputController.text.trim();
-    if (value.isEmpty) return;
-    setState(() {
-      _lectureStyleKeywords.add(value);
-      _lectureStyleInputController.clear();
     });
   }
 
@@ -636,6 +709,14 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                       ),
                     ),
                   ),
+                                    const SizedBox(height: 20),
+                  _buildLabel(context, '학교'),
+                  const SizedBox(height: 8),
+                  _buildTextField(
+                    context,
+                    controller: _schoolController,
+                    hint: '학교를 입력하세요',
+                  ),
                   const SizedBox(height: 20),
                   _buildLabel(context, '전공'),
                   const SizedBox(height: 8),
@@ -693,26 +774,6 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                       style: TextStyle(fontSize: 12, color: _textHint(context)),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  _buildLabel(context, '강의 스타일 소개 (최대 5개)'),
-                  const SizedBox(height: 8),
-                  _buildKeywordInputRow(
-                    context,
-                    controller: _lectureStyleInputController,
-                    hint: '강의 스타일 키워드',
-                    onAdd: _addLectureStyleKeyword,
-                    enabled: _lectureStyleKeywords.length < 5,
-                  ),
-                  if (_lectureStyleKeywords.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    _buildKeywordWrap(
-                      context,
-                      _lectureStyleKeywords,
-                      (keyword) => setState(
-                        () => _lectureStyleKeywords.remove(keyword),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -723,7 +784,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
               height: 54,
               width: double.infinity,
               child: FilledButton(
-                onPressed: () => context.go(RoutePaths.tutorHome),
+                onPressed: _isSubmitting ? null : _submit,
                 style: _primaryCtaStyle(context),
                 child: Text(
                   widget.isEditMode ? '저장하기' : '가입하기',

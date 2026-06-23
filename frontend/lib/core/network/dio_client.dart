@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../constants/api_constants.dart';
+import 'auth_interceptor.dart';
 
 final dioClient = Dio(
   BaseOptions(
@@ -8,4 +9,4 @@ final dioClient = Dio(
     receiveTimeout: const Duration(seconds: 30),
     headers: {'Content-Type': 'application/json'},
   ),
-);
+)..interceptors.add(AuthInterceptor());
