@@ -121,17 +121,24 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           _offset = Offset(next.remoteOffsetX, next.remoteOffsetY);
         });
       }
-      // 이미지 업로드 한도 초과 에러 스낵바
-      if (prev?.error != next.error &&
-          next.error != null &&
-          next.error!.contains('최대 10장')) {
+      // 에러 스낵바
+      if (prev?.error != next.error && next.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('이미지는 최대 10장까지 업로드할 수 있습니다.'),
+          SnackBar(
+            content: Text(next.error!.contains('최대 10장')
+                ? '이미지는 최대 10장까지 업로드할 수 있습니다.'
+                : next.error!),
             backgroundColor: AppColors.buttonDanger,
           ),
         );
         ref.read(lessonProvider.notifier).clearError();
+      }
+      // 원격 카메라 비율 동기화
+      if (prev?.remoteCameraRatio != next.remoteCameraRatio &&
+          next.remoteCameraRatio != null) {
+        setState(() {
+          _cameraRatio = next.remoteCameraRatio!;
+        });
       }
     });
 
@@ -599,7 +606,10 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           ? AgoraVideoView(
               controller: VideoViewController(
                 rtcEngine: engine,
-                canvas: const VideoCanvas(uid: 0),
+                canvas: const VideoCanvas(
+                  uid: 0,
+                  renderMode: RenderModeType.renderModeHidden,
+                ),
               ),
             )
           : const SizedBox.shrink();
@@ -610,7 +620,10 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           ? AgoraVideoView(
               controller: VideoViewController.remote(
                 rtcEngine: engine,
-                canvas: VideoCanvas(uid: remoteUid),
+                canvas: VideoCanvas(
+                  uid: remoteUid,
+                  renderMode: RenderModeType.renderModeHidden,
+                ),
                 connection: RtcConnection(channelId: channelName),
               ),
             )
@@ -626,10 +639,12 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onVerticalDragUpdate: (d) {
+        final ratio =
+            (_cameraRatio + d.delta.dy / totalHeight).clamp(0.1, 0.5);
         setState(() {
-          _cameraRatio =
-              (_cameraRatio + d.delta.dy / totalHeight).clamp(0.1, 0.5);
+          _cameraRatio = ratio;
         });
+        ref.read(lessonProvider.notifier).sendCameraRatio(ratio);
       },
       child: Container(
         height: 8,

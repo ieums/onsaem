@@ -40,6 +40,7 @@ class LessonState {
 
   final bool isMicEnabled;
   final bool remoteMicEnabled;
+  final double? remoteCameraRatio;
 
   final bool isRecording;
   final String? recordingUrl;
@@ -76,6 +77,7 @@ class LessonState {
     this.isEraserMode = false,
     this.isMicEnabled = true,
     this.remoteMicEnabled = true,
+    this.remoteCameraRatio,
     this.isRecording = false,
     this.recordingUrl,
     this.strokes = const [],
@@ -108,6 +110,7 @@ class LessonState {
     bool? isEraserMode,
     bool? isMicEnabled,
     bool? remoteMicEnabled,
+    Object? remoteCameraRatio = _sentinel,
     bool? isRecording,
     Object? recordingUrl = _sentinel,
     List<DrawingStroke>? strokes,
@@ -139,6 +142,7 @@ class LessonState {
       isEraserMode: isEraserMode ?? this.isEraserMode,
       isMicEnabled: isMicEnabled ?? this.isMicEnabled,
       remoteMicEnabled: remoteMicEnabled ?? this.remoteMicEnabled,
+      remoteCameraRatio: remoteCameraRatio == _sentinel ? this.remoteCameraRatio : remoteCameraRatio as double?,
       isRecording: isRecording ?? this.isRecording,
       recordingUrl:
           recordingUrl == _sentinel ? this.recordingUrl : recordingUrl as String?,
@@ -236,6 +240,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
           ),
         );
 
+        await _engine!.setAudioProfile(
+          profile: AudioProfileType.audioProfileDefault,
+          scenario: AudioScenarioType.audioScenarioDefault,
+        );
         await _engine!.enableAudio();
         await _engine!.muteLocalAudioStream(false);
         await _engine!.enableVideo();
@@ -286,6 +294,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
     await _engine!.updateChannelMediaOptions(
       ChannelMediaOptions(publishCameraTrack: next),
     );
+    if (next) await _engine!.startPreview();
     state = state.copyWith(localCameraEnabled: next);
     final channelName = state.channelName;
     if (channelName != null) {
@@ -332,6 +341,21 @@ class LessonNotifier extends StateNotifier<LessonState> {
         scale: scale,
         offsetX: offset.dx,
         offsetY: offset.dy,
+      ),
+    );
+  }
+
+  // ─── 카메라 비율 동기화 ─────────────────────────────────────────────────────
+
+  void sendCameraRatio(double ratio) {
+    final channelName = state.channelName;
+    if (channelName == null) return;
+    _repo.sendDraw(
+      channelName,
+      DrawEvent(
+        senderId: _repo.sessionId,
+        type: DrawType.cameraRatio,
+        cameraRatio: ratio,
       ),
     );
   }
@@ -552,6 +576,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
         state = state.copyWith(remoteMicEnabled: true);
       case DrawType.micOff:
         state = state.copyWith(remoteMicEnabled: false);
+      case DrawType.cameraRatio:
+        if (event.cameraRatio != null) {
+          state = state.copyWith(remoteCameraRatio: event.cameraRatio!.clamp(0.1, 0.5));
+        }
       case DrawType.lessonEnd:
         _applyRemoteComplete();
     }

@@ -118,9 +118,13 @@ class _TempLoginScreenState extends ConsumerState<TempLoginScreen> {
                 CommonButton(label: '입장', onPressed: _enter),
                 TextButton(
                   onPressed: () {
+                    final id = int.tryParse(_idCtrl.text.trim()) ?? 1;
                     ref.read(currentUserProvider.notifier).state =
-                        const UserSession(id: 1, isTutor: true);
-                    context.go('/lesson', extra: 'test-channel');
+                        UserSession(id: id, isTutor: _isTutor); // ← 이거 추가!
+                    context.go('/lesson', extra: {
+                      'channelName': 'test-channel',
+                      'imageUrls': <String>[],
+                    });
                   },
                   child: const Text(
                     '화상강의 테스트',

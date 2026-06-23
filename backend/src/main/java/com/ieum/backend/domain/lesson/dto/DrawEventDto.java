@@ -34,4 +34,6 @@ public class DrawEventDto {
     private Double height;
     /** imageMove / imageDelete 대상 이미지 인덱스 */
     private Integer index;
+    /** 카메라 패널 높이 비율 동기화 */
+    private Double cameraRatio;
 }

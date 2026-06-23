@@ -92,7 +92,8 @@ enum DrawType {
   imageDelete,
   lessonEnd,
   micOn,
-  micOff;
+  micOff,
+  cameraRatio;
 
   String get value {
     switch (this) {
@@ -124,6 +125,8 @@ enum DrawType {
         return 'MIC_ON';
       case DrawType.micOff:
         return 'MIC_OFF';
+      case DrawType.cameraRatio:
+        return 'CAMERA_RATIO';
     }
   }
 
@@ -157,6 +160,8 @@ enum DrawType {
         return DrawType.micOn;
       case 'MIC_OFF':
         return DrawType.micOff;
+      case 'CAMERA_RATIO':
+        return DrawType.cameraRatio;
       default:
         return DrawType.draw;
     }
@@ -176,9 +181,10 @@ class DrawEvent {
   final double? scale;    // 줌 동기화 — 배율
   final double? offsetX;  // 줌 동기화 — pan offset X
   final double? offsetY;  // 줌 동기화 — pan offset Y
-  final double? width;    // 이미지 너비 (imageAdd / imageMove)
-  final double? height;   // 이미지 높이
-  final int? index;       // imageMove 시 어떤 이미지인지
+  final double? width;       // 이미지 너비 (imageAdd / imageMove)
+  final double? height;      // 이미지 높이
+  final int? index;          // imageMove 시 어떤 이미지인지
+  final double? cameraRatio; // 카메라 패널 높이 비율 동기화
 
   DrawEvent({
     required this.senderId,
@@ -196,6 +202,7 @@ class DrawEvent {
     this.width,
     this.height,
     this.index,
+    this.cameraRatio,
   });
 
   Map<String, dynamic> toJson() => {
@@ -214,6 +221,7 @@ class DrawEvent {
         if (width != null) 'width': width,
         if (height != null) 'height': height,
         if (index != null) 'index': index,
+        if (cameraRatio != null) 'cameraRatio': cameraRatio,
       };
 
   factory DrawEvent.fromJson(Map<String, dynamic> json) => DrawEvent(
@@ -232,6 +240,7 @@ class DrawEvent {
         width: (json['width'] as num?)?.toDouble(),
         height: (json['height'] as num?)?.toDouble(),
         index: (json['index'] as num?)?.toInt(),
+        cameraRatio: (json['cameraRatio'] as num?)?.toDouble(),
       );
 }
 
