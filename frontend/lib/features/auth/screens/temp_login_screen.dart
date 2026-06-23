@@ -6,6 +6,7 @@ import '../../../core/constants/route_paths.dart';
 import '../../../core/providers/current_user_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/common_button.dart';
+import '../../../features/auth/data/auth_controller.dart';
 
 class TempLoginScreen extends ConsumerStatefulWidget {
   const TempLoginScreen({super.key});
@@ -117,10 +118,20 @@ class _TempLoginScreenState extends ConsumerState<TempLoginScreen> {
                 const SizedBox(height: 32),
                 CommonButton(label: '입장', onPressed: _enter),
                 TextButton(
-                  onPressed: () {
-                    final id = int.tryParse(_idCtrl.text.trim()) ?? 1;
-                    ref.read(currentUserProvider.notifier).state =
-                        UserSession(id: id, isTutor: _isTutor); // ← 이거 추가!
+                  onPressed: () async {
+                    final authController = ref.read(authControllerProvider);
+                    if (_isTutor) {
+                      await authController.tutorLogin(
+                        email: 'tutor@test.com',
+                        password: 'test1234',
+                      );
+                    } else {
+                      await authController.studentLogin(
+                        email: 'student@test.com',
+                        password: 'test1234',
+                      );
+                    }
+                    if (!context.mounted) return;
                     context.go('/lesson', extra: {
                       'channelName': 'test-channel',
                       'imageUrls': <String>[],

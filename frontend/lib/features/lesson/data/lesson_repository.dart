@@ -45,16 +45,29 @@ class LessonRepository {
   }
 
   Future<ImageUploadResponse> uploadImage(int lessonId, XFile file) async {
+  debugPrint('[repo] uploadImage 시작: lessonId=$lessonId, filename=${file.name}');
+  try {
+    final bytes = await file.readAsBytes();
+    debugPrint('[repo] bytes 읽기 완료: ${bytes.length}');
     final formData = FormData.fromMap({
-      'file': await MultipartFile.fromFile(file.path, filename: file.name),
+      'file': MultipartFile.fromBytes(bytes, filename: file.name),
     });
+    debugPrint('[repo] API 호출 시작');
     final response = await _dio.post(
       '/lesson/$lessonId/images',
       data: formData,
+      options: Options(
+        headers: {'Content-Type': 'multipart/form-data'},
+      ),
     );
+    debugPrint('[repo] API 응답: ${response.statusCode} ${response.data}');
     return ImageUploadResponse.fromJson(
         response.data['data'] as Map<String, dynamic>);
+  } catch (e) {
+    debugPrint('[repo] uploadImage 에러: $e');
+    rethrow;
   }
+}
 
   Future<void> completeLesson(int lessonId, {String? recordingUrl}) async {
     await _dio.post(

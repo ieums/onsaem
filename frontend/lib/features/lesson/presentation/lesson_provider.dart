@@ -763,7 +763,11 @@ class LessonNotifier extends StateNotifier<LessonState> {
   Future<void> uploadImage(XFile file) async {
     final lessonId = state.lessonId;
     final channelName = state.channelName;
-    if (lessonId == null || channelName == null) return;
+    debugPrint('[업로드] lessonId=$lessonId, channelName=$channelName');
+    if (lessonId == null || channelName == null) {
+      debugPrint('[업로드] lessonId 또는 channelName이 null이라 return');
+      return;
+    }
 
     try {
       final response = await _repo.uploadImage(lessonId, file);
