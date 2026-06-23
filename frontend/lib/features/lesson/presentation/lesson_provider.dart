@@ -68,7 +68,7 @@ class LessonState {
     this.isInChannel = false,
     this.remoteUid,
     this.localCameraEnabled = true,
-    this.remoteCameraEnabled = true,
+    this.remoteCameraEnabled = false,
     this.remoteScale = 1.0,
     this.remoteOffsetX = 0.0,
     this.remoteOffsetY = 0.0,
@@ -247,6 +247,8 @@ class LessonNotifier extends StateNotifier<LessonState> {
           options: const ChannelMediaOptions(
             clientRoleType: ClientRoleType.clientRoleBroadcaster,
             channelProfile: ChannelProfileType.channelProfileCommunication,
+            publishMicrophoneTrack: true,
+            publishCameraTrack: false,
           ),
         );
       }
@@ -365,6 +367,28 @@ class LessonNotifier extends StateNotifier<LessonState> {
         height: image.height,
       ),
     );
+  }
+
+  // ─── 이미지 삭제 ────────────────────────────────────────────────────────────
+
+  void deleteImage(int index) {
+    if (index < 0 || index >= state.backgroundImages.length) return;
+    final images = List<ImageItem>.from(state.backgroundImages)..removeAt(index);
+    state = state.copyWith(
+      backgroundImages: images,
+      selectedImageIndex: null,
+    );
+    final channelName = state.channelName;
+    if (channelName != null) {
+      _repo.sendDraw(
+        channelName,
+        DrawEvent(
+          senderId: _repo.sessionId,
+          type: DrawType.imageDelete,
+          index: index,
+        ),
+      );
+    }
   }
 
   // ─── 펜 도구 ───────────────────────────────────────────────────────────────
@@ -489,17 +513,21 @@ class LessonNotifier extends StateNotifier<LessonState> {
           );
         }
       case DrawType.imageMove:
-        final idx = event.index ?? 0;
-        if (event.width != null && idx < state.backgroundImages.length) {
-          final images = List<ImageItem>.from(state.backgroundImages);
-          images[idx] = images[idx].copyWith(
-            x: event.x,
-            y: event.y,
-            width: event.width,
-            height: event.height,
-          );
-          state = state.copyWith(backgroundImages: images);
-        }
+        final idx = event.index;
+        if (idx == null || event.width == null || idx >= state.backgroundImages.length) return;
+        final images = List<ImageItem>.from(state.backgroundImages);
+        images[idx] = images[idx].copyWith(
+          x: event.x,
+          y: event.y,
+          width: event.width,
+          height: event.height,
+        );
+        state = state.copyWith(backgroundImages: images);
+      case DrawType.imageDelete:
+        final delIdx = event.index;
+        if (delIdx == null || delIdx >= state.backgroundImages.length) return;
+        final imgs = List<ImageItem>.from(state.backgroundImages)..removeAt(delIdx);
+        state = state.copyWith(backgroundImages: imgs, selectedImageIndex: null);
       case DrawType.undo:
         _applyRemoteUndo(event);
       case DrawType.redo:

@@ -89,6 +89,7 @@ enum DrawType {
   cameraOff,
   zoom,
   imageMove,
+  imageDelete,
   lessonEnd,
   micOn,
   micOff;
@@ -115,6 +116,8 @@ enum DrawType {
         return 'ZOOM';
       case DrawType.imageMove:
         return 'IMAGE_MOVE';
+      case DrawType.imageDelete:
+        return 'IMAGE_DELETE';
       case DrawType.lessonEnd:
         return 'LESSON_END';
       case DrawType.micOn:
@@ -146,6 +149,8 @@ enum DrawType {
         return DrawType.zoom;
       case 'IMAGE_MOVE':
         return DrawType.imageMove;
+      case 'IMAGE_DELETE':
+        return DrawType.imageDelete;
       case 'LESSON_END':
         return DrawType.lessonEnd;
       case 'MIC_ON':
@@ -226,7 +231,7 @@ class DrawEvent {
         offsetY: (json['offsetY'] as num?)?.toDouble(),
         width: (json['width'] as num?)?.toDouble(),
         height: (json['height'] as num?)?.toDouble(),
-        index: json['index'] as int?,
+        index: (json['index'] as num?)?.toInt(),
       );
 }
 
