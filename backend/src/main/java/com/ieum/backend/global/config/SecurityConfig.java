@@ -58,6 +58,7 @@ public class SecurityConfig {
                                 "/ws/**",
                                 "/ws-raw",
                                 "/api/v1/matching/**",
+                                "/uploads/**",
                                 "/error"
                         ).permitAll()
                         .anyRequest().authenticated()
@@ -79,7 +80,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.addAllowedOriginPattern("*");
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

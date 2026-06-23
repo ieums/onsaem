@@ -27,7 +27,7 @@ class _CardPaymentBlock extends StatelessWidget {
       color: shell.cardBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: AppColors.studentPoint, width: 1.8),
+        side: BorderSide(color: AppColors.studentInk, width: 1.8),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -47,7 +47,7 @@ class _CardPaymentBlock extends StatelessWidget {
                   child: const Icon(
                     Icons.credit_card_rounded,
                     size: 22,
-                    color: AppColors.studentPoint,
+                    color: AppColors.studentInk,
                   ),
                 ),
                 const SizedBox(width: 12),

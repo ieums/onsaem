@@ -173,7 +173,7 @@ class _StudentLessonsScreenState extends ConsumerState<StudentLessonsScreen> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide:
-              const BorderSide(color: AppColors.studentPoint, width: 1.5),
+              const BorderSide(color: AppColors.studentInk, width: 1.5),
         ),
         suffixIcon: Icon(Icons.search_rounded, color: shell.hintColor),
       ),

@@ -1,6 +1,7 @@
 package com.ieum.backend.domain.problem.repository;
 
 import com.ieum.backend.domain.problem.entity.Problem;
+import com.ieum.backend.domain.problem.entity.enums.ProblemStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,6 +21,9 @@ public interface ProblemRepository extends JpaRepository<Problem, Long> {
     List<Problem> findAllExpired(@Param("now") LocalDateTime now);
 
     List<Problem> findAllByStudentId(Long studentId);
+
+    // 학생이 현재 '탐색 중(매칭 대기)'인 질문 수 — 동시 등록 개수 제한에 사용.
+    long countByStudentIdAndStatus(Long studentId, ProblemStatus status);
 
     @Query("SELECT p FROM Problem p WHERE p.id IN :problemIds")
     List<Problem> findAllByIdIn(@Param("problemIds") List<Long> problemIds);

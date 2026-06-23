@@ -2,6 +2,7 @@ package com.ieum.backend.domain.problem.controller;
 
 import com.ieum.backend.domain.problem.dto.request.ClassificationUpdateRequest;
 import com.ieum.backend.domain.problem.dto.request.ProblemCreateRequest;
+import com.ieum.backend.domain.problem.dto.request.ProblemSelectRequest;
 import com.ieum.backend.domain.problem.dto.response.ProblemCreateResponse;
 import com.ieum.backend.domain.problem.dto.response.ProblemDetailResponse;
 import com.ieum.backend.domain.problem.dto.response.SearchingProblemResponse;
@@ -11,7 +12,6 @@ import com.ieum.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,11 +31,22 @@ public class ProblemController {
      *   - data:   ProblemCreateRequest (JSON)
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ProblemCreateResponse> createProblem(
+    public ApiResponse<ProblemCreateResponse> createProblem(
             @RequestPart("images") List<MultipartFile> images,
             @RequestPart("data") @Valid ProblemCreateRequest request) {
 
-        return ResponseEntity.ok(problemService.createProblem(images, request));
+        return ApiResponse.ok("문제가 등록되었습니다.", problemService.createProblem(images, request));
+    }
+
+    /**
+     * 여러 문제 감지 후 학생이 하나 선택해 확정 등록 (재OCR 없음)
+     * POST /api/v1/problems/select
+     */
+    @PostMapping("/select")
+    public ApiResponse<ProblemCreateResponse> selectProblem(
+            @RequestBody @Valid ProblemSelectRequest request) {
+
+        return ApiResponse.ok("문제가 등록되었습니다.", problemService.selectDetectedProblem(request));
     }
 
     /**
@@ -60,8 +71,8 @@ public class ProblemController {
      * 문제 단건 조회
      */
     @GetMapping("/{id}")
-    public ResponseEntity<ProblemDetailResponse> getProblem(@PathVariable Long id) {
-        return ResponseEntity.ok(problemService.getProblem(id));
+    public ApiResponse<ProblemDetailResponse> getProblem(@PathVariable Long id) {
+        return ApiResponse.ok(problemService.getProblem(id));
     }
 
     /**
@@ -69,12 +80,11 @@ public class ProblemController {
      * PATCH /api/v1/problems/{id}/classification
      */
     @PatchMapping("/{id}/classification")
-    public ResponseEntity<ProblemDetailResponse> updateClassification(
+    public ApiResponse<ProblemDetailResponse> updateClassification(
             @PathVariable Long id,
             @RequestBody @Valid ClassificationUpdateRequest request) {
 
-        ProblemDetailResponse response = problemService.updateClassification(id, request);
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok("분류가 수정되었습니다.", problemService.updateClassification(id, request));
     }
 
     /**
@@ -82,8 +92,8 @@ public class ProblemController {
      * DELETE /api/v1/problems/{id}
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> cancelProblem(@PathVariable Long id) {
+    public ApiResponse<Void> cancelProblem(@PathVariable Long id) {
         problemService.cancelProblem(id);
-        return ResponseEntity.noContent().build();
+        return ApiResponse.ok("문제가 취소되었습니다.", null);
     }
 }

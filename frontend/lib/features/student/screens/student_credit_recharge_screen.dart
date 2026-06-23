@@ -29,7 +29,7 @@ class _StudentCreditRechargeScreenState
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
@@ -111,7 +111,7 @@ class _StudentCreditRechargeScreenState
                           ),
                           style: FilledButton.styleFrom(
                             backgroundColor: AppColors.studentPoint,
-                            foregroundColor: Colors.white,
+                            foregroundColor: AppColors.studentInk,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
@@ -152,7 +152,7 @@ class _StudentCreditRechargeScreenState
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       decoration: BoxDecoration(
-        color: AppColors.studentPoint,
+        color: AppColors.studentInk,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -200,7 +200,7 @@ class _StudentCreditRechargeScreenState
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: selected ? AppColors.studentPoint : shell.cardBorder,
+          color: selected ? AppColors.studentInk : shell.cardBorder,
           width: selected ? 1.8 : 1,
         ),
       ),
@@ -267,7 +267,7 @@ class _StudentCreditRechargeScreenState
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
-                                color: AppColors.studentPoint,
+                                color: AppColors.studentInk,
                                 letterSpacing: 0.2,
                               ),
                             ),
@@ -283,9 +283,9 @@ class _StudentCreditRechargeScreenState
                 height: 24,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: selected ? AppColors.studentPoint : Colors.transparent,
+                  color: selected ? AppColors.studentInk : Colors.transparent,
                   border: Border.all(
-                    color: selected ? AppColors.studentPoint : shell.cardBorder,
+                    color: selected ? AppColors.studentInk : shell.cardBorder,
                     width: 1.6,
                   ),
                 ),

@@ -284,8 +284,8 @@ class StudentPaymentHistoryTabPanel extends ConsumerWidget {
           child: OutlinedButton(
             onPressed: () => showStudentPaymentHistoryBottomSheet(context),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.studentPoint,
-              side: const BorderSide(color: AppColors.studentPoint, width: 1.4),
+              foregroundColor: AppColors.studentInk,
+              side: const BorderSide(color: AppColors.studentInk, width: 1.4),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

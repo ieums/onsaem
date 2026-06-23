@@ -53,7 +53,7 @@ class _StudentClassroomScreenState extends ConsumerState<StudentClassroomScreen>
   ThemeData _flowTheme(bool isDark) {
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     return baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
@@ -266,7 +266,7 @@ class _StudentClassroomScreenState extends ConsumerState<StudentClassroomScreen>
                         _ParticipantTile(
                           label: '나',
                           initial: '나',
-                          accent: AppColors.studentPoint,
+                          accent: AppColors.studentInk,
                           tileBackground: shell.detailBackground,
                           tileBorder: shell.cardBorder,
                           labelColor: shell.subtitleColor,

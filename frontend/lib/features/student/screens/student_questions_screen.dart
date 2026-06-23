@@ -211,7 +211,7 @@ class _StudentQuestionsScreenState extends ConsumerState<StudentQuestionsScreen>
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
             children: [
-              Icon(icon, size: 22, color: AppColors.studentPoint),
+              Icon(icon, size: 22, color: AppColors.studentInk),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
@@ -436,7 +436,7 @@ class _StudentQuestionsScreenState extends ConsumerState<StudentQuestionsScreen>
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start;
                   final bubbleColor = msg.isUser
-                      ? AppColors.studentPoint
+                      ? AppColors.studentInk
                       : shell.cardBackground;
                   final textColor = msg.isUser ? Colors.white : shell.titleColor;
                   return Column(
@@ -469,7 +469,7 @@ class _StudentQuestionsScreenState extends ConsumerState<StudentQuestionsScreen>
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: AppColors.studentPoint.withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-                    foregroundColor: AppColors.studentPoint,
+                    foregroundColor: AppColors.studentInk,
                     textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
                   child: const Text('실제 강사한테 질문하기'),
@@ -533,7 +533,7 @@ class _StudentQuestionsScreenState extends ConsumerState<StudentQuestionsScreen>
               SizedBox(
                 width: 14,
                 height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.studentPoint),
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.studentInk),
               ),
             ],
           ),
@@ -551,7 +551,7 @@ class _StudentQuestionsScreenState extends ConsumerState<StudentQuestionsScreen>
     final cardColor = isDark ? shell.detailBackground : Colors.white;
     final borderColor = isDark ? shell.cardBorder : const Color(0xFFE2E5EC);
     final inputFill = cardColor;
-    final actionBg = isDark ? shell.iconBackground : AppColors.studentPoint;
+    final actionBg = isDark ? shell.iconBackground : AppColors.studentInk;
     final actionIcon = isDark ? shell.titleColor : Colors.white;
     const cardHeight = 52.0;
     const actionSize = 40.0;

@@ -2,6 +2,80 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+/// 네트워크 이미지용 전체화면 뷰어(라이트박스).
+/// 어두운 배경(barrier) 위에 이미지를 띄우고 InteractiveViewer로 확대/이동.
+/// imageUrl은 이미 절대 URL로 변환된 값을 넘긴다.
+void showStudentProblemImageViewerUrl(
+  BuildContext context, {
+  required String imageUrl,
+  String? title,
+}) {
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.92),
+    builder: (dialogContext) {
+      return Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  minScale: 0.6,
+                  maxScale: 4,
+                  boundaryMargin: const EdgeInsets.all(48),
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (c, child, progress) => progress == null
+                        ? child
+                        : const Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          ),
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.white54,
+                      size: 48,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 4,
+                left: 8,
+                right: 8,
+                child: Row(
+                  children: [
+                    if (title != null)
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      )
+                    else
+                      const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class StudentProblemImageThumbnail extends StatelessWidget {
   const StudentProblemImageThumbnail({
     super.key,

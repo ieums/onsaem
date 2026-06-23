@@ -16,14 +16,17 @@ abstract final class AppColors {
   /// 온샘 앱 공통 컬러
 
   static const Color primaryBlue = Color(0xFFBFA2DB);
-  static const Color studentPoint = Color(0xFF5B9BD5);
+  /// 학생 브랜드 컬러(연두). 채움·칩·소프트 배경용. 글씨/버튼 라벨엔 [studentInk] 사용.
+  static const Color studentPoint = Color(0xFFE0FFB4);
+  /// 학생 강조용 진한 연두. 버튼 배경/라벨·인디케이터·강조 글씨(흰 배경·흰 글씨 대비 OK).
+  static const Color studentInk = Color(0xFF4C7A1E);
   /// 액션 강조용 선명 블루 (studentPoint보다 쨍함)
   static const Color vividBlue = Color(0xFF007AFF);
   static const Color incomeGreen = Color(0xFF5FA68A);
 
   /// 회원가입 역할 선택 — 학생 카드용 (강사는 [primaryBlue])
   static const Color roleStudentAccent = studentPoint;
-  static const Color roleStudentBorder = Color(0xFFA8C9EB);
+  static const Color roleStudentBorder = Color(0xFFB6E08A);
   static const Color logoutRed = Color(0xFFE53935);
   static const Color white = Colors.white;
   static const Color white70 = Color(0xB3FFFFFF);

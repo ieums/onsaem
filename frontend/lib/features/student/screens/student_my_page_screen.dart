@@ -173,7 +173,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
             child: const Icon(
               Icons.person,
               size: 42,
-              color: AppColors.studentPoint,
+              color: AppColors.studentInk,
             ),
           ),
           const SizedBox(width: 12),
@@ -236,7 +236,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  foregroundColor: AppColors.studentPoint,
+                  foregroundColor: AppColors.studentInk,
                 ),
                 child: const Text(
                   '충전하기',
@@ -251,7 +251,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.studentPoint,
+              color: AppColors.studentInk,
               height: 1.1,
             ),
           ),
@@ -472,7 +472,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                   }),
                   trackColor: WidgetStateProperty.resolveWith((states) {
                     return states.contains(WidgetState.selected)
-                        ? AppColors.studentPoint
+                        ? AppColors.studentInk
                         : _shell.trackOffColor;
                   }),
                   trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
@@ -484,7 +484,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                   child: CupertinoSwitch(
                     value: value,
                     onChanged: onChanged,
-                    activeTrackColor: AppColors.studentPoint,
+                    activeTrackColor: AppColors.studentInk,
                     inactiveTrackColor: _shell.trackOffColor,
                     thumbColor:
                         Theme.of(context).brightness == Brightness.dark
@@ -510,7 +510,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
         color: AppColors.roleStudentBorder.withValues(alpha: 0.25),
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: AppColors.studentPoint, size: 18),
+      child: Icon(icon, color: AppColors.studentInk, size: 18),
     );
   }
 
@@ -583,7 +583,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.studentPoint,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppColors.studentInk,
                     minimumSize: const Size.fromHeight(48),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -617,7 +617,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                Icon(icon, color: AppColors.studentPoint, size: 22),
+                Icon(icon, color: AppColors.studentInk, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -729,7 +729,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                                 color: _shell.titleColor,
                               ),
                             ),
-                            iconColor: AppColors.studentPoint,
+                            iconColor: AppColors.studentInk,
                             collapsedIconColor: scheme.onSurfaceVariant,
                             children: [
                               Align(
@@ -791,7 +791,7 @@ class _StudentStatCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w800,
-              color: AppColors.studentPoint,
+              color: AppColors.studentInk,
               height: 1.15,
             ),
             textAlign: TextAlign.center,

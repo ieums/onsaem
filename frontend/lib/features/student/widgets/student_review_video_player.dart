@@ -400,7 +400,7 @@ class _StudentReviewVideoPlayerState extends State<StudentReviewVideoPlayer> {
                           _stopPlayback();
                         }
                       },
-                      activeColor: AppColors.studentPoint,
+                      activeColor: AppColors.studentInk,
                       inactiveColor: Colors.white.withValues(alpha: 0.25),
                     ),
                   ),
@@ -599,7 +599,7 @@ class _VerticalVolumeSlider extends StatelessWidget {
                 width: trackWidth,
                 height: fillHeight,
                 decoration: BoxDecoration(
-                  color: AppColors.studentPoint,
+                  color: AppColors.studentInk,
                   borderRadius: BorderRadius.circular(99),
                 ),
               ),

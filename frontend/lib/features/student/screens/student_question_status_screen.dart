@@ -30,7 +30,7 @@ class StudentQuestionStatusScreen extends ConsumerWidget {
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
@@ -110,7 +110,7 @@ class StudentQuestionStatusScreen extends ConsumerWidget {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.studentPoint,
+                              color: AppColors.studentInk,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -132,7 +132,7 @@ class StudentQuestionStatusScreen extends ConsumerWidget {
                                 height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppColors.studentPoint,
+                                  color: AppColors.studentInk,
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -201,12 +201,11 @@ class StudentQuestionStatusScreen extends ConsumerWidget {
     final isDark = ref.read(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
-    final confirmButtonTextColor =
-        isDark ? AppColors.shellOnSurfaceLight : Colors.white;
+    final confirmButtonTextColor = AppColors.studentInk;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -328,8 +327,8 @@ class _TutorStatusCard extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: onAction,
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.studentPoint, width: 1.5),
-                  foregroundColor: AppColors.studentPoint,
+                  side: const BorderSide(color: AppColors.studentInk, width: 1.5),
+                  foregroundColor: AppColors.studentInk,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -357,11 +356,11 @@ class _QuestionInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
     final (badgeLabel, badgeColor) = switch (session.status) {
-      StudentMatchingSessionStatus.connected => ('매칭됨', AppColors.studentPoint),
+      StudentMatchingSessionStatus.connected => ('매칭됨', AppColors.studentInk),
       StudentMatchingSessionStatus.connecting =>
         ('연결 중', AppColors.reviewHighlight),
       StudentMatchingSessionStatus.selectingTutor =>
-        ('강사 선택', AppColors.studentPoint),
+        ('강사 선택', AppColors.studentInk),
       _ when session.waitingForSubjectExpert =>
         ('배정 대기', AppColors.reviewHighlight),
       _ => ('매칭 중', shell.hintColor),
@@ -428,7 +427,7 @@ class _QuestionInfoCard extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.edit_note_rounded,
-                    color: AppColors.studentPoint,
+                    color: AppColors.studentInk,
                   ),
                 ),
               const SizedBox(width: 12),
@@ -535,7 +534,7 @@ class _AssignedTutorCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.studentPoint,
+                      color: AppColors.studentInk,
                     ),
                   ),
                 ),
@@ -573,10 +572,10 @@ class _AssignedTutorCard extends StatelessWidget {
                   onPressed: onViewProfile,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(
-                      color: AppColors.studentPoint,
+                      color: AppColors.studentInk,
                       width: 1.5,
                     ),
-                    foregroundColor: AppColors.studentPoint,
+                    foregroundColor: AppColors.studentInk,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

@@ -66,7 +66,7 @@ void showStudentPaymentCheckoutSheet(
                     shell: sheetShell,
                     label: '충전 크레딧',
                     value: '${formatCredits(package.totalPoints)}P',
-                    valueColor: AppColors.studentPoint,
+                    valueColor: AppColors.studentInk,
                   ),
                   const SizedBox(height: 12),
                   _CheckoutRow(
@@ -90,7 +90,7 @@ void showStudentPaymentCheckoutSheet(
                   const Icon(
                     Icons.credit_card_rounded,
                     size: 22,
-                    color: AppColors.studentPoint,
+                    color: AppColors.studentInk,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -138,7 +138,7 @@ void showStudentPaymentCheckoutSheet(
                 },
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.studentPoint,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.studentInk,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
