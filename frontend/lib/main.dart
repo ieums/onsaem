@@ -8,9 +8,20 @@ import 'package:ieum/features/auth/data/auth_controller.dart';
 import 'package:ieum/routes/app_router.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:io';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 카카오 SDK 초기화 (네이티브 앱키)
+  KakaoSdk.init(nativeAppKey: '8e025998483a2799ea1ebf2efd15288e');
+  await GoogleSignIn.instance.initialize(
+    clientId: Platform.isIOS
+        ? '630470477380-7p64mea0fvnj1nk5o1d66ic32kv8p20t.apps.googleusercontent.com'
+        : null,
+    serverClientId: '630470477380-8tfmb9f6d8iaaj4rc0gkgri1gaqao5sj.apps.googleusercontent.com',
+  );
   tz.initializeTimeZones();
   try {
     tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
@@ -23,12 +34,12 @@ Future<void> main() async {
     debugPrint('[Onsaem] 알림 초기화 실패: $error');
     debugPrint('$stackTrace');
   }
-    // 저장된 토큰이 있으면 로그인 상태 복원 (토큰 없으면 즉시 통과)
+
+  // 저장된 토큰이 있으면 로그인 상태 복원 (토큰 없으면 즉시 통과)
   final container = ProviderContainer();
   try {
     await container.read(authControllerProvider).restoreSession();
   } catch (_) {}
-
 
   runApp(
     UncontrolledProviderScope(

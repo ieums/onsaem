@@ -5,11 +5,7 @@ import com.ieum.backend.domain.auth.dto.MeResponse;
 import com.ieum.backend.domain.auth.dto.StudentSignupRequest;
 import com.ieum.backend.domain.auth.dto.TokenResponse;
 import com.ieum.backend.domain.auth.dto.TutorSignupRequest;
-import com.ieum.backend.domain.auth.entity.AccountStatus;
-import com.ieum.backend.domain.auth.entity.AuthProvider;
-import com.ieum.backend.domain.auth.entity.Role;
-import com.ieum.backend.domain.auth.entity.Student;
-import com.ieum.backend.domain.auth.entity.Tutor;
+import com.ieum.backend.domain.auth.entity.*;
 import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
 import com.ieum.backend.domain.auth.oauth.OAuthClientResolver;
 import com.ieum.backend.domain.auth.oauth.OAuthUserInfo;
@@ -40,6 +36,8 @@ public class AuthService {
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
                 .name(request.name())
+                .birthDate(request.birthDate())
+                .phone(request.phone())
                 .provider(AuthProvider.LOCAL)
                 .build();
         studentRepository.save(student);
@@ -55,10 +53,15 @@ public class AuthService {
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
                 .name(request.name())
+                .birthDate(request.birthDate())
+                .phone(request.phone())
                 .provider(AuthProvider.LOCAL)
                 .bio(request.bio())
                 .school(request.school())
                 .major(request.major())
+                .experienceYears(request.experienceYears())
+                .educationStatus(EducationStatus.fromLabel(request.educationStatus()))
+                .subjects(request.subjects())
                 .build();
         tutorRepository.save(tutor);
         return tokenService.issue(tutor.getId(), Role.TUTOR);

@@ -77,6 +77,19 @@ class AuthController {
     );
     await _onAuthenticated(tokens);
   }
+    // ─── 소셜 로그인 (가입/로그인 자동 처리) ───────
+  Future<void> oauthLogin({
+    required String provider,
+    required UserRole role,
+    required String token,
+  }) async {
+    final tokens = await _repo.oauthLogin(
+      provider: provider,
+      role: role,
+      token: token,
+    );
+    await _onAuthenticated(tokens);
+  }
 
   // ─── 앱 시작 시 세션 복원 ─────────────────────
   /// 저장된 토큰이 있으면 me 를 불러 로그인 상태를 되살린다.

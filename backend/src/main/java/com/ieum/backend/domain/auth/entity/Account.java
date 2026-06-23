@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import java.time.LocalDate;
 
 import java.time.LocalDateTime;
 
@@ -43,6 +44,12 @@ public abstract class Account {
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
 
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
+
+    @Column(length = 20)
+    private String phone;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private AuthProvider provider;
@@ -69,13 +76,16 @@ public abstract class Account {
 
     /** 자식 엔티티가 공통 인증 필드를 채우도록 하는 생성자 */
     protected Account(String name, String email, String password,
-                      AuthProvider provider, String providerUserId, String profileImageUrl) {
+                      AuthProvider provider, String providerUserId, String profileImageUrl,
+                      LocalDate birthDate, String phone) {
         this.name = name;
         this.email = email;
         this.password = password;
         this.provider = provider;
         this.providerUserId = providerUserId;
         this.profileImageUrl = profileImageUrl;
+        this.birthDate = birthDate;
+        this.phone = phone;
         this.status = AccountStatus.ACTIVE;
     }
 

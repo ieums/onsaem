@@ -9,6 +9,7 @@ import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/auth/data/auth_controller.dart';
+import 'package:ieum/core/network/api_error.dart';
 
 class TutorSignupScreen extends ConsumerStatefulWidget {
   const TutorSignupScreen({
@@ -52,6 +53,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   final _subjectInputController = TextEditingController();
   final _experienceController = TextEditingController();
   final _introController = TextEditingController();
+  final _schoolController = TextEditingController();
 
   final _domainTriggerKey = GlobalKey();
   final _educationTriggerKey = GlobalKey();
@@ -228,6 +230,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _majorController.dispose();
+    _schoolController.dispose(); 
     _subjectInputController.dispose();
     _experienceController.dispose();
     _introController.dispose();
@@ -250,6 +253,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     final password = _passwordController.text;
     final confirm = _confirmPasswordController.text;
     final major = _majorController.text.trim();
+    final school = _schoolController.text.trim(); 
     final bio = _introController.text.trim();
 
     final year = _yearController.text.trim();
@@ -294,14 +298,15 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
             educationStatus: _selectedEducation,    // 재학/휴학/졸업
             subjects: _subjectKeywords,             // 과외 가능 과목
             experienceYears: experienceYears,       // 경력 연수 (선택)
+            school: school.isEmpty ? null : school,  //학교
             major: major.isEmpty ? null : major,    // 전공 (선택)
             bio: bio.isEmpty ? null : bio,          // 한줄소개 (선택)
           );
       if (!mounted) return;
       context.go(RoutePaths.tutorHome); // 가입 즉시 로그인됨 → 강사 홈
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('회원가입에 실패했어요. 이미 가입된 이메일인지 확인해주세요.');
+      _showSnack(apiErrorMessage(e, fallback: '회원가입에 실패했어요. 이미 가입된 이메일인지 확인해주세요.'));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -703,6 +708,14 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                         child: _buildEducationTrigger(context),
                       ),
                     ),
+                  ),
+                                    const SizedBox(height: 20),
+                  _buildLabel(context, '학교'),
+                  const SizedBox(height: 8),
+                  _buildTextField(
+                    context,
+                    controller: _schoolController,
+                    hint: '학교를 입력하세요',
                   ),
                   const SizedBox(height: 20),
                   _buildLabel(context, '전공'),

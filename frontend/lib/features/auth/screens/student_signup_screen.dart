@@ -9,6 +9,7 @@ import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/auth/data/auth_controller.dart';
+import 'package:ieum/core/network/api_error.dart';
 
 class StudentSignupScreen extends ConsumerStatefulWidget {
   const StudentSignupScreen({
@@ -364,9 +365,9 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
           );
       if (!mounted) return;
       context.go(RoutePaths.studentHome);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _showSnack('회원가입에 실패했어요. 이미 가입된 이메일인지 확인해주세요.');
+      _showSnack(apiErrorMessage(e, fallback: '회원가입에 실패했어요. 이미 가입된 이메일인지 확인해주세요.'));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

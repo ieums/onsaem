@@ -72,5 +72,43 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+			<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kakao8e025998483a2799ea1ebf2efd15288e</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.ieum.ieum</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.630470477380-7p64mea0fvnj1nk5o1d66ic32kv8p20t</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaokompassauth</string>
+		<string>kakaolink</string>
+		<string>naversearchapp</string>
+		<string>naversearchthirdlogin</string>
+	</array>
+	<key>NidUrlScheme</key>
+	<string>com.ieum.ieum</string>
+	<key>NidClientID</key>
+	<string>smQZkJ5_2f4gisBEjCtC</string>
+	<key>NidClientSecret</key>
+	<string>IOPeIKqvQB</string>
+	<key>NidAppName</key>
+	<string>온샘</string>
 </dict>
 </plist>

@@ -85,6 +85,18 @@ class AuthRepository {
     );
     return AuthTokens.fromJson(res.data['data'] as Map<String, dynamic>);
   }
+    // ─── 소셜 로그인 ──────────────────────────────
+  Future<AuthTokens> oauthLogin({
+    required String provider, // "google" | "kakao" | "naver"
+    required UserRole role,
+    required String token,
+  }) async {
+    final res = await _dio.post(
+      '/auth/oauth/$provider',
+      data: {'role': role.apiValue, 'token': token},
+    );
+    return AuthTokens.fromJson(res.data['data'] as Map<String, dynamic>);
+  }
 
   // ─── 내 정보 / 로그아웃 ───────────────────────
   Future<UserProfile> getMe() async {
