@@ -32,4 +32,6 @@ public class DrawEventDto {
     private Double width;
     /** 이미지 높이 — imageAdd / imageMove 공용 */
     private Double height;
+    /** imageMove / imageDelete 대상 이미지 인덱스 */
+    private Integer index;
 }

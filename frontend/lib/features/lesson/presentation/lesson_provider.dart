@@ -67,7 +67,7 @@ class LessonState {
     this.isTutor = false,
     this.isInChannel = false,
     this.remoteUid,
-    this.localCameraEnabled = true,
+    this.localCameraEnabled = false,
     this.remoteCameraEnabled = false,
     this.remoteScale = 1.0,
     this.remoteOffsetX = 0.0,
@@ -237,6 +237,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         );
 
         await _engine!.enableAudio();
+        await _engine!.muteLocalAudioStream(false);
         await _engine!.enableVideo();
         await _engine!.enableLocalVideo(false);
 
@@ -282,6 +283,9 @@ class LessonNotifier extends StateNotifier<LessonState> {
     if (_engine == null) return;
     final next = !state.localCameraEnabled;
     await _engine!.enableLocalVideo(next);
+    await _engine!.updateChannelMediaOptions(
+      ChannelMediaOptions(publishCameraTrack: next),
+    );
     state = state.copyWith(localCameraEnabled: next);
     final channelName = state.channelName;
     if (channelName != null) {
