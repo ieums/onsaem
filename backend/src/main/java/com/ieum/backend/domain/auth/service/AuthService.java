@@ -53,12 +53,15 @@ public class AuthService {
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
                 .name(request.name())
+                .birthDate(request.birthDate())
+                .phone(request.phone())
                 .provider(AuthProvider.LOCAL)
                 .bio(request.bio())
                 .school(request.school())
                 .major(request.major())
                 .experienceYears(request.experienceYears())
                 .educationStatus(EducationStatus.fromLabel(request.educationStatus()))
+                .subjects(request.subjects())
                 .build();
         tutorRepository.save(tutor);
         return tokenService.issue(tutor.getId(), Role.TUTOR);
