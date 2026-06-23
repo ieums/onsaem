@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [ develop, feature/fe-video-lesson ]
+    branches: [ develop, feature/fe-video-lesson, feature/fe-matching ]
 
 jobs:
   deploy:
@@ -73,5 +73,6 @@ jobs:
           export AGORA_CUSTOMER_ID="${{ secrets.AGORA_CUSTOMER_ID }}"
           export AGORA_CUSTOMER_SECRET="${{ secrets.AGORA_CUSTOMER_SECRET }}"
           export GEMINI_API_KEY="none"
+          export JWT_SECRET="${{ secrets.JWT_SECRET }}"
           nohup java -jar /home/ubuntu/backend-0.0.1-SNAPSHOT.jar \
             --spring.profiles.active=prod > app.log 2>&1 &

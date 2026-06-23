@@ -21,7 +21,14 @@ public class MatchingNotificationService {
         );
     }
 
-    public void notifyMatched(Long problemId, Long tutorId, Long studentId, Long lessonId, String channelName, List<String> imageUrls) {
+    public void notifyTutorCancelled(Long problemId, Long tutorId, Long studentId) {
+        messagingTemplate.convertAndSend(
+                "/topic/student/" + studentId,
+                Map.of("type", "TUTOR_CANCELLED", "problemId", problemId, "tutorId", tutorId)
+        );
+    }
+
+    public void notifyMatched(Long problemId, Long tutorId, Long studentId, Long lessonId, String channelName, List<String> imageUrls, String subject) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("type", "MATCHED");
         payload.put("tutorId", tutorId);
@@ -30,6 +37,7 @@ public class MatchingNotificationService {
         payload.put("lessonId", lessonId);
         payload.put("channelName", channelName);
         payload.put("imageUrls", imageUrls);
+        payload.put("subject", subject);
         messagingTemplate.convertAndSend("/topic/matching/" + problemId, payload);
     }
 
@@ -65,6 +73,13 @@ public class MatchingNotificationService {
         messagingTemplate.convertAndSend(
                 "/topic/tutor/" + tutorId,
                 Map.of("type", "PROBLEM_MATCHED", "problemId", problemId)
+        );
+    }
+
+    public void notifyProblemCancelled(Long problemId, Long tutorId) {
+        messagingTemplate.convertAndSend(
+                "/topic/tutor/" + tutorId,
+                Map.of("type", "PROBLEM_CANCELLED", "problemId", problemId)
         );
     }
 

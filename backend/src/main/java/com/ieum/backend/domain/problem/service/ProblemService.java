@@ -1,6 +1,8 @@
 package com.ieum.backend.domain.problem.service;
 
+import com.ieum.backend.domain.matching.entity.ApplicationStatus;
 import com.ieum.backend.domain.matching.repository.MatchingApplicationRepository;
+import com.ieum.backend.domain.matching.service.MatchingNotificationService;
 import com.ieum.backend.domain.problem.dto.internal.AiAnalysisResult;
 import com.ieum.backend.domain.problem.dto.request.ClassificationUpdateRequest;
 import com.ieum.backend.domain.problem.dto.request.ProblemCreateRequest;
@@ -29,6 +31,7 @@ public class ProblemService {
 
     private final ProblemRepository problemRepository;
     private final MatchingApplicationRepository matchingApplicationRepository;
+    private final MatchingNotificationService notificationService;
     private final ImageStorageService imageStorageService;
     private final GeminiClient geminiClient;
 
@@ -164,6 +167,11 @@ public class ProblemService {
     public void cancelProblem(Long id) {
         Problem problem = problemRepository.findById(id)
                 .orElseThrow(() -> BusinessException.notFound("문제를 찾을 수 없습니다. id=" + id));
+
+        matchingApplicationRepository
+                .findByProblemIdAndStatusIn(id, List.of(ApplicationStatus.PENDING))
+                .forEach(app -> notificationService.notifyProblemCancelled(id, app.getTutorId()));
+
         problem.cancel();
     }
 }

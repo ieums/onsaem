@@ -138,7 +138,8 @@ public class MatchingService {
 
             String channelName = "problem-" + problemId;
             Lesson lesson = lessonService.createLesson(tutorId, studentId, channelName);
-            notificationService.notifyMatched(problemId, tutorId, studentId, lesson.getId(), channelName, problem.getImageUrls());
+            String subject = problem.getSubject() != null ? problem.getSubject().name() : null;
+            notificationService.notifyMatched(problemId, tutorId, studentId, lesson.getId(), channelName, problem.getImageUrls(), subject);
         }
     }
 
@@ -199,7 +200,12 @@ public class MatchingService {
                     "PENDING 상태인 신청만 취소할 수 있습니다. status=" + application.getStatus());
         }
 
+        Long studentId = problemRepository.findById(problemId)
+                .orElseThrow(() -> new IllegalStateException("문제를 찾을 수 없습니다. id=" + problemId))
+                .getStudentId();
+
         applicationRepository.delete(application);
+        notificationService.notifyTutorCancelled(problemId, tutorId, studentId);
     }
 
     @Transactional
