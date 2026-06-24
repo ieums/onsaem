@@ -1,5 +1,6 @@
 package com.ieum.backend.domain.payment.controller;
 
+import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
 import com.ieum.backend.domain.payment.dto.request.*;
 import com.ieum.backend.domain.payment.dto.response.*;
 import com.ieum.backend.domain.payment.repository.CoinPackageRepository;
@@ -10,6 +11,7 @@ import com.ieum.backend.domain.payment.service.SubscriptionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,8 +35,9 @@ public class PaymentController {
      * GET /api/v1/payments/coins/balance?studentId=1
      */
     @GetMapping("/coins/balance")
-    public ResponseEntity<CoinBalanceResponse> getCoinBalance(@RequestParam Long studentId) {
-        return ResponseEntity.ok(coinService.getBalance(studentId));
+    public ResponseEntity<CoinBalanceResponse> getCoinBalance(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ResponseEntity.ok(coinService.getBalance(principal.id()));
     }
 
     /**
@@ -42,8 +45,9 @@ public class PaymentController {
      * GET /api/v1/payments/coins/transactions?studentId=1
      */
     @GetMapping("/coins/transactions")
-    public ResponseEntity<List<CoinTransactionResponse>> getCoinTransactions(@RequestParam Long studentId) {
-        return ResponseEntity.ok(coinService.getTransactions(studentId));
+    public ResponseEntity<List<CoinTransactionResponse>> getCoinTransactions(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ResponseEntity.ok(coinService.getTransactions(principal.id()));
     }
 
     /**
@@ -67,8 +71,9 @@ public class PaymentController {
      */
     @PostMapping("/coins/charge")
     public ResponseEntity<PaymentResponse> createCoinPayment(
+            @AuthenticationPrincipal AuthPrincipal principal,
             @RequestBody @Valid CoinChargeRequest request) {
-        return ResponseEntity.ok(paymentService.createCoinPayment(request));
+        return ResponseEntity.ok(paymentService.createCoinPayment(principal.id(), request));
     }
 
     /**
@@ -91,8 +96,9 @@ public class PaymentController {
      * GET /api/v1/payments/coins/payments?studentId=1
      */
     @GetMapping("/coins/payments")
-    public ResponseEntity<List<PaymentResponse>> getCoinPayments(@RequestParam Long studentId) {
-        return ResponseEntity.ok(paymentService.getCoinPayments(studentId));
+    public ResponseEntity<List<PaymentResponse>> getCoinPayments(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ResponseEntity.ok(paymentService.getCoinPayments(principal.id()));
     }
 
     /**
@@ -137,8 +143,9 @@ public class PaymentController {
      * GET /api/v1/payments/subscriptions/me?studentId=1
      */
     @GetMapping("/subscriptions/me")
-    public ResponseEntity<SubscriptionResponse> getMySubscription(@RequestParam Long studentId) {
-        SubscriptionResponse response = subscriptionService.getMySubscription(studentId);
+    public ResponseEntity<SubscriptionResponse> getMySubscription(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        SubscriptionResponse response = subscriptionService.getMySubscription(principal.id());
         if (response == null) {
             return ResponseEntity.noContent().build();
         }
@@ -150,8 +157,9 @@ public class PaymentController {
      * DELETE /api/v1/payments/subscriptions?studentId=1
      */
     @DeleteMapping("/subscriptions")
-    public ResponseEntity<SubscriptionResponse> cancelSubscription(@RequestParam Long studentId) {
-        return ResponseEntity.ok(subscriptionService.cancelSubscription(studentId));
+    public ResponseEntity<SubscriptionResponse> cancelSubscription(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ResponseEntity.ok(subscriptionService.cancelSubscription(principal.id()));
     }
 
     /**
@@ -160,9 +168,10 @@ public class PaymentController {
      */
     @PatchMapping("/subscriptions/auto-renew")
     public ResponseEntity<SubscriptionResponse> toggleAutoRenew(
+            @AuthenticationPrincipal AuthPrincipal principal,
             @RequestBody @Valid AutoRenewRequest request) {
         return ResponseEntity.ok(
-                subscriptionService.toggleAutoRenew(request.getStudentId(), request.getAutoRenew())
+                subscriptionService.toggleAutoRenew(principal.id(), request.getAutoRenew())
         );
     }
 
@@ -174,8 +183,9 @@ public class PaymentController {
      */
     @PostMapping("/subscriptions/charge")
     public ResponseEntity<PaymentResponse> createSubscriptionPayment(
+            @AuthenticationPrincipal AuthPrincipal principal,
             @RequestBody @Valid SubscribeChargeRequest request) {
-        return ResponseEntity.ok(paymentService.createSubscriptionPayment(request));
+        return ResponseEntity.ok(paymentService.createSubscriptionPayment(principal.id(), request));
     }
 
     /**
@@ -198,8 +208,9 @@ public class PaymentController {
      * GET /api/v1/payments/subscriptions/payments?studentId=1
      */
     @GetMapping("/subscriptions/payments")
-    public ResponseEntity<List<PaymentResponse>> getSubscriptionPayments(@RequestParam Long studentId) {
-        return ResponseEntity.ok(paymentService.getSubscriptionPayments(studentId));
+    public ResponseEntity<List<PaymentResponse>> getSubscriptionPayments(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ResponseEntity.ok(paymentService.getSubscriptionPayments(principal.id()));
     }
 
     /**

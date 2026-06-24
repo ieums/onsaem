@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -207,7 +209,8 @@ class _StudentProblemUploadScreenState
   }
 
   Future<void> _pickFromGallery() async {
-    if (Platform.isIOS) {
+    // 웹은 dart:io(Platform)·permission_handler 미지원 → 권한 체크 건너뛰고 브라우저에 위임
+    if (!kIsWeb && Platform.isIOS) {
       if (!await _ensurePermission(
         permission: Permission.photos,
         label: '사진',
