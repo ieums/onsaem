@@ -8,8 +8,8 @@ import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/core/utils/list_pagination.dart';
 import 'package:ieum/core/widgets/list_pagination_controls.dart';
+import 'package:ieum/features/student/data/models/lesson_review_session.dart';
 import 'package:ieum/features/student/data/student_home_dummy_data.dart';
-import 'package:ieum/features/student/data/student_review_dummy_data.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/providers/student_notification_provider.dart';
 import 'package:ieum/features/student/providers/student_shell_tab_provider.dart';
@@ -235,19 +235,24 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
   }
 
   void _openReviewDetail(StudentRecentLesson lesson) {
-    final review = StudentReviewDummyData.findById(lesson.id);
-    if (review == null) return;
-
-    final theme = Theme.of(context);
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => Theme(
-          data: theme,
-          child: StudentReviewDetailScreen(item: review),
+  final theme = Theme.of(context);
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => Theme(
+        data: theme,
+        child: StudentReviewDetailScreen(
+          session: LessonReviewSession(
+            sessionId: 0,
+            lessonId: 0,
+            title: '${lesson.tutorName} 강의 복습',
+            status: LessonReviewSessionStatus.active,
+            createdAt: lesson.recordedAt,
+          ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildRecentLessonCard(
     BuildContext context,
