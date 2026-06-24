@@ -1,3 +1,5 @@
+import 'applicant_model.dart';
+
 class StudentTutorReview {
   const StudentTutorReview({
     required this.studentLabel,
@@ -18,6 +20,7 @@ class StudentTutorProfile {
     required this.name,
     required this.avatarInitial,
     required this.isOnline,
+    this.isAvailable = true,
     required this.department,
     required this.university,
     required this.rating,
@@ -35,6 +38,7 @@ class StudentTutorProfile {
   final String name;
   final String avatarInitial;
   final bool isOnline;
+  final bool isAvailable;
   final String department;
   final String university;
   final double rating;
@@ -50,4 +54,25 @@ class StudentTutorProfile {
   String get educationLine => '$university $department';
 
   String get ratingLabel => '$rating ($reviewCount개 리뷰)';
+
+  factory StudentTutorProfile.fromApplicant(ApplicantModel a) =>
+      StudentTutorProfile(
+        id: a.tutorId.toString(),
+        name: a.name,
+        avatarInitial: a.name.isNotEmpty ? a.name[0] : '?',
+        isOnline: a.isOnline,
+        isAvailable: a.isAvailable,
+        university: a.school,
+        department: a.major,
+        rating: a.ratingAvg,
+        reviewCount: a.reviewCount,
+        lessonCount: a.lessonCount,
+        avgResponseMinutes: a.avgResponseMinutes,
+        introLine: a.school,
+        introBody: a.bio ?? '',
+        subjects: a.subjects,
+        styles: const [],
+        reviews: const [],
+      );
 }
+

@@ -49,4 +49,11 @@ public class LessonReviewController {
             @PathVariable Long lessonId) {
         return ResponseEntity.ok(lessonReviewService.getSummaryPdf(principal.id(), lessonId));
     }
+
+    @GetMapping("/sessions/{sessionId}/messages")
+    public ResponseEntity<List<ReviewMessageItemResponse>> getMessages(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable Long sessionId) {
+        return ResponseEntity.ok(lessonReviewService.getMessages(principal.id(), sessionId));
+    }
 }

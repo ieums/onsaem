@@ -68,6 +68,7 @@ class TutorApplicationModel {
   String get statusLabel {
     const map = {
       'PENDING': '신청 중',
+      'CONFIRMING': '수락 대기 중',
       'ACCEPTED': '매칭 완료',
       'UNAVAILABLE': '수업 중',
     };

@@ -82,12 +82,16 @@ public class LessonService {
     }
 
     /**
-     * 수업 중 임시 이미지 S3 업로드
+     * 수업 중 임시 이미지 S3 업로드 (최대 10장 제한)
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public LessonImageResponseDto uploadTempImage(Long lessonId, MultipartFile file) {
-        findByIdOrThrow(lessonId);
+        Lesson lesson = findByIdOrThrow(lessonId);
+        if (lesson.isImageLimitReached()) {
+            throw BusinessException.badRequest("이미지는 최대 10장까지 업로드할 수 있습니다.");
+        }
         String imageUrl = s3Service.uploadTempImage(lessonId, file);
+        lesson.incrementImageCount();
         return new LessonImageResponseDto(imageUrl);
     }
 

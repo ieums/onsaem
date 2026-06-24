@@ -9,23 +9,19 @@ import 'package:ieum/features/auth/screens/student_signup_screen.dart';
 import 'package:ieum/features/auth/screens/tutor_signup_screen.dart';
 import 'package:ieum/features/auth/screens/password_reset_screen.dart';
 import 'package:ieum/features/onboarding/screens/onboarding_screen.dart';
-import 'package:ieum/features/student/screens/student_classroom_screen.dart';
 import 'package:ieum/features/student/screens/student_credit_recharge_screen.dart';
 import 'package:ieum/features/student/screens/student_subscription_screen.dart';
 import 'package:ieum/features/student/screens/student_my_reviews_screen.dart';
 import 'package:ieum/features/student/screens/student_my_reports_screen.dart';
 import 'package:ieum/features/student/screens/student_profile_edit_screen.dart';
-import 'package:ieum/features/student/screens/student_matching_wait_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_upload_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_list_screen.dart';
-import 'package:ieum/features/student/screens/student_question_status_screen.dart';
 import 'package:ieum/features/student/screens/student_tutor_profile_screen.dart';
 import 'package:ieum/features/student/screens/student_tutor_selection_screen.dart';
 import 'package:ieum/features/student/screens/student_report_screen.dart';
 import 'package:ieum/features/student/screens/student_review_write_screen.dart';
 import 'package:ieum/features/student/screens/student_shell_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_shell_screen.dart';
-import '../features/auth/screens/temp_login_screen.dart';
 import '../features/lesson/presentation/lesson_screen.dart';
 import '../features/matching/models/searching_problem_model.dart';
 import '../features/matching/screens/problem_detail_screen.dart';
@@ -118,10 +114,6 @@ final appRouter = GoRouter(
       builder: (_, _) => const StudentProblemListScreen(),
     ),
     GoRoute(
-      path: RoutePaths.studentMatchingWait,
-      builder: (_, _) => const StudentMatchingWaitScreen(),
-    ),
-    GoRoute(
       path: RoutePaths.studentTutorSelection,
       builder: (_, _) => const StudentTutorSelectionScreen(),
     ),
@@ -130,14 +122,6 @@ final appRouter = GoRouter(
       builder: (_, state) => StudentTutorProfileScreen(
         tutorId: state.pathParameters['tutorId']!,
       ),
-    ),
-    GoRoute(
-      path: RoutePaths.studentQuestionStatus,
-      builder: (_, _) => const StudentQuestionStatusScreen(),
-    ),
-    GoRoute(
-      path: RoutePaths.studentClassroom,
-      builder: (_, _) => const StudentClassroomScreen(),
     ),
     GoRoute(
       path: RoutePaths.studentReviewWrite,
@@ -170,14 +154,18 @@ final appRouter = GoRouter(
 
     // ─── 화상강의 라우트 ───────────────────────────────────────────────────
     GoRoute(
-      path: '/',
-      builder: (_, _) => const TempLoginScreen(),
-    ),
-    GoRoute(
       path: '/lesson',
-      builder: (_, state) => LessonScreen(
-        channelName: state.extra as String,
-      ),
+      builder: (_, state) {
+        final extra = state.extra;
+        if (extra is Map<String, dynamic>) {
+          return LessonScreen(
+            channelName: extra['channelName'] as String,
+            imageUrls: (extra['imageUrls'] as List?)?.cast<String>() ?? const [],
+            subject: extra['subject'] as String?,
+          );
+        }
+        return LessonScreen(channelName: extra as String);
+      },
     ),
     GoRoute(
       path: '/problem-detail',

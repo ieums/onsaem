@@ -222,8 +222,7 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
                 child: Switch(
                   value: isOnline,
                   onChanged: (value) =>
-                      ref.read(tutorAvailabilityProvider.notifier).state =
-                          value,
+                      ref.read(tutorAvailabilityProvider.notifier).toggle(value),
                 ),
               ),
             ],

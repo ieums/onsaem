@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:ieum/core/network/dio_client.dart';
+import '../../student/models/applicant_model.dart';
 import '../models/searching_problem_model.dart';
 import '../models/tutor_application_model.dart';
 
@@ -60,5 +61,54 @@ class MatchingRepository {
       '/matching/$problemId/cancel-confirm',
       data: {'tutorId': tutorId, 'cancelledBy': 'tutor'},
     );
+  }
+
+  // ─── 학생용 API ──────────────────────────────────────────────────────────────
+
+  Future<void> startMatching(int problemId, {int minutes = 30}) async {
+    await _dio.post(
+      '/matching/$problemId/start',
+      data: {'minutes': minutes},
+    );
+  }
+
+  Future<List<ApplicantModel>> getApplicants(int problemId) async {
+    final res = await _dio.get('/matching/$problemId/applicants');
+    final data = res.data['data'] as List;
+    return data
+        .map((e) => ApplicantModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> acceptTutor(int problemId, int tutorId) async {
+    await _dio.post(
+      '/matching/$problemId/accept',
+      data: {'tutorId': tutorId},
+    );
+  }
+
+  Future<void> confirmMatchStudent(int problemId, int tutorId) async {
+    await _dio.post(
+      '/matching/$problemId/confirm',
+      data: {'tutorId': tutorId, 'confirmedBy': 'student'},
+    );
+  }
+
+  Future<void> cancelConfirmStudent(int problemId, int tutorId) async {
+    await _dio.post(
+      '/matching/$problemId/cancel-confirm',
+      data: {'tutorId': tutorId, 'cancelledBy': 'student'},
+    );
+  }
+
+  Future<void> extendSearch(int problemId, {int minutes = 30}) async {
+    await _dio.post(
+      '/matching/$problemId/extend',
+      data: {'minutes': minutes},
+    );
+  }
+
+  Future<void> cancelProblem(int problemId) async {
+    await _dio.delete('/problems/$problemId');
   }
 }

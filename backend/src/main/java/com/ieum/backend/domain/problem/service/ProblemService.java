@@ -1,13 +1,16 @@
 package com.ieum.backend.domain.problem.service;
 
+import com.ieum.backend.domain.auth.entity.Tutor;
+import com.ieum.backend.domain.auth.repository.TutorRepository;
+import com.ieum.backend.domain.matching.entity.ApplicationStatus;
 import com.ieum.backend.domain.matching.repository.MatchingApplicationRepository;
+import com.ieum.backend.domain.matching.service.MatchingNotificationService;
 import com.ieum.backend.domain.problem.dto.internal.AiAnalysisResult;
 import com.ieum.backend.domain.problem.dto.request.ClassificationUpdateRequest;
 import com.ieum.backend.domain.problem.dto.request.ProblemCreateRequest;
 import com.ieum.backend.domain.problem.dto.request.ProblemSelectRequest;
 import com.ieum.backend.domain.problem.entity.enums.ProblemStatus;
 import com.ieum.backend.domain.problem.entity.enums.Subject;
-import com.ieum.backend.domain.matching.entity.ApplicationStatus;
 import com.ieum.backend.domain.problem.dto.response.ProblemCreateResponse;
 import com.ieum.backend.domain.problem.dto.response.ProblemDetailResponse;
 import com.ieum.backend.domain.problem.dto.response.SearchingProblemResponse;
@@ -31,7 +34,9 @@ import java.util.stream.Collectors;
 public class ProblemService {
 
     private final ProblemRepository problemRepository;
+    private final TutorRepository tutorRepository;
     private final MatchingApplicationRepository matchingApplicationRepository;
+    private final MatchingNotificationService notificationService;
     private final ImageStorageService imageStorageService;
     private final GeminiClient geminiClient;
     private final DetectionCache detectionCache;
@@ -187,7 +192,19 @@ public class ProblemService {
      * 강사 탐색 중인 문제 목록 조회
      */
     public List<SearchingProblemResponse> getSearchingProblems(Long tutorId) {
-        List<Problem> problems = problemRepository.findAllSearching(LocalDateTime.now());
+        Tutor tutor = tutorRepository.findById(tutorId)
+                .orElseThrow(() -> BusinessException.notFound("강사를 찾을 수 없습니다."));
+
+        List<Subject> subjects = tutor.getSubjects().stream()
+                .map(s -> { try { return Subject.valueOf(s); } catch (IllegalArgumentException ignored) { return null; } })
+                .filter(s -> s != null && s != Subject.UNKNOWN)
+                .toList();
+
+        if (subjects.isEmpty()) {
+            return List.of();
+        }
+
+        List<Problem> problems = problemRepository.findAllSearchingBySubjects(LocalDateTime.now(), subjects);
         return problems.stream()
                 .map(p -> SearchingProblemResponse.from(p,
                         matchingApplicationRepository.existsByProblemIdAndTutorId(p.getId(), tutorId)))
@@ -214,6 +231,11 @@ public class ProblemService {
     public void cancelProblem(Long id) {
         Problem problem = problemRepository.findById(id)
                 .orElseThrow(() -> BusinessException.notFound("문제를 찾을 수 없습니다. id=" + id));
+
+        matchingApplicationRepository
+                .findByProblemIdAndStatusIn(id, List.of(ApplicationStatus.PENDING))
+                .forEach(app -> notificationService.notifyProblemCancelled(id, app.getTutorId()));
+
         problem.cancel();
     }
 }

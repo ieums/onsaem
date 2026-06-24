@@ -1,5 +1,7 @@
 package com.ieum.backend.domain.matching.service;
 
+import com.ieum.backend.domain.auth.entity.Tutor;
+import com.ieum.backend.domain.auth.repository.TutorRepository;
 import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.domain.lesson.service.LessonService;
 import com.ieum.backend.domain.matching.dto.response.ApplicantResponse;
@@ -28,6 +30,7 @@ public class MatchingService {
     private final MatchingApplicationRepository applicationRepository;
     private final MatchingNotificationService notificationService;
     private final LessonService lessonService;
+    private final TutorRepository tutorRepository;
 
     @Transactional
     public void startSearching(Long problemId, int minutes) {
@@ -75,9 +78,21 @@ public class MatchingService {
                 ApplicationStatus.UNAVAILABLE,
                 ApplicationStatus.ACCEPTED
         );
-        return applicationRepository.findByProblemIdAndStatusIn(problemId, visibleStatuses)
-                .stream()
-                .map(ApplicantResponse::from)
+
+        List<MatchingApplication> applications =
+                applicationRepository.findByProblemIdAndStatusIn(problemId, visibleStatuses);
+
+        List<Long> tutorIds = applications.stream()
+                .map(MatchingApplication::getTutorId)
+                .distinct()
+                .toList();
+
+        Map<Long, Tutor> tutorMap = tutorRepository.findAllByIdIn(tutorIds).stream()
+                .collect(Collectors.toMap(Tutor::getId, t -> t));
+
+        return applications.stream()
+                .filter(app -> tutorMap.containsKey(app.getTutorId()))
+                .map(app -> ApplicantResponse.from(app, tutorMap.get(app.getTutorId())))
                 .toList();
     }
 
@@ -123,7 +138,8 @@ public class MatchingService {
 
             String channelName = "problem-" + problemId;
             Lesson lesson = lessonService.createLesson(tutorId, studentId, channelName);
-            notificationService.notifyMatched(problemId, tutorId, studentId, lesson.getId(), channelName, problem.getImageUrls());
+            String subject = problem.getSubject() != null ? problem.getSubject().name() : null;
+            notificationService.notifyMatched(problemId, tutorId, studentId, lesson.getId(), channelName, problem.getImageUrls(), subject);
         }
     }
 
@@ -184,7 +200,12 @@ public class MatchingService {
                     "PENDING 상태인 신청만 취소할 수 있습니다. status=" + application.getStatus());
         }
 
+        Long studentId = problemRepository.findById(problemId)
+                .orElseThrow(() -> new IllegalStateException("문제를 찾을 수 없습니다. id=" + problemId))
+                .getStudentId();
+
         applicationRepository.delete(application);
+        notificationService.notifyTutorCancelled(problemId, tutorId, studentId);
     }
 
     @Transactional

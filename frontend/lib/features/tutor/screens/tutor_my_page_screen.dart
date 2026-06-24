@@ -437,7 +437,7 @@ class _TutorMyPageScreenState extends ConsumerState<TutorMyPageScreen> {
               title: '수업 가능 상태',
               value: ref.watch(tutorAvailabilityProvider),
               onChanged: (v) =>
-                  ref.read(tutorAvailabilityProvider.notifier).state = v,
+                  ref.read(tutorAvailabilityProvider.notifier).toggle(v),
             ),
             _buildSwitchRow(
               icon: Icons.notifications_none_rounded,

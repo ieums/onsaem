@@ -75,6 +75,13 @@ public class Tutor extends Account {
     @Column(name = "lesson_count", nullable = false)
     private int lessonCount;
 
+    @Column(name = "is_available", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    private boolean available = true;
+
+    public void updateAvailability(boolean available) {
+        this.available = available;
+    }
+
     @Builder
     private Tutor(String name, String email, String password,
                   AuthProvider provider, String providerUserId, String profileImageUrl,

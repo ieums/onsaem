@@ -14,10 +14,8 @@ abstract final class RoutePaths {
   static const studentProfileEdit = '/student/profile-edit';
   static const studentProblemUpload = '/student/problem-upload';
   static const studentProblemList = '/student/problem-list';
-  static const studentMatchingWait = '/student/matching-wait';
   static const studentTutorSelection = '/student/tutor-selection';
   static const studentTutorProfile = '/student/tutor-profile';
-  static const studentQuestionStatus = '/student/question-status';
   static const studentClassroom = '/student/classroom';
   static const studentReviewWrite = '/student/review-write';
   static const studentReport = '/student/report';
