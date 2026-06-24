@@ -138,6 +138,13 @@ public class AiTutorService {
                         m.getCreatedAt()))
                 .toList();
     }
+    @Transactional
+    public void closeSession(Long studentId, Long sessionId) {
+        AiTutorSession session = sessionRepository.findByIdAndStudentId(sessionId, studentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, AiTutorMessages.SESSION_NOT_FOUND));
+        session.close();
+    }
 
     private String buildTitle(ProblemContext context) {
         if (context.summary() != null && !context.summary().isBlank()) {
