@@ -8,6 +8,7 @@ package com.ieum.backend.domain.lessonreview.controller;
 public record SummaryPdfResponse(
         String status,           // PROCESSING / COMPLETED / FAILED / NOT_READY
         String downloadUrl,      // COMPLETED 일 때만 채움
-        String message
+        String message,
+        String recordingUrl
 ) {
 }
