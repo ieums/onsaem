@@ -1,167 +1,173 @@
+import 'dart:io';
+
+import 'package:chewie/chewie.dart';
+import 'package:video_player/video_player.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
-import 'package:ieum/core/utils/date_format_util.dart';
-import 'package:ieum/features/student/data/student_review_dummy_data.dart';
-import 'package:ieum/features/student/providers/student_review_bookmark_provider.dart';
-import 'package:ieum/features/student/widgets/student_review_concept_graph.dart';
-import 'package:ieum/features/student/widgets/student_review_video_player.dart';
-import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
+import 'package:ieum/features/student/data/models/lesson_review_message.dart';
+import 'package:ieum/features/student/data/models/lesson_review_session.dart';
+import 'package:ieum/features/student/providers/lesson_review_provider.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class StudentReviewDetailScreen extends ConsumerStatefulWidget {
-  const StudentReviewDetailScreen({
-    super.key,
-    required this.item,
-  });
+  const StudentReviewDetailScreen({super.key, required this.session});
 
-  final StudentReviewItem item;
+  final LessonReviewSession session;
 
   @override
   ConsumerState<StudentReviewDetailScreen> createState() =>
       _StudentReviewDetailScreenState();
 }
 
-class _ReviewMemoEntry {
-  _ReviewMemoEntry({
-    required this.id,
-    required this.content,
-    required this.updatedAt,
-  });
-
-  final String id;
-  String content;
-  DateTime updatedAt;
-}
-
 class _StudentReviewDetailScreenState
     extends ConsumerState<StudentReviewDetailScreen>
     with SingleTickerProviderStateMixin {
-  static const _memoBoxHeight = 300.0;
-
   late final TabController _tabController;
-  late List<_ReviewMemoEntry> _memos;
+  final _msgController = TextEditingController();
+  final _scrollController = ScrollController();
 
-  int _memoPageIndex = 0;
-  bool _isEditingMemo = false;
-  final _memoEditController = TextEditingController();
-
-  StudentReviewItem get item => widget.item;
-
-  _ReviewMemoEntry? get _currentMemo =>
-      _memos.isEmpty ? null : _memos[_memoPageIndex.clamp(0, _memos.length - 1)];
+  VideoPlayerController? _videoPlayerController;
+  ChewieController? _chewieController;
+  String? _pdfLocalPath;
+  bool _isPdfLoading = false;
+  String? _pdfError;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _memos = [
-      _ReviewMemoEntry(
-        id: 'memo-1',
-        content: '',
-        updatedAt: DateTime.now(),
-      ),
-    ];
+    _tabController = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(lessonReviewChatProvider.notifier)
+          .init(widget.session.lessonId);
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _memoEditController.dispose();
+    _msgController.dispose();
+    _scrollController.dispose();
+    _chewieController?.dispose();
+    _videoPlayerController?.dispose();
     super.dispose();
   }
 
-  void _startMemoEdit() {
-    final memo = _currentMemo;
-    if (memo == null) return;
-    _memoEditController.text = memo.content;
-    setState(() => _isEditingMemo = true);
-  }
+  Future<void> _initVideo(String url) async {
+  _videoPlayerController =
+      VideoPlayerController.networkUrl(Uri.parse(url));
+  await _videoPlayerController!.initialize();
+  _chewieController = ChewieController(
+    videoPlayerController: _videoPlayerController!,
+    aspectRatio: 16 / 9,
+    autoPlay: false,
+    looping: false,
+  );
+  if (mounted) setState(() {});
+}
 
-  void _saveMemoEdit() {
-    final memo = _currentMemo;
-    if (memo == null) return;
+  Future<void> _loadPdf(String url) async {
+    if (_pdfLocalPath != null || _isPdfLoading) return;
     setState(() {
-      memo.content = _memoEditController.text.trim();
-      memo.updatedAt = DateTime.now();
-      _isEditingMemo = false;
+      _isPdfLoading = true;
+      _pdfError = null;
     });
-  }
-
-  void _cancelMemoEdit() {
-    setState(() => _isEditingMemo = false);
-    _memoEditController.clear();
-  }
-
-  void _addMemo() {
-    setState(() {
-      _memos.add(
-        _ReviewMemoEntry(
-          id: 'memo-${DateTime.now().millisecondsSinceEpoch}',
-          content: '',
-          updatedAt: DateTime.now(),
-        ),
-      );
-      _memoPageIndex = _memos.length - 1;
-      _isEditingMemo = true;
-      _memoEditController.clear();
-    });
-  }
-
-  void _deleteMemo() {
-    if (_memos.length <= 1) {
-      setState(() {
-        _memos.first.content = '';
-        _memos.first.updatedAt = DateTime.now();
-        _isEditingMemo = false;
-        _memoEditController.clear();
-      });
-      return;
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File(
+          '${dir.path}/review_${widget.session.sessionId}.pdf');
+      if (!file.existsSync()) {
+        await Dio().download(url, file.path);
+      }
+      if (mounted) {
+        setState(() {
+          _pdfLocalPath = file.path;
+          _isPdfLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _pdfError = '요약 PDF를 불러오지 못했습니다.';
+          _isPdfLoading = false;
+        });
+      }
     }
-    setState(() {
-      _memos.removeAt(_memoPageIndex);
-      _memoPageIndex = _memoPageIndex.clamp(0, _memos.length - 1);
-      _isEditingMemo = false;
-      _memoEditController.clear();
+  }
+
+  Future<void> _openPdfExternal(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _msgController.text.trim();
+    if (text.isEmpty) return;
+    _msgController.clear();
+    await ref.read(lessonReviewChatProvider.notifier).sendMessage(text);
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
-    final pageBg = Theme.of(context).scaffoldBackgroundColor;
+    final state = ref.watch(lessonReviewChatProvider);
+
+    ref.listen<LessonReviewChatState>(lessonReviewChatProvider, (prev, next) {
+      final res = next.resources;
+      if (res == null) return;
+      if (_videoPlayerController == null && res.hasVideo) {
+        _initVideo(res.recordingUrl!);
+      }
+      if (_pdfLocalPath == null && !_isPdfLoading && res.hasPdf) {
+        _loadPdf(res.pdfUrl!);
+      }
+      if ((prev?.messages.length ?? 0) < next.messages.length) {
+        _scrollToBottom();
+      }
+    });
 
     return Scaffold(
-      backgroundColor: pageBg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
-            _buildAppBar(shell),
+            _buildAppBar(shell, state),
+            if (state.isInitializing)
+              const LinearProgressIndicator(minHeight: 2, color: AppColors.studentPoint)
+            else
+              const SizedBox(height: 2),
+            if (_chewieController != null)
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Chewie(controller: _chewieController!),
+              ),
+            _buildTabBar(shell),
             Expanded(
-              child: NestedScrollView(
-                headerSliverBuilder: (context, innerBoxIsScrolled) {
-                  return [
-                    SliverToBoxAdapter(child: _buildVideoSection(shell)),
-                    SliverPersistentHeader(
-                      pinned: true,
-                      delegate: _ReviewTabBarDelegate(
-                        tabController: _tabController,
-                        backgroundColor: pageBg,
-                        indicatorColor: AppColors.studentInk,
-                        labelColor: shell.titleColor,
-                        unselectedColor: shell.hintColor,
-                      ),
-                    ),
-                  ];
-                },
-                body: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildSummaryTab(shell),
-                    _buildConceptTab(shell),
-                    _buildMemoTab(shell),
-                  ],
-                ),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildChatTab(shell, state),
+                  _buildPdfTab(shell, state),
+                ],
               ),
             ),
           ],
@@ -170,870 +176,382 @@ class _StudentReviewDetailScreenState
     );
   }
 
-  Widget _buildAppBar(ShellTheme shell) {
-    final isBookmarked =
-        ref.watch(studentReviewBookmarksProvider).contains(item.id);
-
+  Widget _buildAppBar(ShellTheme shell, LessonReviewChatState state) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+      padding: const EdgeInsets.fromLTRB(4, 4, 16, 4),
       child: Row(
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: Icon(Icons.arrow_back_ios_new_rounded, color: shell.titleColor),
-          ),
-          const Spacer(),
-          IconButton(
-            onPressed: () => ref
-                .read(studentReviewBookmarksProvider.notifier)
-                .toggle(item.id),
             icon: Icon(
-              isBookmarked
-                  ? Icons.bookmark_rounded
-                  : Icons.bookmark_border_rounded,
-              color: isBookmarked ? AppColors.reviewHighlight : shell.titleColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVideoSection(ShellTheme shell) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              TutorSubjectBadge(subject: item.subject),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  item.recordedAtLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: shell.hintColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            item.title,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              height: 1.45,
+              Icons.arrow_back_ios_new_rounded,
               color: shell.titleColor,
             ),
           ),
-          const SizedBox(height: 12),
-          StudentReviewVideoPlayer(
-            durationSeconds: item.videoDurationSeconds,
-            initialPositionSeconds: item.initialPositionSeconds,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryTab(ShellTheme shell) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      children: [
-        _buildContentSection(
-          shell: shell,
-          title: '어떤 문제를 물었나요?',
-          body: item.summaryProblem,
-        ),
-        const SizedBox(height: 12),
-        _buildContentSection(
-          shell: shell,
-          title: '어떻게 풀이했나요?',
-          body: item.summarySolution,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildConceptTab(ShellTheme shell) {
-    final concept = item.conceptDetail;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: shell.cardBackground,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: shell.cardBorder.withValues(alpha: 0.75)),
-            boxShadow: isDark
-                ? null
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.smart_toy_rounded,
-                    size: 16,
-                    color: shell.subtitleColor,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'AI 개념 정리',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: shell.titleColor,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                concept.intro,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.65,
-                  color: shell.titleColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (concept.graph != null) ...[
-          const SizedBox(height: 14),
-          StudentReviewConceptGraphCard(
-            graph: concept.graph!,
-            shell: shell,
-          ),
-        ],
-        const SizedBox(height: 14),
-        for (var i = 0; i < concept.sections.length; i++) ...[
-          _buildConceptSectionCard(shell, concept.sections[i], i + 1),
-          if (i < concept.sections.length - 1) const SizedBox(height: 10),
-        ],
-        if (concept.relatedTips.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          _buildRelatedTipsCard(shell, concept.relatedTips),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildRelatedTipsCard(ShellTheme shell, List<String> tips) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    const accent = AppColors.reviewHighlight;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: shell.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: shell.cardBorder.withValues(alpha: 0.75)),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 26,
-                height: 26,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.16),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.lightbulb_rounded,
-                  size: 14,
-                  color: accent,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '함께 알아두면 좋아요',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                    color: shell.titleColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: isDark ? 0.08 : 0.06),
-              borderRadius: BorderRadius.circular(12),
-              border: Border(
-                left: BorderSide(color: accent, width: 3),
-              ),
-            ),
-            child: Column(
-              children: [
-                for (var i = 0; i < tips.length; i++)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      bottom: i < tips.length - 1 ? 8 : 0,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Icon(
-                            Icons.check_rounded,
-                            size: 14,
-                            color: accent,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            tips[i],
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.5,
-                              color: shell.titleColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildConceptSectionCard(
-    ShellTheme shell,
-    StudentReviewConceptSection section,
-    int index,
-  ) {
-    return _buildConceptCard(
-      shell: shell,
-      leading: Container(
-        width: 26,
-        height: 26,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.studentPoint.withValues(alpha: 0.12),
-          shape: BoxShape.circle,
-        ),
-        child: Text(
-          '$index',
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: AppColors.studentInk,
-          ),
-        ),
-      ),
-      title: section.title,
-      body: section.body,
-      bullets: section.bullets,
-      bulletColor: AppColors.studentInk,
-    );
-  }
-
-  Widget _buildConceptCard({
-    required ShellTheme shell,
-    required Widget leading,
-    required String title,
-    String? body,
-    required List<String> bullets,
-    required Color bulletColor,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: shell.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: shell.cardBorder.withValues(alpha: 0.75)),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              leading,
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                    color: shell.titleColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (body != null && body.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              body,
+          Expanded(
+            child: Text(
+              state.session?.title ?? widget.session.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 13,
-                height: 1.6,
-                color: shell.subtitleColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: shell.titleColor,
               ),
-            ),
-          ],
-          if (bullets.isNotEmpty) ...[
-            SizedBox(height: body != null && body.isNotEmpty ? 12 : 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: shell.detailBackground,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  for (var i = 0; i < bullets.length; i++)
-                    Padding(
-                      padding: EdgeInsets.only(
-                        bottom: i < bullets.length - 1 ? 8 : 0,
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 7),
-                            child: Icon(
-                              Icons.check_rounded,
-                              size: 14,
-                              color: bulletColor,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              bullets[i],
-                              style: TextStyle(
-                                fontSize: 13,
-                                height: 1.45,
-                                color: shell.titleColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMemoTab(ShellTheme shell) {
-    final memo = _currentMemo;
-    final isEmpty = memo == null || memo.content.isEmpty;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: shell.cardBackground,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: shell.cardBorder.withValues(alpha: 0.7)),
-            boxShadow: isDark
-                ? null
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.sticky_note_2_outlined,
-                      size: 18,
-                      color: shell.hintColor,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '메모',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: shell.subtitleColor,
-                      ),
-                    ),
-                    const Spacer(),
-                    if (_memos.length > 1)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: shell.detailBackground,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _MemoPageButton(
-                              icon: Icons.chevron_left_rounded,
-                              enabled: _memoPageIndex > 0,
-                              onTap: () => setState(() {
-                                _memoPageIndex--;
-                                _isEditingMemo = false;
-                              }),
-                            ),
-                            Text(
-                              '${_memoPageIndex + 1}/${_memos.length}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: shell.subtitleColor,
-                              ),
-                            ),
-                            _MemoPageButton(
-                              icon: Icons.chevron_right_rounded,
-                              enabled: _memoPageIndex < _memos.length - 1,
-                              onTap: () => setState(() {
-                                _memoPageIndex++;
-                                _isEditingMemo = false;
-                              }),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                child: GestureDetector(
-                  onTap: !_isEditingMemo ? _startMemoEdit : null,
-                  child: Container(
-                    height: _memoBoxHeight,
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? shell.detailBackground
-                          : const Color(0xFFFAFBFE),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: _isEditingMemo
-                            ? shell.cardBorder
-                            : shell.cardBorder.withValues(alpha: 0.55),
-                      ),
-                    ),
-                    child: _isEditingMemo
-                        ? Theme(
-                            data: Theme.of(context).copyWith(
-                              inputDecorationTheme: const InputDecorationTheme(
-                                filled: false,
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                disabledBorder: InputBorder.none,
-                                errorBorder: InputBorder.none,
-                                focusedErrorBorder: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              textSelectionTheme: TextSelectionThemeData(
-                                cursorColor: shell.titleColor,
-                                selectionColor:
-                                    shell.cardBorder.withValues(alpha: 0.45),
-                                selectionHandleColor: shell.subtitleColor,
-                              ),
-                            ),
-                            child: TextField(
-                              controller: _memoEditController,
-                              autofocus: true,
-                              maxLines: null,
-                              expands: true,
-                              textAlignVertical: TextAlignVertical.top,
-                              style: TextStyle(
-                                fontSize: 15,
-                                height: 1.6,
-                                color: shell.titleColor,
-                              ),
-                              decoration: InputDecoration(
-                                hintText:
-                                    '수업 내용, 헷갈린 점, 복습할 키워드를 적어 보세요',
-                                hintStyle: TextStyle(
-                                  color: shell.hintColor,
-                                  fontSize: 14,
-                                  height: 1.5,
-                                ),
-                                filled: false,
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                isCollapsed: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
-                          )
-                        : isEmpty
-                            ? Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.edit_note_rounded,
-                                    size: 36,
-                                    color: shell.hintColor.withValues(alpha: 0.55),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    '탭해서 메모 작성',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: shell.hintColor,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : SingleChildScrollView(
-                                child: Text(
-                                  memo.content,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    height: 1.65,
-                                    color: shell.titleColor,
-                                  ),
-                                ),
-                              ),
-                  ),
-                ),
-              ),
-              if (memo != null &&
-                  !_isEditingMemo &&
-                  memo.content.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      formatDotDateTime(memo.updatedAt),
-                      style: TextStyle(fontSize: 11, color: shell.hintColor),
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Divider(height: 1, color: shell.cardBorder.withValues(alpha: 0.6)),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: _isEditingMemo
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: TextButton(
-                              onPressed: _cancelMemoEdit,
-                              child: Text(
-                                '취소',
-                                style: TextStyle(color: shell.hintColor),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: _saveMemoEdit,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: AppColors.studentPoint,
-                                foregroundColor: AppColors.studentInk,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: const Text('저장'),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          _MemoToolbarButton(
-                            icon: Icons.add_rounded,
-                            label: '새 메모',
-                            labelColor: AppColors.vividBlue,
-                            onTap: _addMemo,
-                          ),
-                          _MemoToolbarDivider(color: shell.cardBorder),
-                          _MemoToolbarButton(
-                            icon: Icons.edit_outlined,
-                            label: '수정',
-                            onTap: memo == null ? null : _startMemoEdit,
-                          ),
-                          _MemoToolbarDivider(color: shell.cardBorder),
-                          _MemoToolbarButton(
-                            icon: Icons.delete_outline_rounded,
-                            label: '삭제',
-                            labelColor: AppColors.logoutRed,
-                            onTap: _deleteMemo,
-                          ),
-                        ],
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContentSection({
-    required ShellTheme shell,
-    required String title,
-    required String body,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: shell.detailBackground,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: shell.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColors.studentInk,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            body,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.55,
-              color: shell.titleColor,
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class _MemoPageButton extends StatelessWidget {
-  const _MemoPageButton({
-    required this.icon,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellTheme.of(context);
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.all(2),
-        child: Icon(
-          icon,
-          size: 18,
-          color: enabled ? shell.subtitleColor : shell.hintColor.withValues(alpha: 0.4),
-        ),
-      ),
-    );
-  }
-}
-
-class _MemoToolbarButton extends StatelessWidget {
-  const _MemoToolbarButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.labelColor,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-  final Color? labelColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellTheme.of(context);
-    final color = onTap == null
-        ? shell.hintColor.withValues(alpha: 0.4)
-        : (labelColor ?? shell.titleColor);
-
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20, color: color),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MemoToolbarDivider extends StatelessWidget {
-  const _MemoToolbarDivider({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 28,
-      color: color.withValues(alpha: 0.6),
-    );
-  }
-}
-
-class _ReviewTabBarDelegate extends SliverPersistentHeaderDelegate {
-  _ReviewTabBarDelegate({
-    required this.tabController,
-    required this.backgroundColor,
-    required this.indicatorColor,
-    required this.labelColor,
-    required this.unselectedColor,
-  });
-
-  final TabController tabController;
-  final Color backgroundColor;
-  final Color indicatorColor;
-  final Color labelColor;
-  final Color unselectedColor;
-
-  @override
-  double get minExtent => 48;
-
-  @override
-  double get maxExtent => 48;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
+  Widget _buildTabBar(ShellTheme shell) {
     return ColoredBox(
-      color: backgroundColor,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: TabBar(
-        controller: tabController,
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        indicatorColor: indicatorColor,
+        controller: _tabController,
+        indicatorColor: AppColors.studentPoint,
         indicatorWeight: 3,
-        labelColor: labelColor,
-        unselectedLabelColor: unselectedColor,
-        labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        labelColor: shell.titleColor,
+        unselectedLabelColor: shell.hintColor,
+        labelStyle:
+            const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
         unselectedLabelStyle:
             const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         dividerColor: Theme.of(context).dividerColor,
         tabs: const [
-          Tab(text: '요약'),
-          Tab(text: '개념정리'),
-          Tab(text: '메모'),
+          Tab(text: '질문하기'),
+          Tab(text: '요약 PDF'),
         ],
       ),
     );
   }
 
+  // ── Chat tab ─────────────────────────────────────────────────────────────
+
+  Widget _buildChatTab(ShellTheme shell, LessonReviewChatState state) {
+    if (state.isInitializing) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state.error != null && state.messages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              state.error!,
+              style: TextStyle(color: shell.hintColor, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => ref
+                  .read(lessonReviewChatProvider.notifier)
+                  .init(widget.session.lessonId),
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: state.messages.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      'AI 튜터에게 오늘 수업에 대해 질문해 보세요!',
+                      textAlign: TextAlign.center,
+                      style:
+                          TextStyle(color: shell.hintColor, fontSize: 14),
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  controller: _scrollController,
+                  padding:
+                      const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  itemCount: state.messages.length,
+                  itemBuilder: (_, i) => _MessageBubble(
+                    message: state.messages[i],
+                    shell: shell,
+                  ),
+                ),
+        ),
+        if (state.error != null)
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Text(
+              state.error!,
+              style:
+                  const TextStyle(color: Colors.redAccent, fontSize: 12),
+            ),
+          ),
+        _buildInputBar(shell, state),
+      ],
+    );
+  }
+
+  Widget _buildInputBar(ShellTheme shell, LessonReviewChatState state) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        border: Border(
+          top: BorderSide(
+              color: shell.cardBorder.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _msgController,
+              onSubmitted: (_) =>
+                  state.isSending ? null : _sendMessage(),
+              style:
+                  TextStyle(fontSize: 15, color: shell.titleColor),
+              decoration: InputDecoration(
+                hintText: '질문을 입력하세요...',
+                hintStyle: TextStyle(
+                    color: shell.hintColor, fontSize: 14),
+                filled: true,
+                fillColor: isDark
+                    ? shell.detailBackground
+                    : shell.cardBackground,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(color: shell.cardBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(color: shell.cardBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(
+                      color: AppColors.studentPoint, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: state.isSending ? null : _sendMessage,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: state.isSending
+                    ? AppColors.studentPoint.withValues(alpha: 0.4)
+                    : AppColors.studentPoint,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: state.isSending
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send_rounded,
+                      color: Colors.white, size: 18),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── PDF tab ──────────────────────────────────────────────────────────────
+
+  Widget _buildPdfTab(ShellTheme shell, LessonReviewChatState state) {
+    if (state.isInitializing) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final res = state.resources;
+    if (res == null || !res.hasPdf) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.picture_as_pdf_outlined,
+              size: 48,
+              color: shell.hintColor.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'AI가 강의 요약 PDF를 준비 중입니다.',
+              style: TextStyle(color: shell.hintColor, fontSize: 14),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '잠시 후 다시 확인해 주세요.',
+              style: TextStyle(
+                  color: shell.hintColor.withValues(alpha: 0.7),
+                  fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => _openPdfExternal(res.pdfUrl!),
+              icon: const Icon(Icons.download_rounded, size: 16),
+              label: const Text('다운로드'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.studentPoint,
+                textStyle: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 6),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _isPdfLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _pdfError != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _pdfError!,
+                            style: TextStyle(
+                                color: shell.hintColor, fontSize: 14),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _pdfError = null;
+                                _pdfLocalPath = null;
+                              });
+                              _loadPdf(res.pdfUrl!);
+                            },
+                            child: const Text('다시 시도'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _pdfLocalPath != null
+                      ? PDFView(
+                          filePath: _pdfLocalPath!,
+                          enableSwipe: true,
+                          swipeHorizontal: false,
+                          autoSpacing: true,
+                          pageFling: true,
+                        )
+                      : const Center(child: CircularProgressIndicator()),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Message bubble ──────────────────────────────────────────────────────────
+
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({required this.message, required this.shell});
+
+  final LessonReviewMessage message;
+  final ShellTheme shell;
+
   @override
-  bool shouldRebuild(covariant _ReviewTabBarDelegate oldDelegate) {
-    return tabController != oldDelegate.tabController ||
-        backgroundColor != oldDelegate.backgroundColor ||
-        indicatorColor != oldDelegate.indicatorColor;
+  Widget build(BuildContext context) {
+    final isUser = message.role.isUser;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!isUser) ...[
+            _AiAvatar(isDark: isDark),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isUser
+                    ? AppColors.studentPoint
+                    : (isDark
+                        ? shell.detailBackground
+                        : shell.cardBackground),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isUser ? 16 : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : 16),
+                ),
+                border: isUser
+                    ? null
+                    : Border.all(
+                        color: shell.cardBorder.withValues(alpha: 0.6)),
+              ),
+              child: Text(
+                message.content,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.55,
+                  color: isUser ? Colors.white : shell.titleColor,
+                ),
+              ),
+            ),
+          ),
+          if (isUser) const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiAvatar extends StatelessWidget {
+  const _AiAvatar({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.studentPoint.withValues(alpha: 0.2)
+            : AppColors.studentPoint.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.smart_toy_rounded,
+        size: 16,
+        color: AppColors.studentPoint,
+      ),
+    );
   }
 }
