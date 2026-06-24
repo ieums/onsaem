@@ -49,4 +49,12 @@ public class AiTutorController {
             @PathVariable Long sessionId) {
         return ResponseEntity.ok(tutorService.getMessages(principal.id(), sessionId));
     }
+
+    @PatchMapping("/sessions/{sessionId}/close")
+    public ResponseEntity<Void> closeSession(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable Long sessionId) {
+        tutorService.closeSession(principal.id(), sessionId);
+        return ResponseEntity.noContent().build();
+    }
 }
