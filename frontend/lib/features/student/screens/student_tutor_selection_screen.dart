@@ -115,7 +115,6 @@ class _StudentTutorSelectionScreenState
                             ref
                                 .read(studentMatchingSessionProvider.notifier)
                                 .selectTutor(tutor.id);
-                            context.push(RoutePaths.studentQuestionStatus);
                           },
                         );
                       },

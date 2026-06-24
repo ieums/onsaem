@@ -9,9 +9,7 @@ import 'package:ieum/features/auth/screens/student_signup_screen.dart';
 import 'package:ieum/features/auth/screens/tutor_signup_screen.dart';
 import 'package:ieum/features/onboarding/screens/onboarding_screen.dart';
 import 'package:ieum/features/student/screens/student_credit_recharge_screen.dart';
-import 'package:ieum/features/student/screens/student_matching_wait_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_upload_screen.dart';
-import 'package:ieum/features/student/screens/student_question_status_screen.dart';
 import 'package:ieum/features/student/screens/student_tutor_profile_screen.dart';
 import 'package:ieum/features/student/screens/student_tutor_selection_screen.dart';
 import 'package:ieum/features/student/screens/student_report_screen.dart';
@@ -33,13 +31,11 @@ final appRouter = GoRouter(
     final isEntry = loc == '/' || loc == RoutePaths.login;
 
     // 로그인 상태인데 시작/로그인 화면이면 → 역할별 홈으로
-    //if (user != null && isEntry) {
-    if (user != null && isEntry && loc != '/lesson') {
+    if (user != null && isEntry) {
       return user.isTutor ? RoutePaths.tutorHome : RoutePaths.studentHome;
     }
     // 미로그인인데 보호 화면이면 → 시작(/)으로
-    //if (user == null && isProtected) return '/';
-    if (user == null && isProtected && loc != '/lesson') return '/';
+    if (user == null && isProtected) return '/';
     return null;
   },
   routes: [
@@ -81,10 +77,6 @@ final appRouter = GoRouter(
       builder: (_, _) => const StudentProblemUploadScreen(),
     ),
     GoRoute(
-      path: RoutePaths.studentMatchingWait,
-      builder: (_, _) => const StudentMatchingWaitScreen(),
-    ),
-    GoRoute(
       path: RoutePaths.studentTutorSelection,
       builder: (_, _) => const StudentTutorSelectionScreen(),
     ),
@@ -93,10 +85,6 @@ final appRouter = GoRouter(
       builder: (_, state) => StudentTutorProfileScreen(
         tutorId: state.pathParameters['tutorId']!,
       ),
-    ),
-    GoRoute(
-      path: RoutePaths.studentQuestionStatus,
-      builder: (_, _) => const StudentQuestionStatusScreen(),
     ),
     GoRoute(
       path: RoutePaths.studentReviewWrite,

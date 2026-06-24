@@ -311,7 +311,7 @@ class _StudentProblemUploadScreenState
         );
 
     if (!mounted) return;
-    context.pushReplacement(RoutePaths.studentMatchingWait);
+    context.go(RoutePaths.studentHome);
   }
 
   @override

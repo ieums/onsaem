@@ -1,4 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ieum/core/providers/current_user_provider.dart';
+import 'package:ieum/features/tutor/data/tutor_repository.dart';
 
-/// 강사 온라인·수업 가능 상태 (홈 탭 ↔ 마이페이지 설정 공유)
-final tutorAvailabilityProvider = StateProvider<bool>((ref) => true);
+class TutorAvailabilityNotifier extends StateNotifier<bool> {
+  TutorAvailabilityNotifier(this._repo, this._tutorId) : super(true);
+
+  final TutorRepository _repo;
+  final int? _tutorId;
+
+  Future<void> toggle(bool value) async {
+    state = value;
+    if (_tutorId == null) return;
+    try {
+      await _repo.updateAvailability(_tutorId, available: value);
+    } catch (_) {
+      state = !value;
+    }
+  }
+}
+
+final tutorAvailabilityProvider =
+    StateNotifierProvider<TutorAvailabilityNotifier, bool>((ref) {
+  final tutorId = ref.watch(currentUserProvider)?.id;
+  return TutorAvailabilityNotifier(TutorRepository(), tutorId);
+});

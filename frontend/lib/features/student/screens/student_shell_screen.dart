@@ -5,6 +5,7 @@ import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
+import 'package:ieum/routes/app_router.dart';
 import 'package:ieum/features/student/providers/student_shell_tab_provider.dart';
 import 'package:ieum/features/student/screens/student_home_screen.dart';
 import 'package:ieum/features/student/screens/student_lessons_screen.dart';
@@ -78,6 +79,20 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
       final isExpiring = next?.isSearchExpiringSoon ?? false;
       if (isExpiring && !wasExpiring) {
         _showExtendDialog(context, ref);
+      }
+
+      final prevStatus = prev?.status;
+      final nextStatus = next?.status;
+      if (nextStatus == StudentMatchingSessionStatus.connected &&
+          prevStatus != StudentMatchingSessionStatus.connected) {
+        final session = next!;
+        if (session.channelName != null) {
+          appRouter.go('/lesson', extra: {
+            'channelName': session.channelName!,
+            'imageUrls': session.imageUrls,
+            'subject': session.subject,
+          });
+        }
       }
     });
 

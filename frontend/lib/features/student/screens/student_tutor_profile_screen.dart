@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
@@ -28,7 +27,15 @@ class StudentTutorProfileScreen extends ConsumerStatefulWidget {
 class _StudentTutorProfileScreenState extends ConsumerState<StudentTutorProfileScreen> {
   int _tabIndex = 0;
 
-  StudentTutorProfile? get _tutor => StudentTutorDummyData.byId(widget.tutorId);
+  StudentTutorProfile? _resolveProfile(StudentMatchingSession? session) {
+    if (session != null) {
+      final found = session.candidates
+          .where((c) => c.id == widget.tutorId)
+          .firstOrNull;
+      if (found != null) return found;
+    }
+    return StudentTutorDummyData.byId(widget.tutorId);
+  }
 
   bool get _canSelect {
     final session = ref.watch(studentMatchingSessionProvider);
@@ -41,13 +48,13 @@ class _StudentTutorProfileScreenState extends ConsumerState<StudentTutorProfileS
 
   void _selectTutor() {
     ref.read(studentMatchingSessionProvider.notifier).selectTutor(widget.tutorId);
-    context.push(RoutePaths.studentQuestionStatus);
+    context.pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final tutor = _tutor;
     final session = ref.watch(studentMatchingSessionProvider);
+    final tutor = _resolveProfile(session);
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(

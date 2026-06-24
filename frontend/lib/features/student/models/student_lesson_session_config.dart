@@ -7,7 +7,7 @@ abstract final class StudentLessonSessionConfig {
   static const extensionNoticeBeforeEnd = Duration(minutes: 5);
 
   /// 테스트 확인용 압축 타이머. 실서비스에서는 false.
-  static const useDemoTimers = true;
+  static const useDemoTimers = false;
 
   static const demoMatchDelay = Duration(seconds: 10);
   static const demoSubjectExpertDelay = Duration(seconds: 30);
