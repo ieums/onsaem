@@ -42,6 +42,10 @@ class AiTutorRepository {
     );
     return AiTutorMessage.fromJson(res.data as Map<String, dynamic>);
   }
+    // 세션 종료 (CLOSED)
+  Future<void> closeSession(int sessionId) async {
+    await _dio.patch('/ai-tutor/sessions/$sessionId/close');
+  }
 }
 
 final aiTutorRepositoryProvider =

@@ -46,8 +46,9 @@ class AiTutorChatNotifier extends StateNotifier<AiTutorChatState> {
     state = state.copyWith(isInitializing: true, error: null);
     try {
       final sessions = await _repo.listSessions();
-      final existing =
-          sessions.where((s) => s.problemId == problemId).toList();
+      final existing = sessions
+          .where((s) => s.problemId == problemId && !s.status.isClosed)
+          .toList();
 
       final session = existing.isNotEmpty
           ? existing.first
@@ -98,6 +99,18 @@ class AiTutorChatNotifier extends StateNotifier<AiTutorChatState> {
         isSending: false,
         error: apiErrorMessage(e),
       );
+    }
+  }
+    // 세션 종료 → 성공하면 true
+  Future<bool> close() async {
+    final sessionId = state.session?.sessionId;
+    if (sessionId == null) return false;
+    try {
+      await _repo.closeSession(sessionId);
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: apiErrorMessage(e));
+      return false;
     }
   }
 }

@@ -59,6 +59,30 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
     });
   }
 
+  Future<void> _confirmClose(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('대화 종료'),
+        content: const Text('이 AI 튜터 대화를 종료할까요?\n종료하면 더 이상 질문할 수 없어요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('종료'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final closed = await ref.read(aiTutorChatProvider.notifier).close();
+    if (closed && mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = ref.watch(shellDarkModeProvider);
@@ -70,18 +94,19 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
 
+    final state = ref.watch(aiTutorChatProvider);
+
+    ref.listen<AiTutorChatState>(aiTutorChatProvider, (prev, next) {
+      if ((prev?.messages.length ?? 0) < next.messages.length) {
+        _scrollToBottom();
+      }
+    });
+
     return Theme(
       data: theme,
       child: Builder(
         builder: (context) {
           final shell = ShellTheme.of(context);
-          final state = ref.watch(aiTutorChatProvider);
-
-          ref.listen<AiTutorChatState>(aiTutorChatProvider, (prev, next) {
-            if ((prev?.messages.length ?? 0) < next.messages.length) {
-              _scrollToBottom();
-            }
-          });
 
           return Scaffold(
             appBar: AppBar(
@@ -101,6 +126,20 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
                   color: shell.titleColor,
                 ),
               ),
+              actions: [
+                if (state.session != null && !state.session!.status.isClosed)
+                  TextButton(
+                    onPressed: () => _confirmClose(context),
+                    child: const Text(
+                      '종료',
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             body: SafeArea(
               child: Column(
@@ -288,7 +327,7 @@ class _MessageBubble extends StatelessWidget {
                         color: shell.cardBorder.withValues(alpha: 0.6)),
               ),
               child: Text(
-                message.content,
+                _stripMarkdown(message.content),
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.55,
@@ -301,6 +340,20 @@ class _MessageBubble extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _stripMarkdown(String input) {
+    var t = input;
+    t = t.replaceAll(RegExp(r'```[a-zA-Z]*\n?'), '');
+    t = t.replaceAll('`', '');
+    t = t.replaceAll(RegExp(r'^\s{0,3}#{1,6}\s*', multiLine: true), '');
+    t = t.replaceAllMapped(RegExp(r'\*\*\*(.+?)\*\*\*'), (m) => m[1]!);
+    t = t.replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (m) => m[1]!);
+    t = t.replaceAllMapped(RegExp(r'\*(.+?)\*'), (m) => m[1]!);
+    t = t.replaceAllMapped(RegExp(r'__(.+?)__'), (m) => m[1]!);
+    t = t.replaceAllMapped(RegExp(r'\[([^\]]+)\]\([^)]+\)'), (m) => m[1]!);
+    t = t.replaceAll(RegExp(r'^\s*[-*]\s+', multiLine: true), '• ');
+    return t.trim();
   }
 }
 
