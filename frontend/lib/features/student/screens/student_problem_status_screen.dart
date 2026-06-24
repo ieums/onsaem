@@ -1,26 +1,115 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/features/matching/repositories/matching_repository.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
+import 'package:ieum/features/student/models/student_tutor_profile.dart';
+import 'package:ieum/features/student/providers/problem_provider.dart';
+import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/screens/student_problem_detail_screen.dart';
 import 'package:ieum/features/student/widgets/student_problem_chips.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
 
-/// 질문 현황(중간) 화면. 와이어프레임의 [학생 등록 문제(간략) + 강사현황].
-/// 위 '간략' 카드 탭 → 문제 상세. 아래 강사현황/활성화는 placeholder(매칭팀 영역).
-class StudentProblemStatusScreen extends ConsumerWidget {
+class StudentProblemStatusScreen extends ConsumerStatefulWidget {
   const StudentProblemStatusScreen({super.key, required this.problem});
 
   final StudentProblemModel problem;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StudentProblemStatusScreen> createState() =>
+      _StudentProblemStatusScreenState();
+}
+
+class _StudentProblemStatusScreenState
+    extends ConsumerState<StudentProblemStatusScreen> {
+  List<StudentTutorProfile> _applicants = [];
+  bool _loadingApplicants = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final session = ref.read(studentMatchingSessionProvider);
+    if (session != null && session.problemId == widget.problem.problemId) return;
+
+    if (widget.problem.searching) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final studentId = ref.read(currentUserProvider)?.id;
+        if (studentId == null) return;
+        await ref.read(studentMatchingSessionProvider.notifier).resumeMatching(
+              problemId: widget.problem.problemId,
+              studentId: studentId,
+              subject: widget.problem.subject ?? '',
+              questionSummary: widget.problem.summary ?? '',
+            );
+      });
+    } else {
+      _loadApplicants();
+    }
+  }
+
+  Future<void> _cancelMatching(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('매칭 취소',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        content: const Text(
+            '매칭을 취소하시겠어요?\n신청한 강사들의 목록에서도 사라져요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('돌아가기'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.buttonDanger,
+            ),
+            child: const Text('취소하기',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ref
+        .read(studentMatchingSessionProvider.notifier)
+        .cancelMatching();
+    if (!context.mounted) return;
+    ref.invalidate(studentProblemsProvider);
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _loadApplicants() async {
+    setState(() => _loadingApplicants = true);
+    try {
+      final list =
+          await MatchingRepository().getApplicants(widget.problem.problemId);
+      if (mounted) setState(() => _applicants = list.map(StudentTutorProfile.fromApplicant).toList());
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _loadingApplicants = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = ref.watch(shellDarkModeProvider);
+    final session = ref.watch(studentMatchingSessionProvider);
+    final useSession =
+        session != null && session.problemId == widget.problem.problemId;
+    final effectiveCandidates = useSession ? session.candidates : _applicants;
+    final showLoading = !useSession && _loadingApplicants;
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+      colorScheme:
+          baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
@@ -43,12 +132,12 @@ class StudentProblemStatusScreen extends ConsumerWidget {
                   const SizedBox(height: 10),
                   _BriefCard(
                     shell: shell,
-                    problem: problem,
+                    problem: widget.problem,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) =>
-                              StudentProblemDetailScreen(problem: problem),
+                          builder: (_) => StudentProblemDetailScreen(
+                              problem: widget.problem),
                         ),
                       );
                     },
@@ -56,9 +145,90 @@ class StudentProblemStatusScreen extends ConsumerWidget {
                   const SizedBox(height: 28),
                   _SectionTitle(shell: shell, text: '강사 현황'),
                   const SizedBox(height: 10),
-                  _TutorStatusPlaceholder(shell: shell),
-                  const SizedBox(height: 16),
-                  _ActivateButton(shell: shell),
+                  if (showLoading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: CircularProgressIndicator(
+                            color: AppColors.studentInk),
+                      ),
+                    )
+                  else if (effectiveCandidates.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 28),
+                      decoration: BoxDecoration(
+                        color: shell.cardBackground,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: shell.cardBorder.withValues(alpha: 0.5)),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.people_outline,
+                              size: 40,
+                              color: shell.hintColor.withValues(alpha: 0.7)),
+                          const SizedBox(height: 12),
+                          Text(
+                            '아직 신청한 강사가 없어요',
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w700,
+                              color: shell.titleColor,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '잠시 후 강사들이 지원하면 알려드릴게요.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 12.5, color: shell.hintColor),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    for (final tutor in effectiveCandidates) ...[
+                      StudentTutorCompactCard(
+                        tutor: tutor,
+                        showSubjectBadges: true,
+                        onViewProfile: () {
+                          context.push(
+                              '${RoutePaths.studentTutorProfile}/${tutor.id}');
+                        },
+                        onSelect: () {
+                          ref
+                              .read(studentMatchingSessionProvider.notifier)
+                              .selectTutor(tutor.id);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  const SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: () => _cancelMatching(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.buttonDanger,
+                        side: BorderSide(
+                          color: AppColors.buttonDanger.withValues(alpha: 0.6),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        '매칭 취소',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -87,7 +257,6 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-/// 위쪽 '간략' 카드 — 탭하면 상세로.
 class _BriefCard extends StatelessWidget {
   const _BriefCard({
     required this.shell,
@@ -109,7 +278,8 @@ class _BriefCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.studentPoint.withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.studentInk.withValues(alpha: 0.25)),
+          border: Border.all(
+              color: AppColors.studentInk.withValues(alpha: 0.25)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,78 +321,6 @@ class _BriefCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 아래쪽 강사현황 — placeholder(매칭팀 영역).
-class _TutorStatusPlaceholder extends StatelessWidget {
-  const _TutorStatusPlaceholder({required this.shell});
-  final ShellTheme shell;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
-      decoration: BoxDecoration(
-        color: shell.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: shell.cardBorder.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.people_outline,
-              size: 40, color: shell.hintColor.withValues(alpha: 0.7)),
-          const SizedBox(height: 12),
-          Text(
-            '강사 매칭 단계에서 진행돼요',
-            style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-              color: shell.titleColor,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            "‘강사 찾기 시작’을 누르면 강사들이 지원할 수 있어요.",
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12.5, color: shell.hintColor),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// '강사 찾기 시작' 활성화 버튼 — 현재 placeholder(매칭팀 연결 예정).
-class _ActivateButton extends StatelessWidget {
-  const _ActivateButton({required this.shell});
-  final ShellTheme shell;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      child: FilledButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('강사 찾기는 매칭 단계에서 연결될 예정이에요.')),
-          );
-        },
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.studentPoint,
-          foregroundColor: AppColors.studentInk,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        ),
-        child: const Text(
-          '강사 찾기 시작',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
       ),
     );

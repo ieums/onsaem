@@ -223,25 +223,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Future<void> _testLessonLogin() async {
-    setState(() => _isLoading = true);
-    try {
-      final auth = ref.read(authControllerProvider);
-      if (_isTutor) {
-        await auth.tutorLogin(email: 'tutor@test.com', password: 'test1234');
-      } else {
-        await auth.studentLogin(email: 'student@test.com', password: 'test1234');
-      }
-      if (!mounted) return;
-      context.go('/lesson', extra: {'channelName': 'test-channel-3', 'imageUrls': <String>[]});
-    } catch (e) {
-      if (!mounted) return;
-      _showMessage(apiErrorMessage(e, fallback: '테스트 로그인에 실패했어요.'));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -326,18 +307,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: Color(0xFF1A1D26),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Center(
-                        child: TextButton(
-                          onPressed: _isLoading ? null : _testLessonLogin,
-                          child: const Text(
-                            '화상강의 테스트',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _hintColor,
                             ),
                           ),
                         ),

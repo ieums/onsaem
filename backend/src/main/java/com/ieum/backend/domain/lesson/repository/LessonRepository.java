@@ -13,4 +13,6 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     List<Lesson> findByStatusAndStartedAtBefore(Lesson.LessonStatus status, LocalDateTime threshold);
 
     List<Lesson> findByStatusAndCreatedAtBefore(Lesson.LessonStatus status, LocalDateTime threshold);
+
+    boolean existsByTutorIdAndStatusIn(Long tutorId, java.util.Collection<Lesson.LessonStatus> statuses);
 }

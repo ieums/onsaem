@@ -487,6 +487,31 @@ class _StudentProblemUploadScreenState
         ),
       );
       if (!mounted) return;
+      setState(() => _submitting = true);
+      // EditScreen에서 수정한 subject 반영을 위해 최신 목록 재조회
+      ref.invalidate(studentProblemsProvider);
+      List<StudentProblemModel> problems;
+      try {
+        problems = await ref.read(studentProblemsProvider.future);
+      } catch (_) {
+        problems = const [];
+      }
+      if (!mounted) return;
+      final updated = problems.firstWhere(
+        (p) => p.problemId == result.id,
+        orElse: () => StudentProblemModel.fromCreateResult(result),
+      );
+      final questionSummary = StudentQuestionTextUtil.summarize(
+        _descriptionController.text,
+      );
+      await ref.read(studentMatchingSessionProvider.notifier).startMatching(
+        problemId: result.id!,
+        studentId: studentId,
+        subject: updated.subject ?? _selectedSubject ?? 'UNKNOWN',
+        questionSummary: questionSummary,
+        problemImageBytes: _problemImages.firstOrNull,
+      );
+      if (!mounted) return;
       context.go(RoutePaths.studentHome);
       return;
     }
@@ -497,17 +522,39 @@ class _StudentProblemUploadScreenState
       return;
     }
 
+    setState(() => _submitting = false);
+    ref.invalidate(studentProblemsProvider);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StudentProblemEditScreen(
+          problem: StudentProblemModel.fromCreateResult(result),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _submitting = true);
+    ref.invalidate(studentProblemsProvider);
+    List<StudentProblemModel> problems;
+    try {
+      problems = await ref.read(studentProblemsProvider.future);
+    } catch (_) {
+      problems = const [];
+    }
+    if (!mounted) return;
+    final updated = problems.firstWhere(
+      (p) => p.problemId == result.id,
+      orElse: () => StudentProblemModel.fromCreateResult(result),
+    );
     final questionSummary = StudentQuestionTextUtil.summarize(
       _descriptionController.text,
     );
     await ref.read(studentMatchingSessionProvider.notifier).startMatching(
       problemId: result.id!,
       studentId: studentId,
-      subject: _selectedSubject!,
+      subject: updated.subject ?? _selectedSubject ?? 'UNKNOWN',
       questionSummary: questionSummary,
       problemImageBytes: _problemImages.firstOrNull,
     );
-
     if (!mounted) return;
     setState(() => _submitting = false);
     context.go(RoutePaths.studentHome);

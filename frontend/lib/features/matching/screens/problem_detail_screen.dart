@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/features/student/widgets/student_problem_image_viewer.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/matching/models/searching_problem_model.dart';
 import 'package:ieum/features/matching/providers/matching_provider.dart';
@@ -157,33 +159,11 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
     );
   }
 
-  Widget _buildImageArea(SearchingProblemModel problem, dynamic shell) {
+  Widget _buildImageArea(SearchingProblemModel problem, ShellTheme shell) {
     if (problem.imageUrls.isEmpty) {
       return _imagePlaceholder(shell);
     }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.network(
-        problem.imageUrls.first,
-        width: double.infinity,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _imagePlaceholder(shell),
-        loadingBuilder: (_, child, progress) {
-          if (progress == null) return child;
-          return SizedBox(
-            height: 200,
-            child: Center(
-              child: CircularProgressIndicator(
-                value: progress.expectedTotalBytes != null
-                    ? progress.cumulativeBytesLoaded /
-                        progress.expectedTotalBytes!
-                    : null,
-              ),
-            ),
-          );
-        },
-      ),
-    );
+    return _ImagePager(urls: problem.imageUrls, shell: shell);
   }
 
   Widget _imagePlaceholder(dynamic shell) {
@@ -249,6 +229,128 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
                 fontWeight: FontWeight.w600,
                 color: shell.titleColor,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImagePager extends StatefulWidget {
+  const _ImagePager({required this.urls, required this.shell});
+  final List<String> urls;
+  final ShellTheme shell;
+
+  @override
+  State<_ImagePager> createState() => _ImagePagerState();
+}
+
+class _ImagePagerState extends State<_ImagePager> {
+  final _controller = PageController();
+  int _page = 0;
+  static const double _height = 220;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final urls = widget.urls;
+    if (urls.length == 1) {
+      return SizedBox(height: _height, child: _buildImage(context, urls.first));
+    }
+    return Column(
+      children: [
+        SizedBox(
+          height: _height,
+          child: Stack(
+            children: [
+              PageView.builder(
+                controller: _controller,
+                itemCount: urls.length,
+                onPageChanged: (i) => setState(() => _page = i),
+                itemBuilder: (_, i) => _buildImage(context, urls[i]),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_page + 1}/${urls.length}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < urls.length; i++)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: i == _page ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: i == _page
+                      ? AppColors.primaryBlue
+                      : widget.shell.cardBorder,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImage(BuildContext context, String url) {
+    final resolved = ApiConstants.resolveImageUrl(url);
+    return GestureDetector(
+      onTap: () =>
+          showStudentProblemImageViewerUrl(context, imageUrl: resolved),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                resolved,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  color: widget.shell.detailBackground,
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.image_not_supported_outlined,
+                    color: widget.shell.hintColor,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 8,
+            bottom: 8,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.zoom_in, color: Colors.white, size: 18),
             ),
           ),
         ],

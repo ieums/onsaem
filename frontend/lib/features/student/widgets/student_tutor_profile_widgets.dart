@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/models/student_tutor_profile.dart';
@@ -172,76 +173,116 @@ class StudentTutorCompactCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
-    final selectButtonTextColor = AppColors.studentInk;
     final borderColor = emphasized
         ? AppColors.studentPoint.withValues(alpha: 0.45)
         : shell.cardBorder;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: emphasized
             ? AppColors.studentPoint.withValues(alpha: 0.04)
             : shell.cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: borderColor,
-          width: emphasized ? 1.5 : 1,
-        ),
+        border: Border.all(color: borderColor, width: emphasized ? 1.5 : 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              GestureDetector(
+                onTap: onViewProfile,
+                child: _buildAvatar(shell),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      tutor.name,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: shell.titleColor,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            tutor.name,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: shell.titleColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        if (tutor.isInLesson)
+                          _InLessonBadge()
+                        else
+                          _OnlineBadge(isOnline: tutor.isOnline),
+                      ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      tutor.educationLine,
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: shell.subtitleColor,
-                      ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.star_rounded,
+                          size: 12,
+                          color: AppColors.reviewHighlight,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          tutor.rating.toStringAsFixed(1),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: shell.titleColor,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '수업 ${tutor.lessonCount}회',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: shell.hintColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              if (tutor.isOnline)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppColors.studentPoint.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(99),
-                    border: Border.all(
-                      color: AppColors.studentPoint.withValues(alpha: 0.35),
-                    ),
+              const SizedBox(width: 10),
+              FilledButton(
+                onPressed: tutor.isInLesson ? null : onSelect,
+                style: FilledButton.styleFrom(
+                  backgroundColor: tutor.isInLesson
+                      ? Colors.grey.withValues(alpha: 0.3)
+                      : AppColors.studentPoint,
+                  foregroundColor: tutor.isInLesson
+                      ? Colors.grey
+                      : AppColors.studentInk,
+                  disabledBackgroundColor:
+                      Colors.grey.withValues(alpha: 0.3),
+                  disabledForegroundColor: Colors.grey,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text(
-                    '접속중',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.studentInk,
-                    ),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  '선택하기',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
+              ),
             ],
           ),
-          if (showSubjectBadges) ...[
+          if (showSubjectBadges && tutor.subjects.isNotEmpty) ...[
             const SizedBox(height: 10),
             Wrap(
               spacing: 6,
@@ -252,78 +293,96 @@ class StudentTutorCompactCard extends StatelessWidget {
               ],
             ),
           ],
-          const SizedBox(height: 14),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                StudentTutorMetricChip(
-                  icon: Icons.star_rounded,
-                  iconColor: AppColors.reviewHighlight,
-                  label: '평점',
-                  value: tutor.rating.toStringAsFixed(1),
-                ),
-                const SizedBox(width: 8),
-                StudentTutorMetricChip(
-                  label: '수업',
-                  value: '${tutor.lessonCount}회',
-                ),
-                const SizedBox(width: 8),
-                StudentTutorMetricChip(
-                  label: '응답',
-                  value: '${tutor.avgResponseMinutes}분',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: onViewProfile,
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(
-                      color: emphasized
-                          ? AppColors.studentInk
-                          : shell.cardBorder,
-                      width: emphasized ? 1.5 : 1,
-                    ),
-                    foregroundColor: emphasized
-                        ? AppColors.studentInk
-                        : shell.titleColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text(
-                    '프로필 보기',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton(
-                  onPressed: onSelect,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.studentPoint,
-                    foregroundColor: selectButtonTextColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text(
-                    '선택하기',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ),
-            ],
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar(ShellTheme shell) {
+    const size = 44.0;
+    final url = tutor.profileImageUrl;
+    if (url != null) {
+      return ClipOval(
+        child: Image.network(
+          ApiConstants.resolveImageUrl(url),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stack) => _placeholderAvatar(shell, size),
+        ),
+      );
+    }
+    return _placeholderAvatar(shell, size);
+  }
+
+  Widget _placeholderAvatar(ShellTheme shell, double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: shell.cardBorder.withValues(alpha: 0.3),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Icon(
+          Icons.person_rounded,
+          size: size * 0.55,
+          color: shell.hintColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _OnlineBadge extends StatelessWidget {
+  const _OnlineBadge({required this.isOnline});
+
+  final bool isOnline;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: isOnline
+            ? AppColors.studentPoint.withValues(alpha: 0.35)
+            : Colors.grey.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(
+          color: isOnline ? AppColors.studentInk : Colors.grey,
+        ),
+      ),
+      child: Text(
+        isOnline ? '온라인' : '오프라인',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: isOnline ? AppColors.studentInk : Colors.grey,
+        ),
+      ),
+    );
+  }
+}
+
+class _InLessonBadge extends StatelessWidget {
+  const _InLessonBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primaryBlue.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: AppColors.primaryBlue),
+      ),
+      child: const Text(
+        '수업 중',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: AppColors.primaryBlue,
+        ),
       ),
     );
   }

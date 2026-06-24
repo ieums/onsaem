@@ -16,6 +16,7 @@ class ApplicantModel {
     required this.isAvailable,
     required this.avgResponseMinutes,
     required this.subjects,
+    required this.isInLesson,
   });
 
   final int applicationId;
@@ -34,6 +35,7 @@ class ApplicantModel {
   final bool isAvailable;
   final int avgResponseMinutes;
   final List<String> subjects;
+  final bool isInLesson;
 
   factory ApplicantModel.fromJson(Map<String, dynamic> json) {
     return ApplicantModel(
@@ -49,10 +51,11 @@ class ApplicantModel {
       lessonCount: json['lessonCount'] as int? ?? 0,
       bio: json['bio'] as String?,
       profileImageUrl: json['profileImageUrl'] as String?,
-      isOnline: json['isOnline'] as bool? ?? true,
+      isOnline: json['online'] as bool? ?? true,
       isAvailable: true,
       avgResponseMinutes: json['avgResponseMinutes'] as int? ?? 0,
       subjects: (json['subjects'] as List<dynamic>? ?? []).cast<String>(),
+      isInLesson: json['isInLesson'] as bool? ?? false,
     );
   }
 
@@ -73,6 +76,7 @@ class ApplicantModel {
     bool? isAvailable,
     int? avgResponseMinutes,
     List<String>? subjects,
+    bool? isInLesson,
   }) {
     return ApplicantModel(
       applicationId: applicationId ?? this.applicationId,
@@ -91,6 +95,7 @@ class ApplicantModel {
       isAvailable: isAvailable ?? this.isAvailable,
       avgResponseMinutes: avgResponseMinutes ?? this.avgResponseMinutes,
       subjects: subjects ?? this.subjects,
+      isInLesson: isInLesson ?? this.isInLesson,
     );
   }
 }
