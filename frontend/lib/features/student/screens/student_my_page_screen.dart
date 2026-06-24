@@ -8,6 +8,7 @@ import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/data/student_home_dummy_data.dart';
+import 'package:ieum/features/student/providers/payment_provider.dart';
 import 'package:ieum/features/student/providers/student_notification_provider.dart';
 import 'package:ieum/features/student/providers/student_wallet_provider.dart';
 import 'package:ieum/features/student/widgets/student_auto_pay_bottom_sheet.dart';
@@ -90,6 +91,11 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                     icon: Icons.autorenew_rounded,
                     title: '자동 결제 수단',
                     onTap: () => showStudentAutoPayBottomSheet(context),
+                  ),
+                  _buildMenuRow(
+                    icon: Icons.workspace_premium_outlined,
+                    title: '구독 관리',
+                    onTap: () => context.push(RoutePaths.studentSubscription),
                     showDivider: false,
                   ),
                 ],
@@ -207,7 +213,8 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
   }
 
   Widget _buildCreditCard() {
-    final balance = ref.watch(studentWalletProvider).balance;
+    final balance =
+        ref.watch(coinBalanceProvider).valueOrNull?.availableBalance;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -247,7 +254,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            '${formatCredits(balance)} P',
+            '${balance == null ? '…' : formatCredits(balance)} P',
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,

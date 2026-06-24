@@ -43,7 +43,7 @@ class ReportServiceTest {
     @Test
     @DisplayName("여러 사유를 한 건으로 접수 — PENDING으로 저장")
     void create_multipleReasons_success() {
-        ReportResponse res = reportService.create(
+        ReportResponse res = reportService.create(100L, ReporterType.STUDENT,
                 req(Set.of(ReportReason.NO_SHOW, ReportReason.ABUSE)));
 
         assertThat(res.status()).isEqualTo(ReportStatus.PENDING);
@@ -54,10 +54,10 @@ class ReportServiceTest {
     @Test
     @DisplayName("같은 신고자가 같은 대상을 또 신고하면 거부 (대상당 1건)")
     void create_duplicateTarget_rejected() {
-        reportService.create(req(Set.of(ReportReason.ABUSE)));
+        reportService.create(100L, ReporterType.STUDENT, req(Set.of(ReportReason.ABUSE)));
 
         // 사유가 달라도 같은 대상이면 차단
-        assertThatThrownBy(() -> reportService.create(req(Set.of(ReportReason.NO_SHOW))))
+        assertThatThrownBy(() -> reportService.create(100L, ReporterType.STUDENT, req(Set.of(ReportReason.NO_SHOW))))
                 .isInstanceOf(BusinessException.class);
         assertThat(reportRepository.count()).isEqualTo(1);
     }
@@ -65,10 +65,10 @@ class ReportServiceTest {
     @Test
     @DisplayName("대상이 다르면 신고 가능")
     void create_differentTarget_allowed() {
-        reportService.create(req(Set.of(ReportReason.ABUSE)));   // 강사 200
+        reportService.create(100L, ReporterType.STUDENT, req(Set.of(ReportReason.ABUSE)));   // 강사 200
 
         // 같은 신고자, 다른 대상(강사 201)
-        reportService.create(new CreateReportRequest(
+        reportService.create(100L, ReporterType.STUDENT, new CreateReportRequest(
                 100L, ReporterType.STUDENT,
                 ReportTargetType.TUTOR, 201L, 300L,
                 Set.of(ReportReason.ABUSE), null));

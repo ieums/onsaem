@@ -39,14 +39,15 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/me").authenticated()
                         .requestMatchers("/api/v1/ai-tutor/**", "/api/v1/lesson-review/**").hasRole("STUDENT")
+                        // JWT 주체 기반 — 결제(학생)·정산(강사)·리뷰/신고(인증)
+                        .requestMatchers("/api/v1/payments/**").hasRole("STUDENT")
+                        .requestMatchers("/api/v1/settlements/calculate").permitAll() // 시스템/내부(강의 완료) 호출
+                        .requestMatchers("/api/v1/settlements/**").hasRole("TUTOR")
+                        .requestMatchers("/api/v1/reviews/**", "/api/v1/reports/**").authenticated()
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/health",
                                 "/api/v1/problems/**",
-                                "/api/v1/payments/**",
-                                "/api/v1/settlements/**",
-                                "/api/v1/reviews/**",
-                                "/api/v1/reports/**",
                                 "/api/v1/lesson/token",
                                 "/api/v1/lesson/*/images",
                                 "/api/v1/lesson/*/start",

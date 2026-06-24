@@ -53,12 +53,15 @@ public class AuthService {
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
                 .name(request.name())
+                .birthDate(request.birthDate())
+                .phone(request.phone())
                 .provider(AuthProvider.LOCAL)
                 .bio(request.bio())
                 .school(request.school())
                 .major(request.major())
                 .experienceYears(request.experienceYears())
                 .educationStatus(EducationStatus.fromLabel(request.educationStatus()))
+                .subjects(request.subjects())
                 .build();
         tutorRepository.save(tutor);
         return tokenService.issue(tutor.getId(), Role.TUTOR);
@@ -112,29 +115,44 @@ public class AuthService {
     private TokenResponse oauthLoginStudent(OAuthUserInfo info) {
         Student student = studentRepository
                 .findByProviderAndProviderUserId(info.provider(), info.providerUserId())
-                .orElseGet(() -> studentRepository.save(
-                        Student.builder()
-                                .provider(info.provider())
-                                .providerUserId(info.providerUserId())
-                                .email(info.email())
-                                .name(info.name())
-                                .profileImageUrl(info.profileImageUrl())
-                                .build()));
+                .orElseGet(() -> {
+                    // 같은 소셜 계정이 이미 강사로 가입돼 있으면 차단 (한 계정 = 한 역할)
+                    if (tutorRepository
+                            .findByProviderAndProviderUserId(info.provider(), info.providerUserId())
+                            .isPresent()) {
+                        throw BusinessException.badRequest("이미 강사로 가입된 소셜 계정입니다.");
+                    }
+                    return studentRepository.save(
+                            Student.builder()
+                                    .provider(info.provider())
+                                    .providerUserId(info.providerUserId())
+                                    .email(info.email())
+                                    .name(info.name())
+                                    .profileImageUrl(info.profileImageUrl())
+                                    .build());
+                });
         verifyActive(student.getStatus());
         return tokenService.issue(student.getId(), Role.STUDENT);
     }
-
     private TokenResponse oauthLoginTutor(OAuthUserInfo info) {
         Tutor tutor = tutorRepository
                 .findByProviderAndProviderUserId(info.provider(), info.providerUserId())
-                .orElseGet(() -> tutorRepository.save(
-                        Tutor.builder()
-                                .provider(info.provider())
-                                .providerUserId(info.providerUserId())
-                                .email(info.email())
-                                .name(info.name())
-                                .profileImageUrl(info.profileImageUrl())
-                                .build()));
+                .orElseGet(() -> {
+                    // 같은 소셜 계정이 이미 학생으로 가입돼 있으면 차단 (한 계정 = 한 역할)
+                    if (studentRepository
+                            .findByProviderAndProviderUserId(info.provider(), info.providerUserId())
+                            .isPresent()) {
+                        throw BusinessException.badRequest("이미 학생으로 가입된 소셜 계정입니다.");
+                    }
+                    return tutorRepository.save(
+                            Tutor.builder()
+                                    .provider(info.provider())
+                                    .providerUserId(info.providerUserId())
+                                    .email(info.email())
+                                    .name(info.name())
+                                    .profileImageUrl(info.profileImageUrl())
+                                    .build());
+                });
         verifyActive(tutor.getStatus());
         return tokenService.issue(tutor.getId(), Role.TUTOR);
     }

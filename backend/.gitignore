@@ -44,3 +44,4 @@ uploads/
 application-local.yml
 data.sql
 
+.claude/worktrees/

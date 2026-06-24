@@ -10,6 +10,7 @@ import 'package:ieum/features/auth/screens/tutor_signup_screen.dart';
 import 'package:ieum/features/onboarding/screens/onboarding_screen.dart';
 import 'package:ieum/features/student/screens/student_classroom_screen.dart';
 import 'package:ieum/features/student/screens/student_credit_recharge_screen.dart';
+import 'package:ieum/features/student/screens/student_subscription_screen.dart';
 import 'package:ieum/features/student/screens/student_matching_wait_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_upload_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_list_screen.dart';
@@ -27,12 +28,19 @@ import '../features/matching/screens/problem_detail_screen.dart';
 
 final appRouter = GoRouter(
   navigatorKey: GlobalKey<NavigatorState>(),
-  initialLocation: '/',
-  redirect: (context, state) {
+  initialLocation: '/login',
+    redirect: (context, state) {
     final container = ProviderScope.containerOf(context);
     final user = container.read(currentUserProvider);
-    final isProtected = state.matchedLocation.startsWith('/tutor') ||
-        state.matchedLocation.startsWith('/student');
+    final loc = state.matchedLocation;
+    final isProtected = loc.startsWith('/tutor') || loc.startsWith('/student');
+    final isEntry = loc == '/' || loc == RoutePaths.login;
+
+    // 로그인 상태인데 시작/로그인 화면이면 → 역할별 홈으로
+    if (user != null && isEntry) {
+      return user.isTutor ? RoutePaths.tutorHome : RoutePaths.studentHome;
+    }
+    // 미로그인인데 보호 화면이면 → 시작(/)으로
     if (user == null && isProtected) return '/';
     return null;
   },
@@ -69,6 +77,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.studentCreditRecharge,
       builder: (_, _) => const StudentCreditRechargeScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.studentSubscription,
+      builder: (_, _) => const StudentSubscriptionScreen(),
     ),
     GoRoute(
       path: RoutePaths.studentProblemUpload,

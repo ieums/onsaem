@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -263,6 +264,7 @@ class _StudentQuestionsScreenState extends ConsumerState<StudentQuestionsScreen>
 
   /// iOS는 허용 필수. Android는 요청해 설정에 노출하고, 거부돼도 시스템 사진 선택기 시도.
   Future<bool> _ensurePhotosPermission({bool required = true}) async {
+    if (kIsWeb) return true; // 웹은 권한 개념 없이 브라우저 파일 선택기 사용
     if (Platform.isAndroid && !required) {
       final status = await Permission.photos.status;
       if (status.isGranted || status.isLimited) return true;
@@ -303,10 +305,12 @@ class _StudentQuestionsScreenState extends ConsumerState<StudentQuestionsScreen>
   }
 
   Future<void> _pickFromGallery() async {
-    if (Platform.isIOS) {
-      if (!await _ensurePhotosPermission()) return;
-    } else if (Platform.isAndroid) {
-      await _ensurePhotosPermission(required: false);
+    if (!kIsWeb) {
+      if (Platform.isIOS) {
+        if (!await _ensurePhotosPermission()) return;
+      } else if (Platform.isAndroid) {
+        await _ensurePhotosPermission(required: false);
+      }
     }
     try {
       final file = await _imagePicker.pickImage(
