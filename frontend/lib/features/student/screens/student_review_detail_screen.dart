@@ -147,7 +147,7 @@ class _StudentReviewDetailScreenState
                       delegate: _ReviewTabBarDelegate(
                         tabController: _tabController,
                         backgroundColor: pageBg,
-                        indicatorColor: AppColors.studentPoint,
+                        indicatorColor: AppColors.studentInk,
                         labelColor: shell.titleColor,
                         unselectedColor: shell.hintColor,
                       ),
@@ -464,14 +464,14 @@ class _StudentReviewDetailScreenState
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w800,
-            color: AppColors.studentPoint,
+            color: AppColors.studentInk,
           ),
         ),
       ),
       title: section.title,
       body: section.body,
       bullets: section.bullets,
-      bulletColor: AppColors.studentPoint,
+      bulletColor: AppColors.studentInk,
     );
   }
 
@@ -807,7 +807,7 @@ class _StudentReviewDetailScreenState
                               onPressed: _saveMemoEdit,
                               style: FilledButton.styleFrom(
                                 backgroundColor: AppColors.studentPoint,
-                                foregroundColor: Colors.white,
+                                foregroundColor: AppColors.studentInk,
                                 elevation: 0,
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
@@ -871,7 +871,7 @@ class _StudentReviewDetailScreenState
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: AppColors.studentPoint,
+              color: AppColors.studentInk,
             ),
           ),
           const SizedBox(height: 10),

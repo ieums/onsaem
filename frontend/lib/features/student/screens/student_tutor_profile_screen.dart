@@ -58,7 +58,7 @@ class _StudentTutorProfileScreenState extends ConsumerState<StudentTutorProfileS
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
@@ -238,7 +238,7 @@ class _ProfileSummaryCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.studentPoint,
+                      color: AppColors.studentInk,
                     ),
                   ),
                 ),
@@ -414,7 +414,7 @@ class _SegmentTab extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: selected ? AppColors.studentPoint : shell.hintColor,
+                color: selected ? AppColors.studentInk : shell.hintColor,
               ),
             ),
           ),
@@ -481,7 +481,7 @@ class _IntroContent extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.studentPoint,
+                      color: AppColors.studentInk,
                     ),
                   ),
                 ),

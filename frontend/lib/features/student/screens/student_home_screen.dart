@@ -6,16 +6,15 @@ import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
-import 'package:ieum/core/utils/list_pagination.dart';
-import 'package:ieum/core/widgets/list_pagination_controls.dart';
-import 'package:ieum/features/student/data/student_home_dummy_data.dart';
-import 'package:ieum/features/student/data/student_review_dummy_data.dart';
+import 'package:ieum/features/student/models/student_problem_model.dart';
+import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/providers/student_notification_provider.dart';
 import 'package:ieum/features/student/providers/student_shell_tab_provider.dart';
-import 'package:ieum/features/student/screens/student_review_detail_screen.dart';
+import 'package:ieum/features/student/screens/student_problem_status_screen.dart';
 import 'package:ieum/features/student/utils/student_question_text_util.dart';
 import 'package:ieum/features/student/widgets/student_notification_dialog.dart';
+import 'package:ieum/features/student/widgets/student_problem_chips.dart';
 import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
 
 class StudentHomeScreen extends ConsumerStatefulWidget {
@@ -26,9 +25,6 @@ class StudentHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
-  static const _starColor = Color(0xFFF5A623);
-
-  int _recentLessonsPageIndex = 0;
   Timer? _pendingTickTimer;
 
   @override
@@ -48,33 +44,13 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     _pendingTickTimer = null;
   }
 
-  List<StudentRecentLesson> get _pagedRecentLessons {
-    return ListPagination.slice(
-      StudentHomeDummyData.recentLessons,
-      pageIndex: _safeRecentLessonsPageIndex,
-      pageSize: StudentHomeDummyData.recentLessonsPageSize,
-    );
-  }
-
-  int get _recentLessonsPageCount => ListPagination.pageCount(
-        StudentHomeDummyData.recentLessons.length,
-        StudentHomeDummyData.recentLessonsPageSize,
-      );
-
-  int get _safeRecentLessonsPageIndex =>
-      ListPagination.clampPageIndex(
-        _recentLessonsPageIndex,
-        _recentLessonsPageCount,
-      );
 
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
     final pageBg = Theme.of(context).scaffoldBackgroundColor;
     final matchingSession = ref.watch(studentMatchingSessionProvider);
-    final isSessionActive = matchingSession != null &&
-        matchingSession.status != StudentMatchingSessionStatus.connected;
-    _ensurePendingTickTimer(isSessionActive);
+    _ensurePendingTickTimer(matchingSession?.showOnHomePending ?? false);
 
     return ColoredBox(
       color: pageBg,
@@ -87,29 +63,14 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               _buildHeader(context, shell),
               const SizedBox(height: 20),
               _buildActionCards(context),
-              if (matchingSession != null && isSessionActive) ...[
+              const SizedBox(height: 28),
+              _buildMyQuestions(context, shell),
+              if (matchingSession?.showOnHomePending == true) ...[
                 const SizedBox(height: 28),
                 _buildSectionTitle(context, shell, '매칭 대기 중인 질문'),
                 const SizedBox(height: 12),
-                _ActivePendingQuestionCard(session: matchingSession),
+                _ActivePendingQuestionCard(session: matchingSession!),
               ],
-              const SizedBox(height: 28),
-              _buildSectionTitle(context, shell, '최근 수업 이력'),
-              const SizedBox(height: 12),
-              for (final lesson in _pagedRecentLessons) ...[
-                _buildRecentLessonCard(context, shell, lesson),
-                const SizedBox(height: 10),
-              ],
-              ListPaginationControls(
-                pageIndex: _safeRecentLessonsPageIndex,
-                pageCount: _recentLessonsPageCount,
-                onPrevious: () => setState(
-                  () => _recentLessonsPageIndex = _safeRecentLessonsPageIndex - 1,
-                ),
-                onNext: () => setState(
-                  () => _recentLessonsPageIndex = _safeRecentLessonsPageIndex + 1,
-                ),
-              ),
             ],
           ),
         ),
@@ -195,9 +156,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
             title: '강사 찾기',
             subtitle: '실시간 매칭',
             backgroundColor: AppColors.studentPoint,
-            titleColor: textColor,
-            subtitleColor: subtitleColor,
-            iconColor: textColor,
+            titleColor: AppColors.studentInk,
+            subtitleColor: AppColors.studentInk.withValues(alpha: 0.75),
+            iconColor: AppColors.studentInk,
             onTap: () => context.push(RoutePaths.studentProblemUpload),
           ),
         ),
@@ -221,6 +182,137 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     );
   }
 
+  /// 학생 등록 문제 카드를 홈에 직접 노출. 카드 탭 → 질문 현황(간략+강사현황).
+  Widget _buildMyQuestions(BuildContext context, ShellTheme shell) {
+    const maxOnHome = 3;
+    final async = ref.watch(studentProblemsProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            _buildSectionTitle(context, shell, '내 질문'),
+            const Spacer(),
+            async.maybeWhen(
+              data: (items) => items.length > maxOnHome
+                  ? GestureDetector(
+                      onTap: () => context.push(RoutePaths.studentProblemList),
+                      child: Row(
+                        children: [
+                          Text(
+                            '전체 보기',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.studentInk,
+                            ),
+                          ),
+                          Icon(Icons.chevron_right,
+                              size: 16, color: AppColors.studentInk),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+              orElse: () => const SizedBox.shrink(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        async.when(
+          loading: () => _questionsHint(shell, '질문을 불러오는 중…'),
+          error: (_, _) => _questionsHint(shell, '질문을 불러오지 못했어요.'),
+          data: (items) {
+            if (items.isEmpty) {
+              return _questionsHint(
+                  shell, '아직 등록한 질문이 없어요. 사진을 올려 첫 질문을 등록해 보세요.');
+            }
+            final shown = items.take(maxOnHome).toList();
+            return Column(
+              children: [
+                for (var i = 0; i < shown.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  _buildQuestionCard(context, shell, shown[i]),
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _questionsHint(ShellTheme shell, String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      decoration: BoxDecoration(
+        color: shell.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: shell.cardBorder),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 13, color: shell.hintColor),
+      ),
+    );
+  }
+
+  Widget _buildQuestionCard(
+    BuildContext context,
+    ShellTheme shell,
+    StudentProblemModel item,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => StudentProblemStatusScreen(problem: item),
+          ),
+        ),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: shell.cardBackground,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: shell.cardBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  ProblemSubjectChip(subject: item.subject),
+                  const SizedBox(width: 8),
+                  ProblemStatusChip(status: item.status),
+                  const Spacer(),
+                  Icon(Icons.chevron_right,
+                      size: 20, color: shell.chevronColor),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                (item.summary?.trim().isNotEmpty ?? false)
+                    ? item.summary!.trim()
+                    : '문제 요약 없음',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: shell.titleColor,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionTitle(
     BuildContext context,
     ShellTheme shell,
@@ -236,98 +328,6 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     );
   }
 
-  void _openReviewDetail(StudentRecentLesson lesson) {
-    final review = StudentReviewDummyData.findById(lesson.id);
-    if (review == null) return;
-
-    final theme = Theme.of(context);
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => Theme(
-          data: theme,
-          child: StudentReviewDetailScreen(item: review),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentLessonCard(
-    BuildContext context,
-    ShellTheme shell,
-    StudentRecentLesson lesson,
-  ) {
-    return Material(
-      color: shell.cardBackground,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _openReviewDetail(lesson),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: shell.cardBorder),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        TutorSubjectBadge(subject: lesson.subject),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            lesson.tutorName,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: shell.titleColor,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      lesson.question,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.45,
-                        fontWeight: FontWeight.w500,
-                        color: shell.subtitleColor,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      lesson.recordedAtLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: shell.hintColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: _StarRating(
-                  rating: lesson.rating,
-                  starColor: _starColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _ActivePendingQuestionCard extends StatelessWidget {
@@ -415,7 +415,7 @@ class _ActivePendingQuestionCard extends StatelessWidget {
                       Icons.person_outline_rounded,
                       size: 18,
                       color: canSelectTutor
-                          ? AppColors.studentPoint
+                          ? AppColors.studentInk
                           : shell.hintColor,
                     ),
                     const SizedBox(width: 8),
@@ -426,7 +426,7 @@ class _ActivePendingQuestionCard extends StatelessWidget {
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: canSelectTutor
-                              ? AppColors.studentPoint
+                              ? AppColors.studentInk
                               : shell.subtitleColor,
                         ),
                       ),
@@ -434,7 +434,7 @@ class _ActivePendingQuestionCard extends StatelessWidget {
                     if (canSelectTutor)
                       Icon(
                         Icons.chevron_right_rounded,
-                        color: AppColors.studentPoint,
+                        color: AppColors.studentInk,
                       ),
                   ],
                 ),
@@ -508,31 +508,3 @@ class _HomeActionCard extends StatelessWidget {
   }
 }
 
-class _StarRating extends StatelessWidget {
-  const _StarRating({
-    required this.rating,
-    required this.starColor,
-  });
-
-  final double rating;
-  final Color starColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < 5; i++)
-          Icon(
-            i < rating.floor()
-                ? Icons.star_rounded
-                : (rating - i >= 0.5
-                    ? Icons.star_half_rounded
-                    : Icons.star_outline_rounded),
-            size: 16,
-            color: starColor,
-          ),
-      ],
-    );
-  }
-}

@@ -43,7 +43,7 @@ public class PaymentService {
      * 코인 결제 요청 생성 (포트원 결제창 호출 전)
      */
     @Transactional
-    public PaymentResponse createCoinPayment(CoinChargeRequest request) {
+    public PaymentResponse createCoinPayment(Long studentId, CoinChargeRequest request) {
         CoinPackage coinPackage = coinPackageRepository.findById(request.getCoinPackageId())
                 .orElseThrow(() -> BusinessException.notFound("존재하지 않는 코인 패키지입니다."));
 
@@ -51,7 +51,7 @@ public class PaymentService {
 
         Payment payment = Payment.builder()
                 .merchantId(merchantId)
-                .studentId(request.getStudentId())
+                .studentId(studentId)
                 .amount(coinPackage.getPrice())
                 .coinAmount(coinPackage.getCoinAmount())
                 .bonusCoinAmount(coinPackage.getBonusAmount())
@@ -138,18 +138,18 @@ public class PaymentService {
      * 구독 결제 요청 생성 (포트원 결제창 호출 전)
      */
     @Transactional
-    public PaymentResponse createSubscriptionPayment(SubscribeChargeRequest request) {
+    public PaymentResponse createSubscriptionPayment(Long studentId, SubscribeChargeRequest request) {
         SubscriptionPlan plan = subscriptionPlanRepository.findById(request.getSubscriptionPlanId())
                 .orElseThrow(() -> BusinessException.notFound("존재하지 않는 구독 플랜입니다."));
 
         // 이미 활성 구독이 있는지 체크
-        subscriptionService.checkNoActiveSubscription(request.getStudentId());
+        subscriptionService.checkNoActiveSubscription(studentId);
 
         String merchantId = "SUB-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
         Payment payment = Payment.builder()
                 .merchantId(merchantId)
-                .studentId(request.getStudentId())
+                .studentId(studentId)
                 .amount(plan.getPrice())
                 .productName(plan.getName() + " 구독")
                 .targetType(PaymentTargetType.SUBSCRIPTION)

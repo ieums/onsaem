@@ -47,7 +47,7 @@ class PaymentFailPersistTest {
                 .name("테스트 100코인").price(1000).coinAmount(100).bonusAmount(0).build());
 
         PaymentResponse created = paymentService.createCoinPayment(
-                new CoinChargeRequest(8800L, pkg.getId()));
+                8800L, new CoinChargeRequest(8800L, pkg.getId()));
         this.merchantId = created.getMerchantId();
     }
 

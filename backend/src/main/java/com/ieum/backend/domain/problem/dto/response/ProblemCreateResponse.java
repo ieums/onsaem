@@ -22,6 +22,7 @@ public class ProblemCreateResponse {
 
     // ─── 여러 문제 감지 시 (학생 선택 필요) ───
     private Boolean needsSelection;
+    private String detectionId;            // 선택 시 /problems/select에 그대로 전달 (재OCR 방지)
     private List<DetectedProblem> allDetected;
 
     // ─── 등록 완료 시 (단일 문제) ───
@@ -40,12 +41,20 @@ public class ProblemCreateResponse {
     private String studentDescription;
     private LocalDateTime createdAt;
 
+    /** 분류 API 실패로 기본값 등록됨 → 프론트가 분류 수정 화면으로 유도. */
+    private Boolean needsClassification;
+
     /**
      * 등록 완료된 Problem → 응답 변환
      */
     public static ProblemCreateResponse from(Problem problem) {
+        return from(problem, false);
+    }
+
+    public static ProblemCreateResponse from(Problem problem, boolean needsClassification) {
         return ProblemCreateResponse.builder()
                 .needsSelection(false)
+                .needsClassification(needsClassification)
                 .id(problem.getId())
                 .studentId(problem.getStudentId())
                 .imageUrls(problem.getImageUrls())
@@ -67,9 +76,11 @@ public class ProblemCreateResponse {
      * 여러 문제 감지 → 학생 선택 유도 응답
      */
     public static ProblemCreateResponse fromDetection(List<DetectedProblem> detected,
-                                                      List<String> imageUrls) {
+                                                      List<String> imageUrls,
+                                                      String detectionId) {
         return ProblemCreateResponse.builder()
                 .needsSelection(true)
+                .detectionId(detectionId)
                 .allDetected(detected)
                 .imageUrls(imageUrls)
                 .build();

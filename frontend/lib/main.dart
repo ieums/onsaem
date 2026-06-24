@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/notifications/app_notification_service.dart';
@@ -14,14 +15,24 @@ import 'dart:io';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // 카카오 SDK 초기화 (네이티브 앱키)
-  KakaoSdk.init(nativeAppKey: '8e025998483a2799ea1ebf2efd15288e');
-  await GoogleSignIn.instance.initialize(
-    clientId: Platform.isIOS
-        ? '630470477380-7p64mea0fvnj1nk5o1d66ic32kv8p20t.apps.googleusercontent.com'
-        : null,
-    serverClientId: '630470477380-8tfmb9f6d8iaaj4rc0gkgri1gaqao5sj.apps.googleusercontent.com',
-  );
+  // 소셜 로그인 SDK 초기화. 웹에선 dart:io(Platform)·네이티브 SDK가 없어 예외가 날 수 있으므로
+  // 가드 + try/catch로 감싸 앱 자체 기동이 막히지 않게 한다.
+  try {
+    KakaoSdk.init(nativeAppKey: '8e025998483a2799ea1ebf2efd15288e');
+  } catch (e) {
+    debugPrint('[Onsaem] KakaoSdk 초기화 실패: $e');
+  }
+  try {
+    await GoogleSignIn.instance.initialize(
+      clientId: (!kIsWeb && Platform.isIOS)
+          ? '630470477380-7p64mea0fvnj1nk5o1d66ic32kv8p20t.apps.googleusercontent.com'
+          : null,
+      serverClientId:
+          '630470477380-8tfmb9f6d8iaaj4rc0gkgri1gaqao5sj.apps.googleusercontent.com',
+    );
+  } catch (e) {
+    debugPrint('[Onsaem] GoogleSignIn 초기화 실패: $e');
+  }
   tz.initializeTimeZones();
   try {
     tz.setLocalLocation(tz.getLocation('Asia/Seoul'));

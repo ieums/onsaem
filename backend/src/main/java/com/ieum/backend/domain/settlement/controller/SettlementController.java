@@ -1,5 +1,6 @@
 package com.ieum.backend.domain.settlement.controller;
 
+import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
 import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
 import com.ieum.backend.domain.settlement.dto.response.BulkWithdrawResponse;
 import com.ieum.backend.domain.settlement.dto.response.SettlementResponse;
@@ -9,6 +10,7 @@ import com.ieum.backend.domain.settlement.service.SettlementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,8 +41,9 @@ public class SettlementController {
      */
     @GetMapping
     public ResponseEntity<List<SettlementResponse>> getByTutor(
-            @RequestParam Long tutorId,
+            @AuthenticationPrincipal AuthPrincipal principal,
             @RequestParam(required = false) SettlementStatus status) {
+        Long tutorId = principal.id();
         if (status != null) {
             return ResponseEntity.ok(settlementService.getByTutorAndStatus(tutorId, status));
         }
@@ -61,8 +64,9 @@ public class SettlementController {
      * GET /api/v1/settlements/summary?tutorId=1
      */
     @GetMapping("/summary")
-    public ResponseEntity<SettlementSummaryResponse> getSummary(@RequestParam Long tutorId) {
-        return ResponseEntity.ok(settlementService.getSummary(tutorId));
+    public ResponseEntity<SettlementSummaryResponse> getSummary(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ResponseEntity.ok(settlementService.getSummary(principal.id()));
     }
 
     /**
@@ -72,8 +76,8 @@ public class SettlementController {
     @PostMapping("/{id}/withdraw")
     public ResponseEntity<SettlementResponse> requestWithdraw(
             @PathVariable Long id,
-            @RequestParam Long tutorId) {
-        return ResponseEntity.ok(settlementService.requestWithdraw(id, tutorId));
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ResponseEntity.ok(settlementService.requestWithdraw(id, principal.id()));
     }
 
     /**
@@ -82,8 +86,8 @@ public class SettlementController {
      */
     @PostMapping("/withdraw-all")
     public ResponseEntity<BulkWithdrawResponse> requestBulkWithdraw(
-            @RequestParam Long tutorId) {
-        return ResponseEntity.ok(settlementService.requestBulkWithdraw(tutorId));
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ResponseEntity.ok(settlementService.requestBulkWithdraw(principal.id()));
     }
 
     /**

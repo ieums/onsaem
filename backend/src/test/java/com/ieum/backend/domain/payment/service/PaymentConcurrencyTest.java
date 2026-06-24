@@ -75,7 +75,7 @@ class PaymentConcurrencyTest {
 
         // PENDING 결제 1건 생성
         PaymentResponse created = paymentService.createCoinPayment(
-                new CoinChargeRequest(STUDENT_ID, pkg.getId()));
+                STUDENT_ID, new CoinChargeRequest(STUDENT_ID, pkg.getId()));
         this.merchantId = created.getMerchantId();
     }
 

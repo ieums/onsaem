@@ -50,6 +50,8 @@ class StudentMatchingSession {
   List<StudentTutorProfile> get candidates =>
       applicants.map(StudentTutorProfile.fromApplicant).toList();
 
+  bool get showOnHomePending => true;
+
   StudentTutorProfile? get selectedTutor {
     if (selectedTutorId == null) return null;
     final applicant = applicants

@@ -51,7 +51,7 @@ class _StudentReviewWriteScreenState
   ThemeData _flowTheme(bool isDark) {
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     return baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
@@ -103,8 +103,7 @@ class _StudentReviewWriteScreenState
         builder: (context) {
           final shell = ShellTheme.of(context);
           final pageBg = theme.scaffoldBackgroundColor;
-          final buttonLabelColor =
-              isDark ? AppColors.shellOnSurfaceLight : Colors.white;
+          final buttonLabelColor = AppColors.studentInk;
 
           return PopScope(
             canPop: false,
@@ -256,7 +255,7 @@ class _StudentReviewWriteScreenState
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                       borderSide: const BorderSide(
-                                        color: AppColors.studentPoint,
+                                        color: AppColors.studentInk,
                                         width: 1.5,
                                       ),
                                     ),

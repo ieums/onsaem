@@ -14,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -34,8 +35,18 @@ public class GeminiOcrClient {
     @Value("${gemini.api.key:none}")
     private String apiKey;
 
-    private static final String GEMINI_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+    // OCR은 빽빽한 한글 vision 작업이라 lite는 반복 루프에 빠지기 쉬움 → flash 이상 권장.
+    // 더 센 모델(gemini-2.5-pro)로 올리려면 application-local.yml에서 ocr-model 교체.
+    @Value("${gemini.api.ocr-model:gemini-2.5-flash}")
+    private String model;
+
+    // thinking 예산. flash/flash-lite는 0으로 끌 수 있고, 2.5-pro는 0 불가(-1=자동/동적).
+    @Value("${gemini.api.ocr-thinking-budget:0}")
+    private int thinkingBudget;
+
+    private String geminiUrl() {
+        return "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
+    }
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -147,16 +158,42 @@ public class GeminiOcrClient {
             ☐ 백슬래시 없음
             """;
 
+    private static final int MAX_ATTEMPTS = 3;
+
     public OcrResult extract(List<MultipartFile> images) {
         if ("none".equals(apiKey)) {
             log.warn("Gemini API 키 없음. Mock OCR 결과 반환.");
             return mockOcr();
         }
+        // 여러 장이 한 세트(지문이 페이지에 걸침, 문제가 다른 페이지)일 수 있어 한 번에 보낸다.
+        // 출력이 길어 잘리던 문제는 maxOutputTokens를 모델 최대치로 올려 대응.
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return callApi(images);
+            } catch (HttpStatusCodeException e) {
+                // 503/502/500/429 등 일시 과부하·레이트리밋이면 잠깐 쉬고 재시도
+                boolean transientError =
+                        e.getStatusCode().is5xxServerError() || e.getStatusCode().value() == 429;
+                if (transientError && attempt < MAX_ATTEMPTS) {
+                    log.warn("OCR 일시 오류({}) — 재시도 {}/{}", e.getStatusCode(), attempt, MAX_ATTEMPTS);
+                    backoff(attempt);
+                    continue;
+                }
+                log.error("OCR API 호출 실패", e);
+                throw BusinessException.internalError("OCR API 호출 실패: " + e.getMessage(), e);
+            } catch (Exception e) {
+                log.error("OCR API 호출 실패", e);
+                throw BusinessException.internalError("OCR API 호출 실패: " + e.getMessage(), e);
+            }
+        }
+    }
+
+    /** 재시도 전 백오프 대기 (1초, 2초 …) */
+    private static void backoff(int attempt) {
         try {
-            return callApi(images);
-        } catch (Exception e) {
-            log.error("OCR API 호출 실패", e);
-            throw BusinessException.internalError("OCR API 호출 실패: " + e.getMessage(), e);
+            Thread.sleep(1000L * attempt);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -186,7 +223,10 @@ public class GeminiOcrClient {
                 "contents", List.of(Map.of("parts", parts)),
                 "generationConfig", Map.of(
                         "response_mime_type", "application/json",
-                        "temperature", 0.1   // OCR은 더 낮게
+                        "temperature", 0.1,           // OCR은 더 낮게
+                        "maxOutputTokens", 65536, // 한 장이라도 문제가 많으면 출력이 길어 잘릴 수 있음 → 모델 최대치
+                        // thinking 예산은 설정값. flash=0(끔), pro=-1(자동) 권장.
+                        "thinkingConfig", Map.of("thinkingBudget", thinkingBudget)
                 )
         );
 
@@ -194,7 +234,7 @@ public class GeminiOcrClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
-        String urlWithKey = GEMINI_URL + "?key=" + apiKey;
+        String urlWithKey = geminiUrl() + "?key=" + apiKey;
         ResponseEntity<String> response = restTemplate.postForEntity(urlWithKey, request, String.class);
 
         return parseResponse(response.getBody());
@@ -233,7 +273,9 @@ public class GeminiOcrClient {
             return result;
 
         } catch (Exception e) {
-            throw BusinessException.internalError("OCR 응답 파싱 실패: " + e.getMessage(), e);
+            // 모델 출력이 잘리거나 형식이 깨지면 여기로 옴 → 사용자에게 알아들을 메시지
+            throw BusinessException.internalError(
+                    "문제 인식 결과 처리에 실패했어요. 사진을 더 적게/선명하게 올려 다시 시도해 주세요.", e);
         }
     }
 
