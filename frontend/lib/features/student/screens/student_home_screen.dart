@@ -8,10 +8,6 @@ import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
-import 'package:ieum/core/utils/list_pagination.dart';
-import 'package:ieum/core/widgets/list_pagination_controls.dart';
-import 'package:ieum/features/student/data/models/lesson_review_session.dart';
-import 'package:ieum/features/student/data/student_home_dummy_data.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/providers/student_notification_provider.dart';
 import 'package:ieum/features/student/providers/student_shell_tab_provider.dart';
@@ -332,98 +328,6 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     );
   }
 
-  void _openReviewDetail(StudentRecentLesson lesson) {
-    final review = StudentReviewDummyData.findById(lesson.id);
-    if (review == null) return;
-
-    final theme = Theme.of(context);
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => Theme(
-          data: theme,
-          child: StudentReviewDetailScreen(item: review),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentLessonCard(
-    BuildContext context,
-    ShellTheme shell,
-    StudentRecentLesson lesson,
-  ) {
-    return Material(
-      color: shell.cardBackground,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _openReviewDetail(lesson),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: shell.cardBorder),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        TutorSubjectBadge(subject: lesson.subject),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            lesson.tutorName,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: shell.titleColor,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      lesson.question,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.45,
-                        fontWeight: FontWeight.w500,
-                        color: shell.subtitleColor,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      lesson.recordedAtLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: shell.hintColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: _StarRating(
-                  rating: lesson.rating,
-                  starColor: _starColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _ActivePendingQuestionCard extends StatelessWidget {
