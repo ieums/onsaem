@@ -1,0 +1,328 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/features/student/data/models/ai_tutor_message.dart';
+import 'package:ieum/features/student/providers/ai_tutor_provider.dart';
+
+class StudentAiTutorScreen extends ConsumerStatefulWidget {
+  const StudentAiTutorScreen({
+    super.key,
+    required this.problemId,
+    this.problemSummary,
+  });
+
+  final int problemId;
+  final String? problemSummary;
+
+  @override
+  ConsumerState<StudentAiTutorScreen> createState() =>
+      _StudentAiTutorScreenState();
+}
+
+class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
+  final _msgController = TextEditingController();
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(aiTutorChatProvider.notifier).init(widget.problemId);
+    });
+  }
+
+  @override
+  void dispose() {
+    _msgController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _msgController.text.trim();
+    if (text.isEmpty) return;
+    _msgController.clear();
+    await ref.read(aiTutorChatProvider.notifier).sendMessage(text);
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = ref.watch(shellDarkModeProvider);
+    final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
+    final theme = baseTheme.copyWith(
+      colorScheme:
+          baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+      scaffoldBackgroundColor:
+          isDark ? AppColors.shellScaffoldDark : Colors.white,
+    );
+
+    return Theme(
+      data: theme,
+      child: Builder(
+        builder: (context) {
+          final shell = ShellTheme.of(context);
+          final state = ref.watch(aiTutorChatProvider);
+
+          ref.listen<AiTutorChatState>(aiTutorChatProvider, (prev, next) {
+            if ((prev?.messages.length ?? 0) < next.messages.length) {
+              _scrollToBottom();
+            }
+          });
+
+          return Scaffold(
+            appBar: AppBar(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              elevation: 0,
+              centerTitle: true,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back_ios_new,
+                    size: 20, color: shell.titleColor),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              title: Text(
+                'AI 튜터',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: shell.titleColor,
+                ),
+              ),
+            ),
+            body: SafeArea(
+              child: Column(
+                children: [
+                  if (state.isInitializing)
+                    const LinearProgressIndicator(
+                        minHeight: 2, color: AppColors.studentInk),
+                  Expanded(child: _buildBody(shell, state)),
+                  if (state.error != null && state.messages.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      child: Text(
+                        state.error!,
+                        style: const TextStyle(
+                            color: Colors.redAccent, fontSize: 12),
+                      ),
+                    ),
+                  _buildInputBar(shell, state),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildBody(ShellTheme shell, AiTutorChatState state) {
+    if (state.isInitializing) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state.error != null && state.messages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(state.error!,
+                style: TextStyle(color: shell.hintColor, fontSize: 14)),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => ref
+                  .read(aiTutorChatProvider.notifier)
+                  .init(widget.problemId),
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (state.messages.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
+            widget.problemSummary?.trim().isNotEmpty ?? false
+                ? '이 문제에 대해 궁금한 점을 AI 튜터에게 물어보세요!\n\n"${widget.problemSummary!.trim()}"'
+                : '이 문제에 대해 궁금한 점을 AI 튜터에게 물어보세요!',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: shell.hintColor, fontSize: 14, height: 1.5),
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      itemCount: state.messages.length,
+      itemBuilder: (_, i) =>
+          _MessageBubble(message: state.messages[i], shell: shell),
+    );
+  }
+
+  Widget _buildInputBar(ShellTheme shell, AiTutorChatState state) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        border: Border(
+          top: BorderSide(color: shell.cardBorder.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _msgController,
+              onSubmitted: (_) => state.isSending ? null : _sendMessage(),
+              style: TextStyle(fontSize: 15, color: shell.titleColor),
+              decoration: InputDecoration(
+                hintText: '질문을 입력하세요...',
+                hintStyle: TextStyle(color: shell.hintColor, fontSize: 14),
+                filled: true,
+                fillColor:
+                    isDark ? shell.detailBackground : shell.cardBackground,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(color: shell.cardBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(color: shell.cardBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide:
+                      const BorderSide(color: AppColors.studentInk, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: state.isSending ? null : _sendMessage,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: state.isSending
+                    ? AppColors.studentInk.withValues(alpha: 0.4)
+                    : AppColors.studentInk,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: state.isSending
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send_rounded,
+                      color: Colors.white, size: 18),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({required this.message, required this.shell});
+
+  final AiTutorMessage message;
+  final ShellTheme shell;
+
+  @override
+  Widget build(BuildContext context) {
+    final isUser = message.role.isUser;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!isUser) ...[
+            _AiAvatar(isDark: isDark),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isUser
+                    ? AppColors.studentInk
+                    : (isDark ? shell.detailBackground : shell.cardBackground),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isUser ? 16 : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : 16),
+                ),
+                border: isUser
+                    ? null
+                    : Border.all(
+                        color: shell.cardBorder.withValues(alpha: 0.6)),
+              ),
+              child: Text(
+                message.content,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.55,
+                  color: isUser ? Colors.white : shell.titleColor,
+                ),
+              ),
+            ),
+          ),
+          if (isUser) const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiAvatar extends StatelessWidget {
+  const _AiAvatar({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.studentInk.withValues(alpha: 0.2)
+            : AppColors.studentInk.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: const Icon(Icons.smart_toy_rounded,
+          size: 16, color: AppColors.studentInk),
+    );
+  }
+}
