@@ -34,4 +34,11 @@ public class ReportController {
         return ApiResponse.ok("신고가 접수되었습니다.",
                 reportService.create(principal.id(), reporterType, request));
     }
+
+    /** 내 신고 내역 — GET /api/v1/reports/me */
+    @GetMapping("/me")
+    public ApiResponse<java.util.List<ReportResponse>> getMyReports(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ApiResponse.ok(reportService.getMyReports(principal.id()));
+    }
 }

@@ -419,10 +419,7 @@ class _StudentProblemUploadScreenState
       _showSnack('문제 사진을 업로드해 주세요.');
       return;
     }
-    if (_selectedSubject == null) {
-      _showSnack('과목을 선택해 주세요.');
-      return;
-    }
+    // 과목은 선택 사항 — 고르지 않으면 AI가 자동으로 분류한다.
 
     // 알림 권한은 매칭 알림용 — 있으면 좋지만 없어도 업로드는 진행한다.
     // (웹/미지원 플랫폼은 ensurePermission이 false를 주지만 막지 않음)
@@ -573,7 +570,12 @@ class _StudentProblemUploadScreenState
                         const SizedBox(height: 10),
                         _buildPhotoCard(shell),
                         const SizedBox(height: 22),
-                        _sectionTitle(shell, '과목'),
+                        _sectionTitle(shell, '과목 (선택)'),
+                        const SizedBox(height: 4),
+                        Text(
+                          '고르지 않으면 AI가 자동으로 분류해요.',
+                          style: TextStyle(fontSize: 12.5, color: shell.hintColor),
+                        ),
                         const SizedBox(height: 10),
                         _buildSubjectChips(shell),
                         const SizedBox(height: 22),

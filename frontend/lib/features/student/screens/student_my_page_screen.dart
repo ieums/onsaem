@@ -1,17 +1,22 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/notifications/app_notification_service.dart';
+import 'package:ieum/core/providers/current_user_provider.dart';
+import 'package:ieum/core/storage/token_storage.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
-import 'package:ieum/features/student/data/student_home_dummy_data.dart';
+import 'package:ieum/features/auth/screens/password_reset_screen.dart';
+import 'package:ieum/features/student/models/payment_models.dart';
+import 'package:ieum/features/student/providers/mypage_provider.dart';
 import 'package:ieum/features/student/providers/payment_provider.dart';
 import 'package:ieum/features/student/providers/student_notification_provider.dart';
 import 'package:ieum/features/student/providers/student_wallet_provider.dart';
-import 'package:ieum/features/student/widgets/student_auto_pay_bottom_sheet.dart';
 
 class StudentMyPageScreen extends ConsumerStatefulWidget {
   const StudentMyPageScreen({super.key});
@@ -35,29 +40,29 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
           '마이페이지 상단의 「충전하기」를 눌러 원하는 금액을 선택해 신용·체크카드로 결제하면 즉시 반영됩니다.',
     ),
     (
-      question: '수업 신청은 어떻게 하나요?',
+      question: '질문은 어떻게 등록하나요?',
       answer:
-          '홈 탭에서 원하는 과목·강사를 선택한 뒤 수업 시간을 예약하면 됩니다. 보유 크레딧이 부족하면 충전 후 신청할 수 있어요.',
+          '홈에서 문제 사진을 올리면 AI가 과목을 자동으로 분류해 드려요. 등록한 질문은 마이페이지 「내 질문」에서 확인·수정할 수 있습니다.',
     ),
     (
       question: 'AI 튜터는 무료인가요?',
       answer:
-          'AI 튜터는 별도 크레딧 없이 이용할 수 있도록 준비 중입니다. 정식 오픈 시 앱 공지로 안내드릴게요.',
+          '아니요, AI 튜터는 구독 후 이용할 수 있어요. 구독 중에는 추가 크레딧 없이 AI 튜터에게 자유롭게 질문할 수 있습니다. 구독은 마이페이지 「구독 관리」에서 시작할 수 있어요.',
     ),
     (
-      question: '수업 취소·환불은 어떻게 되나요?',
+      question: '구독은 어떻게 하나요?',
       answer:
-          '수업 시작 24시간 전까지 취소 시 크레딧 전액이 환급됩니다. 24시간 이내 취소는 정책에 따라 일부 차감될 수 있습니다.',
+          '마이페이지 「구독 관리」에서 플랜을 선택해 결제하면 구독이 시작됩니다. 현재 구독 상태와 남은 기간, 자동 갱신 설정도 거기서 확인·변경할 수 있어요.',
+    ),
+    (
+      question: '환불·구독 해지는 어떻게 하나요?',
+      answer:
+          '충전한 크레딧은 사용 전이라면 결제 내역에서 환불을 요청할 수 있어요. 구독은 「구독 관리」에서 해지하면 자동 갱신이 중단되고, 남은 기간 동안은 계속 이용할 수 있습니다.',
     ),
     (
       question: '프로필은 어디서 수정하나요?',
       answer:
-          '마이페이지 「프로필 수정」에서 이름·생년월일·이메일·휴대폰·프로필 사진을 변경할 수 있습니다.',
-    ),
-    (
-      question: '자동 결제는 어떻게 등록하나요?',
-      answer:
-          '마이페이지 「자동 결제 수단」을 누르면 신용·체크카드를 등록할 수 있습니다.',
+          '마이페이지 상단 프로필 카드의 수정(✎) 버튼을 누르면 이름·휴대폰 번호·생년월일·프로필 사진을 변경할 수 있습니다.',
     ),
   ];
 
@@ -77,50 +82,34 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
               const SizedBox(height: 14),
               _buildCreditCard(),
               const SizedBox(height: 14),
-              _buildStatsSection(),
+              _buildSubscriptionCard(),
               const SizedBox(height: 14),
+              _buildStatsSection(),
+              const SizedBox(height: 18),
+              _buildSectionTitle('내 활동'),
+              const SizedBox(height: 10),
               _buildGroupedMenuCard(
                 children: [
                   _buildMenuRow(
-                    icon: Icons.person_outline,
-                    title: '프로필 수정',
-                    onTap: () =>
-                        context.push('${RoutePaths.signupStudent}?edit=true'),
+                    icon: Icons.assignment_outlined,
+                    title: '내 질문',
+                    onTap: () => context.push(RoutePaths.studentProblemList),
                   ),
                   _buildMenuRow(
-                    icon: Icons.autorenew_rounded,
-                    title: '자동 결제 수단',
-                    onTap: () => showStudentAutoPayBottomSheet(context),
+                    icon: Icons.rate_review_outlined,
+                    title: '내 리뷰 내역',
+                    onTap: () => context.push(RoutePaths.studentMyReviews),
                   ),
                   _buildMenuRow(
-                    icon: Icons.workspace_premium_outlined,
-                    title: '구독 관리',
-                    onTap: () => context.push(RoutePaths.studentSubscription),
+                    icon: Icons.flag_outlined,
+                    title: '내 신고 내역',
+                    onTap: () => context.push(RoutePaths.studentMyReports),
                     showDivider: false,
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _buildSettingsCard(),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => context.go(RoutePaths.login),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.logoutRed,
-                    side: const BorderSide(color: AppColors.logoutRed),
-                    minimumSize: const Size.fromHeight(44),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    '로그아웃',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -154,7 +143,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
           tooltip: ref.watch(shellDarkModeProvider) ? '라이트 모드' : '다크 모드',
         ),
         IconButton(
-          onPressed: () => context.go(RoutePaths.login),
+          onPressed: _logout,
           icon: const Icon(Icons.logout_outlined, size: 24),
           color: AppColors.logoutRed,
           tooltip: '로그아웃',
@@ -163,53 +152,82 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
     );
   }
 
+  /// 로그아웃: 저장된 토큰을 비우고 세션을 초기화한 뒤 로그인 화면으로.
+  Future<void> _logout() async {
+    await tokenStorage.clear();
+    ref.read(currentUserProvider.notifier).state = null;
+    if (mounted) context.go(RoutePaths.login);
+  }
+
   Widget _buildProfileSummary() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _pageBackground,
+    final me = ref.watch(meProvider).valueOrNull;
+    final name = (me?['name'] as String?)?.trim();
+    final email = (me?['email'] as String?)?.trim();
+    final imageUrl = (me?['profileImageUrl'] as String?)?.trim();
+
+    return Material(
+      color: _pageBackground,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _shell.cardBorder),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 38,
-            backgroundColor: AppColors.roleStudentBorder.withValues(alpha: 0.35),
-            child: const Icon(
-              Icons.person,
-              size: 42,
-              color: AppColors.studentInk,
-            ),
+        onTap: _openProfileEdit,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _shell.cardBorder),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  StudentHomeDummyData.studentName,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: _shell.titleColor,
-                  ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 38,
+                backgroundColor:
+                    AppColors.roleStudentBorder.withValues(alpha: 0.35),
+                backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
+                    ? NetworkImage(ApiConstants.resolveImageUrl(imageUrl))
+                    : null,
+                child: (imageUrl == null || imageUrl.isEmpty)
+                    ? const Icon(Icons.person,
+                        size: 42, color: AppColors.studentInk)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      (name == null || name.isEmpty) ? '온샘 학생' : name,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: _shell.titleColor,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      (email == null || email.isEmpty) ? '-' : email,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _shell.hintColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  'student@gmail.com',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: _shell.hintColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              Icon(Icons.edit_outlined, size: 20, color: _shell.chevronColor),
+            ],
           ),
-        ],
+        ),
       ),
     );
+  }
+
+  /// 프로필 수정 화면으로 이동 후 돌아오면 카드를 새로고침.
+  Future<void> _openProfileEdit() async {
+    await context.push(RoutePaths.studentProfileEdit);
+    ref.invalidate(meProvider);
   }
 
   Widget _buildCreditCard() {
@@ -267,19 +285,157 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
     );
   }
 
+  Widget _buildSubscriptionCard() {
+    final async = ref.watch(mySubscriptionProvider);
+    final sub = async.valueOrNull;
+    final loading = async.isLoading;
+    final hasActive = sub != null && sub.valid;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: _pageBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _shell.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '구독',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _shell.hintColor,
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => context.push(RoutePaths.studentSubscription),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: AppColors.studentInk,
+                ),
+                child: Text(
+                  hasActive ? '관리' : '구독하기',
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (hasActive)
+            _buildActiveSubscription(sub)
+          else
+            Text(
+              loading ? '…' : 'AI 튜터, 구독하고 무제한으로 질문하세요',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: _shell.titleColor,
+                height: 1.2,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveSubscription(Subscription sub) {
+    final daysLeft = _daysLeft(sub.endDate);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.workspace_premium_rounded,
+                size: 20, color: AppColors.studentInk),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                '${sub.planName ?? '구독'} 이용 중',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: _shell.titleColor,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: (sub.autoRenew
+                        ? AppColors.studentInk
+                        : _shell.hintColor)
+                    .withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                sub.autoRenew ? '자동갱신 ON' : '자동갱신 OFF',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color:
+                      sub.autoRenew ? AppColors.studentInk : _shell.hintColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          [
+            if (sub.endDate != null) '${_ymd(sub.endDate!)}까지',
+            if (daysLeft != null) '남은 $daysLeft일',
+          ].join(' · '),
+          style: TextStyle(fontSize: 13, color: _shell.hintColor),
+        ),
+      ],
+    );
+  }
+
+  static int? _daysLeft(DateTime? end) {
+    if (end == null) return null;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final d = end.difference(today).inDays;
+    return d < 0 ? 0 : d;
+  }
+
+  static String _ymd(DateTime d) {
+    final l = d.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${l.year}.${two(l.month)}.${two(l.day)}';
+  }
+
   Widget _buildStatsSection() {
+    final reviewCount = ref.watch(myReviewsProvider).valueOrNull?.length;
+    final reportCount = ref.watch(myReportsProvider).valueOrNull?.length;
+    String fmt(int? n) => n == null ? '…' : '$n';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle('활동 통계'),
         const SizedBox(height: 10),
-        const Row(
+        Row(
           children: [
-            Expanded(child: _StudentStatCard(value: '24', label: '수업 횟수')),
-            SizedBox(width: 8),
-            Expanded(child: _StudentStatCard(value: '18시간', label: '총 수업 시간')),
-            SizedBox(width: 8),
-            Expanded(child: _StudentStatCard(value: '20', label: '작성 리뷰')),
+            Expanded(
+              child: _StudentStatCard(value: fmt(reviewCount), label: '작성 리뷰'),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _StudentStatCard(value: fmt(reportCount), label: '접수 신고'),
+            ),
           ],
         ),
       ],
@@ -298,13 +454,27 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
   }
 
   Widget _buildSettingsCard() {
+    final me = ref.watch(meProvider).valueOrNull;
+    // 소셜 계정은 비밀번호가 없으므로 '비밀번호 변경'을 LOCAL 가입자에게만 노출.
+    final isLocal = (me?['provider'] as String?) == 'LOCAL';
+    final email = me?['email'] as String?;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('설정'),
+        _buildSectionTitle('설정 · 지원'),
         const SizedBox(height: 8),
         _buildGroupedMenuCard(
           children: [
+            if (isLocal)
+              _buildMenuRow(
+                icon: Icons.lock_outline_rounded,
+                title: '비밀번호 변경',
+                onTap: () => context.push(
+                  RoutePaths.passwordReset,
+                  extra: PasswordResetArgs(email: email, isTutor: false),
+                ),
+              ),
             _buildMenuRow(
               icon: Icons.headset_mic_outlined,
               title: '고객센터',
@@ -325,7 +495,8 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
   }
 
   Widget _buildNotificationSettingsCard() {
-    final settings = ref.watch(studentNotificationSettingsProvider);
+    final pushEnabled =
+        ref.watch(studentNotificationSettingsProvider).pushEnabled;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,30 +513,12 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
         _buildGroupedMenuCard(
           children: [
             _buildNotificationRow(
-              icon: Icons.handshake_outlined,
-              title: '매칭 알림',
-              value: settings.matching,
+              icon: Icons.notifications_active_outlined,
+              title: '푸시 알림 받기',
+              value: pushEnabled,
               onChanged: (v) => _updateNotificationSetting(
                 enabled: v,
-                update: (notifier) => notifier.setMatching(v),
-              ),
-            ),
-            _buildNotificationRow(
-              icon: Icons.smart_toy_outlined,
-              title: 'AI 튜터 알림',
-              value: settings.aiTutor,
-              onChanged: (v) => _updateNotificationSetting(
-                enabled: v,
-                update: (notifier) => notifier.setAiTutor(v),
-              ),
-            ),
-            _buildNotificationRow(
-              icon: Icons.schedule_rounded,
-              title: '시간 연장 알림',
-              value: settings.extendTime,
-              onChanged: (v) => _updateNotificationSetting(
-                enabled: v,
-                update: (notifier) => notifier.setExtendTime(v),
+                update: (notifier) => notifier.setAll(v),
               ),
               showDivider: false,
             ),
@@ -532,7 +685,15 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
       builder: (sheetContext) {
         final scheme = Theme.of(sheetContext).colorScheme;
         final bottom = MediaQuery.paddingOf(sheetContext).bottom;
-        return Padding(
+        bool copied = false; // 이메일 복사 피드백(시트 내부 상태)
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            void copyEmail() {
+              Clipboard.setData(const ClipboardData(text: _supportEmail));
+              setSheetState(() => copied = true);
+            }
+
+            return Padding(
           padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -569,25 +730,38 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                 subtitle: '평일 10:00 ~ 18:00 (주말·공휴일 휴무)',
               ),
               _buildSupportTile(
-                icon: Icons.phone_in_talk_outlined,
-                title: '전화 문의',
-                subtitle: '1588-0000',
-                onTap: () => _showSnack('전화 연결은 준비 중이에요.'),
-              ),
-              _buildSupportTile(
                 icon: Icons.mail_outline_rounded,
                 title: '이메일 문의',
-                subtitle: 'support@onsaem.com',
-                onTap: () => _showSnack('메일 앱 연동은 준비 중이에요.'),
+                subtitle: _supportEmail,
+                onTap: copyEmail,
+                trailing: copied
+                    ? const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle_rounded,
+                              size: 18, color: Color(0xFF2E9E6B)),
+                          SizedBox(width: 4),
+                          Text('복사됨',
+                              style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF2E9E6B))),
+                        ],
+                      )
+                    : Icon(Icons.copy_rounded,
+                        size: 18, color: _shell.chevronColor),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
+              Text(
+                '1:1 문의는 위 이메일로 보내주세요. 보통 1영업일 내 답변드려요.',
+                style: TextStyle(fontSize: 12, color: _shell.hintColor),
+              ),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  onPressed: () {
-                    Navigator.pop(sheetContext);
-                    _showSnack('1:1 문의는 준비 중이에요.');
-                  },
+                child: FilledButton.icon(
+                  onPressed: copyEmail,
+                  icon: const Icon(Icons.content_copy_rounded, size: 18),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.studentPoint,
                     foregroundColor: AppColors.studentInk,
@@ -596,11 +770,13 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('1:1 문의하기'),
+                  label: Text(copied ? '이메일이 복사됐어요' : '문의 이메일 복사하기'),
                 ),
               ),
             ],
           ),
+            );
+          },
         );
       },
     );
@@ -611,6 +787,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
     required String title,
     required String subtitle,
     VoidCallback? onTap,
+    Widget? trailing,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -649,7 +826,9 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                     ],
                   ),
                 ),
-                if (onTap != null)
+                if (trailing != null)
+                  trailing
+                else if (onTap != null)
                   Icon(Icons.chevron_right_rounded, color: _shell.chevronColor),
               ],
             ),
@@ -765,11 +944,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
     );
   }
 
-  void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
+  static const _supportEmail = 'ieum.team@gmail.com';
 }
 
 class _StudentStatCard extends StatelessWidget {

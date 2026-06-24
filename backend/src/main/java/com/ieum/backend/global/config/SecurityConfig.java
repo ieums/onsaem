@@ -37,7 +37,7 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/me").authenticated()
+                        .requestMatchers("/api/v1/auth/me", "/api/v1/auth/me/**").authenticated()
                         .requestMatchers("/api/v1/ai-tutor/**", "/api/v1/lesson-review/**").hasRole("STUDENT")
                         // JWT 주체 기반 — 결제(학생)·정산(강사)·리뷰/신고(인증)
                         .requestMatchers("/api/v1/payments/**").hasRole("STUDENT")

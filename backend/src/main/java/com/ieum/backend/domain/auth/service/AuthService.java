@@ -2,6 +2,7 @@ package com.ieum.backend.domain.auth.service;
 
 import com.ieum.backend.domain.auth.dto.LoginRequest;
 import com.ieum.backend.domain.auth.dto.MeResponse;
+import com.ieum.backend.domain.auth.dto.UpdateProfileRequest;
 import com.ieum.backend.domain.auth.dto.StudentSignupRequest;
 import com.ieum.backend.domain.auth.dto.TokenResponse;
 import com.ieum.backend.domain.auth.dto.TutorSignupRequest;
@@ -11,11 +12,13 @@ import com.ieum.backend.domain.auth.oauth.OAuthClientResolver;
 import com.ieum.backend.domain.auth.oauth.OAuthUserInfo;
 import com.ieum.backend.domain.auth.repository.StudentRepository;
 import com.ieum.backend.domain.auth.repository.TutorRepository;
+import com.ieum.backend.domain.problem.service.ImageStorageService;
 import com.ieum.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +29,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final OAuthClientResolver oauthClientResolver;
     private final TokenService tokenService;
+    private final ImageStorageService imageStorageService;
 
     @Transactional
     public TokenResponse signupStudent(StudentSignupRequest request) {
@@ -107,6 +111,50 @@ public class AuthService {
             case TUTOR -> {
                 Tutor tutor = tutorRepository.findById(principal.id())
                         .orElseThrow(() -> BusinessException.notFound("회원을 찾을 수 없습니다."));
+                yield MeResponse.of(tutor, Role.TUTOR);
+            }
+        };
+    }
+
+    /** 프로필 수정 — 마이페이지. 인증 주체 본인만 수정(보낸 값만 갱신). */
+    @Transactional
+    public MeResponse updateMe(AuthPrincipal principal, UpdateProfileRequest request) {
+        return switch (principal.role()) {
+            case STUDENT -> {
+                Student student = studentRepository.findById(principal.id())
+                        .orElseThrow(() -> BusinessException.notFound("회원을 찾을 수 없습니다."));
+                student.updateProfile(request.name(), request.phone(),
+                        request.birthDate(), request.profileImageUrl());
+                yield MeResponse.of(student, Role.STUDENT);
+            }
+            case TUTOR -> {
+                Tutor tutor = tutorRepository.findById(principal.id())
+                        .orElseThrow(() -> BusinessException.notFound("회원을 찾을 수 없습니다."));
+                tutor.updateProfile(request.name(), request.phone(),
+                        request.birthDate(), request.profileImageUrl());
+                yield MeResponse.of(tutor, Role.TUTOR);
+            }
+        };
+    }
+
+    /** 프로필 사진 업로드 — 이미지를 저장소에 올리고 그 URL을 프로필에 반영. */
+    @Transactional
+    public MeResponse updateProfileImage(AuthPrincipal principal, MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            throw BusinessException.badRequest("이미지 파일이 필요합니다.");
+        }
+        String url = imageStorageService.store(image);
+        return switch (principal.role()) {
+            case STUDENT -> {
+                Student student = studentRepository.findById(principal.id())
+                        .orElseThrow(() -> BusinessException.notFound("회원을 찾을 수 없습니다."));
+                student.updateProfile(null, null, null, url);
+                yield MeResponse.of(student, Role.STUDENT);
+            }
+            case TUTOR -> {
+                Tutor tutor = tutorRepository.findById(principal.id())
+                        .orElseThrow(() -> BusinessException.notFound("회원을 찾을 수 없습니다."));
+                tutor.updateProfile(null, null, null, url);
                 yield MeResponse.of(tutor, Role.TUTOR);
             }
         };

@@ -9,6 +9,7 @@ import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/auth/data/auth_controller.dart';
+import 'package:ieum/features/auth/utils/password_rules.dart';
 import 'package:ieum/core/network/api_error.dart';
 
 class StudentSignupScreen extends ConsumerStatefulWidget {
@@ -271,11 +272,10 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   }
 
   void _validatePasswordMatch() {
+    // 비밀번호 규칙 체크리스트도 함께 실시간 갱신되도록 매 입력마다 rebuild.
     final confirm = _confirmPasswordController.text;
     final mismatch = confirm.isNotEmpty && confirm != _passwordController.text;
-    if (mismatch != _showPasswordMismatch) {
-      setState(() => _showPasswordMismatch = mismatch);
-    }
+    setState(() => _showPasswordMismatch = mismatch);
   }
 
   bool get _hasProfileImage =>
@@ -341,8 +341,9 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
       _showSnack('휴대폰 번호를 입력해주세요.');
       return;
     }
-    if (password.length < 8) {
-      _showSnack('비밀번호는 8자 이상이어야 해요.');
+    final pwError = passwordError(password);
+    if (pwError != null) {
+      _showSnack(pwError);
       return;
     }
     if (password != confirm) {
@@ -535,6 +536,11 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                         onToggle: () =>
                             setState(() => _obscurePassword = !_obscurePassword),
                       ),
+                    ),
+                    const SizedBox(height: 10),
+                    PasswordRulesChecklist(
+                      password: _passwordController.text,
+                      compact: true,
                     ),
                     const SizedBox(height: 20),
                     _buildLabel(context, '비밀번호 확인'),

@@ -47,6 +47,10 @@ class StudentNotificationSettings {
       StudentNotificationCategory.extendTime => extendTime,
     };
   }
+
+  /// 마이페이지의 단일 "푸시 알림 받기" 토글 상태.
+  /// 하위 카테고리(매칭/AI튜터/시간연장)는 함께 켜고 끈다.
+  bool get pushEnabled => matching || aiTutor || extendTime;
 }
 
 class StudentNotificationSettingsNotifier
@@ -85,6 +89,18 @@ class StudentNotificationSettingsNotifier
 
   Future<void> setExtendTime(bool value) async {
     state = state.copyWith(extendTime: value);
+    await _prefs?.setBool(_prefsExtendTimeKey, value);
+  }
+
+  /// 단일 "푸시 알림 받기" 토글: 모든 카테고리를 한 번에 켜고 끈다.
+  Future<void> setAll(bool value) async {
+    state = StudentNotificationSettings(
+      matching: value,
+      aiTutor: value,
+      extendTime: value,
+    );
+    await _prefs?.setBool(_prefsMatchingKey, value);
+    await _prefs?.setBool(_prefsAiTutorKey, value);
     await _prefs?.setBool(_prefsExtendTimeKey, value);
   }
 }

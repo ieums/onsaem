@@ -85,10 +85,11 @@ public class Subscription {
         this.autoRenew = autoRenew;
     }
 
-    // 구독 취소
+    // 구독 취소(즉시 종료) — 활성 해제 + 자동갱신 OFF + 활성 슬롯(파생 컬럼) 비움(재구독 가능)
     public void cancel() {
+        this.active = false;
         this.autoRenew = false;
-        // 남은 기간은 유지, 갱신만 안 됨
+        this.activeStudentId = null;
     }
 
     // 구독 만료
