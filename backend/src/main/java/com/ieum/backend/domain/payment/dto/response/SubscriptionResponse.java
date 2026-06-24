@@ -16,6 +16,7 @@ public class SubscriptionResponse {
     private Long id;
     private Long studentId;
     private Long planId;
+    private String planName;
     private Integer paidPrice;
     private LocalDate startDate;
     private LocalDate endDate;
@@ -29,6 +30,7 @@ public class SubscriptionResponse {
                 .id(sub.getId())
                 .studentId(sub.getStudentId())
                 .planId(sub.getSubscriptionPlan().getId())
+                .planName(sub.getSubscriptionPlan().getName())
                 .paidPrice(sub.getSubscriptionPlan().getPrice())
                 .startDate(sub.getStartDate())
                 .endDate(sub.getEndDate())

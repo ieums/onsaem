@@ -78,7 +78,7 @@ class _StudentSubscriptionScreenState
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('구독 해지'),
-        content: const Text('정말 구독을 해지할까요? 남은 기간까지는 이용할 수 있어요.'),
+        content: const Text('정말 구독을 해지할까요? 해지하면 AI 튜터 이용이 바로 중단돼요.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
@@ -125,7 +125,7 @@ class _StudentSubscriptionScreenState
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
@@ -179,7 +179,7 @@ class _StudentSubscriptionScreenState
                         padding: EdgeInsets.only(top: 24),
                         child: Center(
                             child: CircularProgressIndicator(
-                                color: AppColors.studentPoint)),
+                                color: AppColors.studentInk)),
                       ),
                       error: (_, _) => Text('플랜을 불러오지 못했어요.',
                           style: TextStyle(color: shell.hintColor)),
@@ -196,7 +196,7 @@ class _StudentSubscriptionScreenState
                       const SizedBox(height: 8),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        activeThumbColor: AppColors.studentPoint,
+                        activeThumbColor: AppColors.studentInk,
                         title: Text('자동 갱신',
                             style: TextStyle(
                                 fontSize: 14,
@@ -231,7 +231,7 @@ class _StudentSubscriptionScreenState
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.studentPoint,
+        color: AppColors.studentInk,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -267,6 +267,11 @@ class _StudentSubscriptionScreenState
                       onChanged: _busy ? null : _toggleAuto,
                       activeThumbColor: Colors.white,
                       activeTrackColor: Colors.white.withValues(alpha: 0.5),
+                      // OFF 상태가 딥그린 카드 위에서 밝게 튀지 않도록 톤 다운
+                      inactiveThumbColor: Colors.white.withValues(alpha: 0.85),
+                      inactiveTrackColor: Colors.white.withValues(alpha: 0.18),
+                      trackOutlineColor:
+                          WidgetStateProperty.all(Colors.transparent),
                     ),
                     Text('자동 갱신',
                         style: TextStyle(
@@ -280,9 +285,7 @@ class _StudentSubscriptionScreenState
                 onPressed: _busy ? null : _cancel,
                 style: TextButton.styleFrom(foregroundColor: Colors.white),
                 child: const Text('구독 해지',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        decoration: TextDecoration.underline)),
+                    style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ],
           ),
@@ -342,7 +345,7 @@ class _StudentSubscriptionScreenState
               FilledButton(
                 onPressed: _busy ? null : () => _subscribe(plan),
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.studentPoint,
+                  backgroundColor: AppColors.studentInk,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),

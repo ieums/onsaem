@@ -96,6 +96,17 @@ public class ReviewService {
     }
 
     /**
+     * 내가(학생) 쓴 리뷰 목록 — 마이페이지 '내 리뷰 내역'.
+     */
+    public List<ReviewResponse> getMyReviews(Long studentId) {
+        return reviewRepository
+                .findByStudentIdAndStatusOrderByCreatedAtDesc(studentId, ReviewStatus.VISIBLE)
+                .stream()
+                .map(ReviewResponse::from)
+                .toList();
+    }
+
+    /**
      * 튜터 리뷰 요약 (평균·총개수·별점분포) — DB 집계.
      */
     public ReviewSummaryResponse getSummary(Long tutorId) {

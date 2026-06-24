@@ -14,6 +14,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     List<Review> findByTutorIdAndStatusOrderByCreatedAtDesc(Long tutorId, ReviewStatus status);
 
+    /** 내가(학생) 쓴 리뷰 목록 — 마이페이지 '내 리뷰 내역'. */
+    List<Review> findByStudentIdAndStatusOrderByCreatedAtDesc(Long studentId, ReviewStatus status);
+
     /**
      * 튜터의 별점 분포 (별점별 개수) — DB 집계.
      * 평균·총개수는 이 결과로 서비스에서 계산(전체 로드 없이).

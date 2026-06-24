@@ -33,6 +33,13 @@ public class ReviewController {
         return ApiResponse.ok("리뷰가 등록되었습니다.", reviewService.create(principal.id(), request));
     }
 
+    /** 내가 쓴 리뷰 목록 — GET /api/v1/reviews/me */
+    @GetMapping("/me")
+    public ApiResponse<List<ReviewResponse>> getMyReviews(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ApiResponse.ok(reviewService.getMyReviews(principal.id()));
+    }
+
     /** 튜터 리뷰 목록 — GET /api/v1/reviews/tutors/{tutorId} */
     @GetMapping("/tutors/{tutorId}")
     public ApiResponse<List<ReviewResponse>> getByTutor(@PathVariable Long tutorId) {

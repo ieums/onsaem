@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/features/auth/data/auth_controller.dart';
+import 'package:ieum/features/auth/screens/password_reset_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:ieum/features/auth/data/auth_models.dart';
@@ -270,7 +271,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         label: _isLoading ? '로그인 중...' : '로그인',
                         onPressed: _isLoading ? null : _login,
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 4),
+                      Center(
+                        child: TextButton(
+                          onPressed: () => context.push(
+                            RoutePaths.passwordReset,
+                            extra: PasswordResetArgs(isTutor: _isTutor),
+                          ),
+                          child: const Text(
+                            '비밀번호를 잊으셨나요?',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF6B6B6B),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       _buildOrDivider(),
                       const SizedBox(height: 28),
                       _buildGoogleLoginButton(onPressed: _isLoading ? () {} : _googleLogin,),

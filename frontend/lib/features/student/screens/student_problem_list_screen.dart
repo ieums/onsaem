@@ -70,18 +70,25 @@ class StudentProblemListScreen extends ConsumerWidget {
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                       itemCount: items.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (_, i) => _ProblemCard(
-                        shell: shell,
-                        item: items[i],
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  StudentProblemStatusScreen(problem: items[i]),
-                            ),
-                          );
-                        },
-                      ),
+                      itemBuilder: (_, i) {
+                        final item = items[i];
+                        return _ProblemCard(
+                          shell: shell,
+                          item: item,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    StudentProblemStatusScreen(problem: item),
+                              ),
+                            );
+                          },
+                          // 매칭 대기(PENDING)인 질문만 삭제 가능 — 3개 제한 슬롯을 비울 수 있게.
+                          onDelete: item.status == 'PENDING'
+                              ? () => _confirmDelete(context, ref, item.problemId)
+                              : null,
+                        );
+                      },
                     );
                   },
                 ),
@@ -92,6 +99,44 @@ class StudentProblemListScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _confirmDelete(
+      BuildContext context, WidgetRef ref, int problemId) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('질문 삭제'),
+        content: const Text('이 질문을 삭제할까요? 삭제하면 되돌릴 수 없어요.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('삭제',
+                style: TextStyle(
+                    color: AppColors.logoutRed, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(problemRepositoryProvider).cancelProblem(problemId);
+      ref.invalidate(studentProblemsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('질문을 삭제했어요.')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('삭제에 실패했어요. 잠시 후 다시 시도해 주세요.')),
+        );
+      }
+    }
+  }
 }
 
 class _ProblemCard extends StatelessWidget {
@@ -99,11 +144,16 @@ class _ProblemCard extends StatelessWidget {
     required this.shell,
     required this.item,
     required this.onTap,
+    this.onDelete,
   });
 
   final ShellTheme shell;
   final StudentProblemModel item;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
+
+  // 매칭 대기/탐색 중일 때만 지원 강사 수를 노출(현황 정보).
+  bool get _showApplicants => item.status == 'PENDING' || item.searching;
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +176,17 @@ class _ProblemCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 ProblemStatusChip(status: item.status),
                 const Spacer(),
+                if (onDelete != null)
+                  InkWell(
+                    onTap: onDelete,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(Icons.delete_outline_rounded,
+                          color: shell.hintColor, size: 20),
+                    ),
+                  ),
+                const SizedBox(width: 2),
                 Icon(Icons.chevron_right, color: shell.chevronColor, size: 20),
               ],
             ),
@@ -144,12 +205,27 @@ class _ProblemCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                _formatDate(item.createdAt),
-                style: TextStyle(fontSize: 12.5, color: shell.hintColor),
-              ),
+            Row(
+              children: [
+                if (_showApplicants) ...[
+                  const Icon(Icons.people_alt_outlined,
+                      size: 15, color: AppColors.studentInk),
+                  const SizedBox(width: 4),
+                  Text(
+                    '지원 강사 ${item.applicantCount}명',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.studentInk,
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                Text(
+                  _formatDate(item.createdAt),
+                  style: TextStyle(fontSize: 12.5, color: shell.hintColor),
+                ),
+              ],
             ),
           ],
         ),

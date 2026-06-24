@@ -156,6 +156,7 @@ class Subscription {
     required this.id,
     required this.studentId,
     required this.planId,
+    this.planName,
     required this.paidPrice,
     this.startDate,
     this.endDate,
@@ -168,6 +169,7 @@ class Subscription {
   final int id;
   final int studentId;
   final int planId;
+  final String? planName;
   final int paidPrice;
   final DateTime? startDate;
   final DateTime? endDate;
@@ -180,6 +182,7 @@ class Subscription {
         id: _asInt(j['id']),
         studentId: _asInt(j['studentId']),
         planId: _asInt(j['planId']),
+        planName: j['planName'] as String?,
         paidPrice: _asInt(j['paidPrice']),
         startDate: _asDate(j['startDate']),
         endDate: _asDate(j['endDate']),

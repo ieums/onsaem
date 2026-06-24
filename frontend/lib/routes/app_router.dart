@@ -7,10 +7,14 @@ import 'package:ieum/features/auth/screens/login_screen.dart';
 import 'package:ieum/features/auth/screens/signup_role_screen.dart';
 import 'package:ieum/features/auth/screens/student_signup_screen.dart';
 import 'package:ieum/features/auth/screens/tutor_signup_screen.dart';
+import 'package:ieum/features/auth/screens/password_reset_screen.dart';
 import 'package:ieum/features/onboarding/screens/onboarding_screen.dart';
 import 'package:ieum/features/student/screens/student_classroom_screen.dart';
 import 'package:ieum/features/student/screens/student_credit_recharge_screen.dart';
 import 'package:ieum/features/student/screens/student_subscription_screen.dart';
+import 'package:ieum/features/student/screens/student_my_reviews_screen.dart';
+import 'package:ieum/features/student/screens/student_my_reports_screen.dart';
+import 'package:ieum/features/student/screens/student_profile_edit_screen.dart';
 import 'package:ieum/features/student/screens/student_matching_wait_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_upload_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_list_screen.dart';
@@ -71,6 +75,17 @@ final appRouter = GoRouter(
       ),
     ),
     GoRoute(
+      path: RoutePaths.passwordReset,
+      builder: (_, state) {
+        final args =
+            state.extra is PasswordResetArgs ? state.extra as PasswordResetArgs : null;
+        return PasswordResetScreen(
+          initialEmail: args?.email,
+          isTutor: args?.isTutor ?? false,
+        );
+      },
+    ),
+    GoRoute(
       path: RoutePaths.studentHome,
       builder: (_, _) => const StudentShellScreen(),
     ),
@@ -81,6 +96,18 @@ final appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.studentSubscription,
       builder: (_, _) => const StudentSubscriptionScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.studentMyReviews,
+      builder: (_, _) => const StudentMyReviewsScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.studentMyReports,
+      builder: (_, _) => const StudentMyReportsScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.studentProfileEdit,
+      builder: (_, _) => const StudentProfileEditScreen(),
     ),
     GoRoute(
       path: RoutePaths.studentProblemUpload,

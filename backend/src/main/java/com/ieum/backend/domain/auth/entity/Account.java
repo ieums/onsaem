@@ -89,6 +89,19 @@ public abstract class Account {
         this.status = AccountStatus.ACTIVE;
     }
 
+    /** 프로필 수정 — 마이페이지. null이 아닌 값만 갱신(부분 수정). */
+    public void updateProfile(String name, String phone, LocalDate birthDate, String profileImageUrl) {
+        if (name != null && !name.isBlank()) this.name = name;
+        if (phone != null && !phone.isBlank()) this.phone = phone;
+        if (birthDate != null) this.birthDate = birthDate;
+        if (profileImageUrl != null) this.profileImageUrl = profileImageUrl;
+    }
+
+    /** 비밀번호 변경 — 이미 인코딩된 값을 받는다(서비스에서 BCrypt 처리). */
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
     /** 탈퇴 — 행은 남기고 개인정보만 파기 + 상태 전환 (soft delete) */
     public void withdraw() {
         this.status = AccountStatus.WITHDRAWN;

@@ -1,5 +1,6 @@
 package com.ieum.backend.domain.auth.dto;
 
+import com.ieum.backend.domain.auth.PasswordPolicy;
 import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
@@ -7,7 +8,7 @@ import java.util.List;
 
 public record TutorSignupRequest(
         @NotBlank @Email String email,
-        @NotBlank @Size(min = 8, max = 64) String password,
+        @NotBlank @Pattern(regexp = PasswordPolicy.REGEX, message = PasswordPolicy.MESSAGE) String password,
         @NotBlank @Size(max = 50) String name,
         @NotNull @Past LocalDate birthDate,
         @NotBlank @Size(max = 20) String phone,

@@ -51,7 +51,6 @@ public class Tutor extends Account {
     @Column(name = "education_status", length = 20)
     private EducationStatus educationStatus;
 
-
     @ElementCollection
     @CollectionTable(name = "tutor_subject", joinColumns = @JoinColumn(name = "tutor_id"))
     @Column(name = "subject", length = 50)

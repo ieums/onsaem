@@ -11,10 +11,12 @@ class ProblemChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 다크모드: 진한 연두 글씨는 어두운 배경에서 안 보이므로 흰 글씨 + 진한 채움.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
+        color: color.withValues(alpha: isDark ? 0.30 : 0.14),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -22,7 +24,7 @@ class ProblemChip extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: color,
+          color: isDark ? Colors.white : color,
         ),
       ),
     );
