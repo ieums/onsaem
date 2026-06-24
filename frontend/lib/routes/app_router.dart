@@ -18,7 +18,6 @@ import 'package:ieum/features/student/screens/student_report_screen.dart';
 import 'package:ieum/features/student/screens/student_review_write_screen.dart';
 import 'package:ieum/features/student/screens/student_shell_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_shell_screen.dart';
-import '../features/auth/screens/temp_login_screen.dart';
 import '../features/lesson/presentation/lesson_screen.dart';
 import '../features/matching/models/searching_problem_model.dart';
 import '../features/matching/screens/problem_detail_screen.dart';
@@ -34,11 +33,13 @@ final appRouter = GoRouter(
     final isEntry = loc == '/' || loc == RoutePaths.login;
 
     // 로그인 상태인데 시작/로그인 화면이면 → 역할별 홈으로
-    if (user != null && isEntry) {
+    //if (user != null && isEntry) {
+    if (user != null && isEntry && loc != '/lesson') {
       return user.isTutor ? RoutePaths.tutorHome : RoutePaths.studentHome;
     }
     // 미로그인인데 보호 화면이면 → 시작(/)으로
-    if (user == null && isProtected) return '/';
+    //if (user == null && isProtected) return '/';
+    if (user == null && isProtected && loc != '/lesson') return '/';
     return null;
   },
   routes: [
@@ -127,10 +128,6 @@ final appRouter = GoRouter(
     ),
 
     // ─── 화상강의 라우트 ───────────────────────────────────────────────────
-    GoRoute(
-      path: '/',
-      builder: (_, _) => const TempLoginScreen(),
-    ),
     GoRoute(
       path: '/lesson',
       builder: (_, state) {

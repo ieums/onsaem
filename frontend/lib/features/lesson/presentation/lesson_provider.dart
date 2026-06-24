@@ -195,9 +195,11 @@ class LessonNotifier extends StateNotifier<LessonState> {
     );
 
     try {
+      final agoraUid = isTutor ? uid : uid + 10000;
+
       final tokenResp = await _repo.fetchToken(
         channelName: channelName,
-        uid: uid.toString(),
+        uid: agoraUid.toString(),
         role: 'PUBLISHER',
       );
 
@@ -252,7 +254,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         await _engine!.joinChannel(
           token: tokenResp.token,
           channelId: channelName,
-          uid: uid,
+          uid: agoraUid,
           options: const ChannelMediaOptions(
             clientRoleType: ClientRoleType.clientRoleBroadcaster,
             channelProfile: ChannelProfileType.channelProfileCommunication,

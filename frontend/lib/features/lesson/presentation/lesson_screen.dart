@@ -523,16 +523,6 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               shell: shell,
               onTap: () => _pickAndUploadImage(),
             ),
-            _ToolBtn(
-              icon: Icons.delete_outline,
-              active: isImageEdit,
-              enabled: isImageEdit,
-              shell: shell,
-              activeColor: AppColors.buttonDanger,
-              onTap: isImageEdit
-                  ? () => notifier.deleteImage(state.selectedImageIndex!)
-                  : null,
-            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Divider(height: 1, color: shell.borderColor),
@@ -703,7 +693,6 @@ class _ToolBtn extends StatelessWidget {
   final bool enabled;
   final ShellTheme shell;
   final VoidCallback? onTap;
-  final Color? activeColor;
 
   const _ToolBtn({
     required this.icon,
@@ -711,16 +700,14 @@ class _ToolBtn extends StatelessWidget {
     this.active = false,
     this.enabled = true,
     this.onTap,
-    this.activeColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final effectiveActiveColor = activeColor ?? AppColors.primaryBlue;
     final iconColor = !enabled
         ? shell.hintColor
         : active
-            ? effectiveActiveColor
+            ? AppColors.primaryBlue
             : shell.titleColor;
 
     return GestureDetector(
@@ -730,7 +717,7 @@ class _ToolBtn extends StatelessWidget {
         height: 44,
         decoration: BoxDecoration(
           color: active
-              ? effectiveActiveColor.withValues(alpha: 0.12)
+              ? AppColors.primaryBlue.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
