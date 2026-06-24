@@ -216,7 +216,7 @@ public class ProblemService {
      */
     public List<StudentProblemResponse> getStudentProblems(Long studentId) {
         List<ApplicationStatus> countStatuses = List.of(ApplicationStatus.PENDING, ApplicationStatus.UNAVAILABLE);
-        return problemRepository.findAllByStudentId(studentId).stream()
+        return problemRepository.findAllByStudentIdAndStatus(studentId, ProblemStatus.PENDING).stream()
                 .map(problem -> {
                     int count = matchingApplicationRepository.countByProblemIdAndStatusIn(problem.getId(), countStatuses);
                     return StudentProblemResponse.from(problem, count);
@@ -234,7 +234,10 @@ public class ProblemService {
 
         matchingApplicationRepository
                 .findByProblemIdAndStatusIn(id, List.of(ApplicationStatus.PENDING))
-                .forEach(app -> notificationService.notifyProblemCancelled(id, app.getTutorId()));
+                .forEach(app -> {
+                    app.cancel();
+                    notificationService.notifyProblemCancelled(id, app.getTutorId());
+                });
 
         problem.cancel();
     }

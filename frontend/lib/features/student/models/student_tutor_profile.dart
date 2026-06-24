@@ -21,6 +21,7 @@ class StudentTutorProfile {
     required this.avatarInitial,
     required this.isOnline,
     this.isAvailable = true,
+    this.isInLesson = false,
     required this.department,
     required this.university,
     required this.rating,
@@ -32,6 +33,7 @@ class StudentTutorProfile {
     required this.styles,
     required this.subjects,
     required this.reviews,
+    this.profileImageUrl,
   });
 
   final String id;
@@ -39,6 +41,7 @@ class StudentTutorProfile {
   final String avatarInitial;
   final bool isOnline;
   final bool isAvailable;
+  final bool isInLesson;
   final String department;
   final String university;
   final double rating;
@@ -50,6 +53,7 @@ class StudentTutorProfile {
   final List<String> styles;
   final List<String> subjects;
   final List<StudentTutorReview> reviews;
+  final String? profileImageUrl;
 
   String get educationLine => '$university $department';
 
@@ -62,6 +66,7 @@ class StudentTutorProfile {
         avatarInitial: a.name.isNotEmpty ? a.name[0] : '?',
         isOnline: a.isOnline,
         isAvailable: a.isAvailable,
+        isInLesson: a.isInLesson,
         university: a.school,
         department: a.major,
         rating: a.ratingAvg,
@@ -73,6 +78,6 @@ class StudentTutorProfile {
         subjects: a.subjects,
         styles: const [],
         reviews: const [],
+        profileImageUrl: a.profileImageUrl,
       );
 }
-

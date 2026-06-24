@@ -1,5 +1,6 @@
 package com.ieum.backend.domain.matching.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ieum.backend.domain.auth.entity.Tutor;
 import com.ieum.backend.domain.matching.entity.ApplicationStatus;
 import com.ieum.backend.domain.matching.entity.MatchingApplication;
@@ -38,7 +39,10 @@ public class ApplicantResponse {
     private int avgResponseMinutes;
     private List<String> subjects;
 
-    public static ApplicantResponse from(MatchingApplication application, Tutor tutor) {
+    @JsonProperty("isInLesson")
+    private boolean isInLesson;
+
+    public static ApplicantResponse from(MatchingApplication application, Tutor tutor, boolean isInLesson) {
         return ApplicantResponse.builder()
                 .applicationId(application.getId())
                 .tutorId(application.getTutorId())
@@ -52,9 +56,10 @@ public class ApplicantResponse {
                 .lessonCount(tutor.getLessonCount())
                 .bio(tutor.getBio())
                 .profileImageUrl(tutor.getProfileImageUrl())
-                .isOnline(true)
+                .isOnline(tutor.isAvailable())
                 .avgResponseMinutes(0)
                 .subjects(Collections.emptyList())
+                .isInLesson(isInLesson)
                 .build();
     }
 }

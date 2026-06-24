@@ -69,6 +69,8 @@ class MatchingStompService {
                   final json =
                       jsonDecode(frame.body!) as Map<String, dynamic>;
                   if (json['type'] == 'MATCHED') {
+                    final matchedTutorId = json['tutorId'] as int?;
+                    if (matchedTutorId != tutorId) return;
                     final channelName = json['channelName'] as String? ?? '';
                     final imageUrls =
                         (json['imageUrls'] as List<dynamic>? ?? []).cast<String>();

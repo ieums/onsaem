@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:ieum/core/constants/api_constants.dart';
 
 /// 리스트 썸네일 — 탭 시 [showTutorRequestProblemImageViewer].
 class TutorRequestProblemThumbnail extends StatelessWidget {
@@ -37,7 +38,7 @@ class TutorRequestProblemThumbnail extends StatelessWidget {
   Widget _buildThumbnailContent(BuildContext context) {
     if (imageUrl != null) {
       return Image.network(
-        imageUrl!,
+        ApiConstants.resolveImageUrl(imageUrl!),
         width: size,
         height: size,
         fit: BoxFit.cover,
@@ -140,7 +141,7 @@ void showTutorRequestProblemImageViewer(
                             boundaryMargin: const EdgeInsets.all(48),
                             child: imageUrl != null
                                 ? Image.network(
-                                    imageUrl,
+                                    ApiConstants.resolveImageUrl(imageUrl),
                                     width: displaySize.width,
                                     height: displaySize.height,
                                     fit: BoxFit.contain,

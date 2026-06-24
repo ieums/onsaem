@@ -9,6 +9,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/providers/current_user_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../student/providers/problem_provider.dart';
+import '../../student/providers/student_matching_session_provider.dart';
 import '../../../core/theme/shell_theme_extension.dart';
 import 'lesson_provider.dart';
 import 'whiteboard_painter.dart';
@@ -110,6 +112,11 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
       }
       // 수업 완료 시 홈으로 이동
       if (next.isCompleted && !(prev?.isCompleted ?? false)) {
+        ref.invalidate(studentProblemsProvider);
+        ref
+            .read(studentMatchingSessionProvider.notifier)
+            .cancelMatching()
+            .catchError((_) {});
         context.go('/');
       }
       // 원격 줌 동기화

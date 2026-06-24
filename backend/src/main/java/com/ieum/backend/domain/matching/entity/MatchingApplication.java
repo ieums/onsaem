@@ -89,4 +89,9 @@ public class MatchingApplication {
     public void expire() {
         this.status = ApplicationStatus.EXPIRED;
     }
+
+    public void cancel() {
+        this.status = ApplicationStatus.CANCELLED;
+        this.respondedAt = LocalDateTime.now();
+    }
 }

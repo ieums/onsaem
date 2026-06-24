@@ -3,6 +3,7 @@ package com.ieum.backend.domain.matching.service;
 import com.ieum.backend.domain.auth.entity.Tutor;
 import com.ieum.backend.domain.auth.repository.TutorRepository;
 import com.ieum.backend.domain.lesson.entity.Lesson;
+import com.ieum.backend.domain.lesson.repository.LessonRepository;
 import com.ieum.backend.domain.lesson.service.LessonService;
 import com.ieum.backend.domain.matching.dto.response.ApplicantResponse;
 import com.ieum.backend.domain.matching.dto.response.TutorApplicationResponse;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +32,7 @@ public class MatchingService {
     private final MatchingApplicationRepository applicationRepository;
     private final MatchingNotificationService notificationService;
     private final LessonService lessonService;
+    private final LessonRepository lessonRepository;
     private final TutorRepository tutorRepository;
 
     @Transactional
@@ -90,9 +93,17 @@ public class MatchingService {
         Map<Long, Tutor> tutorMap = tutorRepository.findAllByIdIn(tutorIds).stream()
                 .collect(Collectors.toMap(Tutor::getId, t -> t));
 
+        Set<Long> inLessonTutorIds = tutorIds.stream()
+                .filter(tid -> lessonRepository.existsByTutorIdAndStatusIn(
+                        tid, List.of(Lesson.LessonStatus.ACTIVE, Lesson.LessonStatus.WAITING)))
+                .collect(Collectors.toSet());
+
         return applications.stream()
                 .filter(app -> tutorMap.containsKey(app.getTutorId()))
-                .map(app -> ApplicantResponse.from(app, tutorMap.get(app.getTutorId())))
+                .map(app -> ApplicantResponse.from(
+                        app,
+                        tutorMap.get(app.getTutorId()),
+                        inLessonTutorIds.contains(app.getTutorId())))
                 .toList();
     }
 
