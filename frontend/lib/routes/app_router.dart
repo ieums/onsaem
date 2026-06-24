@@ -10,8 +10,10 @@ import 'package:ieum/features/auth/screens/tutor_signup_screen.dart';
 import 'package:ieum/features/onboarding/screens/onboarding_screen.dart';
 import 'package:ieum/features/student/screens/student_classroom_screen.dart';
 import 'package:ieum/features/student/screens/student_credit_recharge_screen.dart';
+import 'package:ieum/features/student/screens/student_subscription_screen.dart';
 import 'package:ieum/features/student/screens/student_matching_wait_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_upload_screen.dart';
+import 'package:ieum/features/student/screens/student_problem_list_screen.dart';
 import 'package:ieum/features/student/screens/student_question_status_screen.dart';
 import 'package:ieum/features/student/screens/student_tutor_profile_screen.dart';
 import 'package:ieum/features/student/screens/student_tutor_selection_screen.dart';
@@ -77,8 +79,16 @@ final appRouter = GoRouter(
       builder: (_, _) => const StudentCreditRechargeScreen(),
     ),
     GoRoute(
+      path: RoutePaths.studentSubscription,
+      builder: (_, _) => const StudentSubscriptionScreen(),
+    ),
+    GoRoute(
       path: RoutePaths.studentProblemUpload,
       builder: (_, _) => const StudentProblemUploadScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.studentProblemList,
+      builder: (_, _) => const StudentProblemListScreen(),
     ),
     GoRoute(
       path: RoutePaths.studentMatchingWait,

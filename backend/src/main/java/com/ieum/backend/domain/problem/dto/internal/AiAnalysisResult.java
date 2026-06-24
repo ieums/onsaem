@@ -32,5 +32,7 @@ public class AiAnalysisResult {
         private Difficulty difficulty;
         private Integer totalDifficultyScore;
         private ExamType examType;
+        /** 분류 API가 실패해 기본값으로 채웠는지 여부(프론트가 분류 수정 화면으로 유도). */
+        private boolean classificationFailed;
     }
 }

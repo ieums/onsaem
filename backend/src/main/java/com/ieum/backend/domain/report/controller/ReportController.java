@@ -1,16 +1,20 @@
 package com.ieum.backend.domain.report.controller;
 
+import com.ieum.backend.domain.auth.entity.Role;
+import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
 import com.ieum.backend.domain.report.dto.request.CreateReportRequest;
 import com.ieum.backend.domain.report.dto.response.ReportResponse;
+import com.ieum.backend.domain.report.entity.enums.ReporterType;
 import com.ieum.backend.domain.report.service.ReportService;
 import com.ieum.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * 신고 (양방향: 학생↔강사). v1은 접수만.
- * reporterId는 인증 도입 전까지 본문으로 받음.
+ * 신고자(reporterId·reporterType)는 JWT 인증 주체에서 가져온다(본문 값 신뢰 X).
  */
 @RestController
 @RequestMapping("/api/v1/reports")
@@ -21,7 +25,13 @@ public class ReportController {
 
     /** 신고 접수 — POST /api/v1/reports */
     @PostMapping
-    public ApiResponse<ReportResponse> create(@RequestBody @Valid CreateReportRequest request) {
-        return ApiResponse.ok("신고가 접수되었습니다.", reportService.create(request));
+    public ApiResponse<ReportResponse> create(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @RequestBody @Valid CreateReportRequest request) {
+        ReporterType reporterType = principal.role() == Role.TUTOR
+                ? ReporterType.TUTOR
+                : ReporterType.STUDENT;
+        return ApiResponse.ok("신고가 접수되었습니다.",
+                reportService.create(principal.id(), reporterType, request));
     }
 }

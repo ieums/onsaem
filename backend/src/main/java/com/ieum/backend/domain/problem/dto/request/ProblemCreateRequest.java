@@ -1,6 +1,6 @@
 package com.ieum.backend.domain.problem.dto.request;
 
-import com.ieum.backend.domain.problem.entity.enums.ExamType;
+import com.ieum.backend.domain.problem.entity.enums.Subject;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -14,6 +14,9 @@ public class ProblemCreateRequest {
 
     @NotNull(message = "학생 ID는 필수입니다")
     private Long studentId;
+
+    /** 학생이 고른 과목. 지정되면 AI 판정보다 우선해 과목을 확정한다(없으면 AI 판정 사용). */
+    private Subject subject;
 
     @Size(max = 500, message = "설명은 500자 이내로 입력해주세요")
     private String studentDescription;

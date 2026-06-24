@@ -18,6 +18,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
@@ -36,8 +37,12 @@ public class GeminiClassifier {
     @Value("${gemini.api.key:none}")
     private String apiKey;
 
-    private static final String GEMINI_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+    @Value("${gemini.api.model:gemini-2.5-flash-lite}")
+    private String model;
+
+    private String geminiUrl() {
+        return "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
+    }
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ProblemTypeRegistry typeRegistry;
@@ -149,16 +154,40 @@ public class GeminiClassifier {
         );
     }
 
+    private static final int MAX_ATTEMPTS = 3;
+
     public ClassificationResult classify(String problemText, String examCode) {
         if ("none".equals(apiKey)) {
             log.warn("Gemini API 키 없음. Mock 분류 결과 반환.");
             return mockClassification();
         }
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return callApi(problemText, examCode);
+            } catch (HttpStatusCodeException e) {
+                // 503/502/500/429 등 일시 과부하·레이트리밋이면 잠깐 쉬고 재시도
+                boolean transientError =
+                        e.getStatusCode().is5xxServerError() || e.getStatusCode().value() == 429;
+                if (transientError && attempt < MAX_ATTEMPTS) {
+                    log.warn("분류 일시 오류({}) — 재시도 {}/{}", e.getStatusCode(), attempt, MAX_ATTEMPTS);
+                    backoff(attempt);
+                    continue;
+                }
+                log.error("분류 API 호출 실패", e);
+                throw BusinessException.internalError("분류 API 호출 실패: " + e.getMessage(), e);
+            } catch (Exception e) {
+                log.error("분류 API 호출 실패", e);
+                throw BusinessException.internalError("분류 API 호출 실패: " + e.getMessage(), e);
+            }
+        }
+    }
+
+    /** 재시도 전 백오프 대기 (1초, 2초 …) */
+    private static void backoff(int attempt) {
         try {
-            return callApi(problemText, examCode);
-        } catch (Exception e) {
-            log.error("분류 API 호출 실패", e);
-            throw BusinessException.internalError("분류 API 호출 실패: " + e.getMessage(), e);
+            Thread.sleep(1000L * attempt);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -170,7 +199,10 @@ public class GeminiClassifier {
                 )),
                 "generationConfig", Map.of(
                         "response_mime_type", "application/json",
-                        "temperature", 0.2
+                        "temperature", 0.2,
+                        "maxOutputTokens", 8192,
+                        // 분류도 추론 불필요 → thinking 끔(속도↑, 출력 잘림 방지)
+                        "thinkingConfig", Map.of("thinkingBudget", 0)
                 )
         );
 
@@ -178,7 +210,7 @@ public class GeminiClassifier {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
-        String urlWithKey = GEMINI_URL + "?key=" + apiKey;
+        String urlWithKey = geminiUrl() + "?key=" + apiKey;
         ResponseEntity<String> response = restTemplate.postForEntity(urlWithKey, request, String.class);
 
         return parseResponse(response.getBody());

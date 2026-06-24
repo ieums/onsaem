@@ -5,7 +5,9 @@ import com.ieum.backend.domain.problem.dto.internal.AiAnalysisResult.DetectedPro
 import com.ieum.backend.domain.problem.dto.internal.ClassificationResult;
 import com.ieum.backend.domain.problem.dto.internal.OcrResult;
 import com.ieum.backend.domain.problem.dto.internal.OcrResult.DetectedText;
+import com.ieum.backend.domain.problem.entity.enums.Difficulty;
 import com.ieum.backend.domain.problem.entity.enums.ExamType;
+import com.ieum.backend.domain.problem.entity.enums.Subject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -61,7 +63,18 @@ public class GeminiClient {
             log.info("2단계 분류 시작 — 문제 {}/{} (examCode: {})",
                     i + 1, ocrResult.getDetectedTexts().size(), examCode);
 
-            ClassificationResult c = classifier.classify(t.getExtractedText(), examCode);
+            // 분류 실패(과부하 503 등)는 치명적이지 않다 — 기본값으로 채워 등록은 진행하고,
+            // 프론트가 분류 수정 화면으로 유도하도록 classificationFailed 플래그를 남긴다.
+            boolean classificationFailed = false;
+            ClassificationResult c;
+            try {
+                c = classifier.classify(t.getExtractedText(), examCode);
+            } catch (RuntimeException e) {
+                log.warn("분류 실패 — 기본값으로 등록 진행(문제 {}/{}): {}",
+                        i + 1, ocrResult.getDetectedTexts().size(), e.getMessage());
+                c = fallbackClassification(t.getExtractedText());
+                classificationFailed = true;
+            }
 
             // examType 안전망: 코드가 있는데 EBS로 분류 안 됐으면 강제 보정
             ExamType finalExamType = c.getExamType();
@@ -84,6 +97,7 @@ public class GeminiClient {
             p.setDifficulty(c.getDifficulty());
             p.setTotalDifficultyScore(c.getTotalDifficultyScore());
             p.setExamType(finalExamType);
+            p.setClassificationFailed(classificationFailed);
 
             problems.add(p);
         }
@@ -91,6 +105,28 @@ public class GeminiClient {
         AiAnalysisResult result = new AiAnalysisResult();
         result.setDetectedProblems(problems);
         return result;
+    }
+
+    /**
+     * 분류 API 실패 시 기본값. 과목은 어차피 학생 선택값이 우선하므로 UNKNOWN,
+     * 나머지는 미분류/보통으로 채워 등록만 진행한다(이후 학생이 분류 수정 화면에서 보정).
+     */
+    private ClassificationResult fallbackClassification(String text) {
+        ClassificationResult r = new ClassificationResult();
+        r.setSummary(buildSummaryFromText(text));
+        r.setSubject(Subject.UNKNOWN);
+        r.setPrimaryType(null);
+        r.setSecondaryType(null);
+        r.setDifficulty(Difficulty.MEDIUM);
+        r.setTotalDifficultyScore(50);
+        r.setExamType(ExamType.UNKNOWN);
+        return r;
+    }
+
+    private String buildSummaryFromText(String text) {
+        if (text == null || text.isBlank()) return "분류 대기 중인 문제";
+        String s = text.strip().replaceAll("\\s+", " ");
+        return s.length() > 30 ? s.substring(0, 30) + "…" : s;
     }
 
     /**

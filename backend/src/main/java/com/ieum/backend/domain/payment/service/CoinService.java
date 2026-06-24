@@ -43,11 +43,17 @@ public class CoinService {
     }
 
     /**
-     * 잔액 조회
+     * 잔액 조회 — 읽기 전용. 지갑이 아직 없으면(충전 이력 없음) 잔액 0으로 응답한다.
+     * (조회 API에서 지갑을 생성하면 readOnly 트랜잭션에서 쓰기가 발생해 실패한다.)
      */
     public CoinBalanceResponse getBalance(Long studentId) {
-        CoinWallet wallet = getOrCreateWallet(studentId);
-        return CoinBalanceResponse.from(wallet);
+        return walletRepository.findByStudentId(studentId)
+                .map(CoinBalanceResponse::from)
+                .orElseGet(() -> CoinBalanceResponse.builder()
+                        .studentId(studentId)
+                        .balance(0)
+                        .availableBalance(0)
+                        .build());
     }
 
     /**

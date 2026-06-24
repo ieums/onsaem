@@ -1,5 +1,7 @@
 package com.ieum.backend.domain.settlement.service;
 
+import com.ieum.backend.domain.lesson.entity.Lesson;
+import com.ieum.backend.domain.lesson.repository.LessonRepository;
 import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
 import com.ieum.backend.domain.settlement.dto.response.BulkWithdrawResponse;
 import com.ieum.backend.domain.settlement.dto.response.SettlementResponse;
@@ -22,6 +24,7 @@ import java.util.List;
 public class SettlementService {
 
     private final SettlementRepository settlementRepository;
+    private final LessonRepository lessonRepository;   // 정산 대상 강사를 강의에서 권위있게 가져오기 위함
 
     /**
      * 정산 계산 (강의 완료 시 호출).
@@ -29,6 +32,13 @@ public class SettlementService {
      */
     @Transactional
     public SettlementResponse calculate(CalculateSettlementRequest request) {
+        // 정산 대상 강사는 '강의의 실제 강사'를 권위로 삼는다.
+        // (요청의 tutorId를 그대로 신뢰하면 엉뚱한 강사에게 정산될 수 있음 — tutor↔강의 연결 보장)
+        Lesson lesson = lessonRepository.findById(request.getLessonId())
+                .orElseThrow(() -> BusinessException.notFound(
+                        "정산할 강의를 찾을 수 없습니다. lessonId: " + request.getLessonId()));
+        Long tutorId = lesson.getTutorId();
+
         // 1차 방어: 이미 정산된 강의면 친절한 에러 (일반적인 단건 호출 경로)
         settlementRepository.findByLessonId(request.getLessonId())
                 .ifPresent(existing -> {
@@ -37,7 +47,7 @@ public class SettlementService {
 
         SettlementPolicy.Distribution dist = SettlementPolicy.distribute(request.getTotalCoin());
         Settlement settlement = Settlement.builder()
-                .tutorId(request.getTutorId())
+                .tutorId(tutorId)
                 .lessonId(request.getLessonId())
                 .totalCoin(request.getTotalCoin())
                 .platformFeeCoin(dist.platformFeeCoin())
