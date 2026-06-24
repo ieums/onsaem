@@ -363,7 +363,7 @@ class _ActivePendingQuestionCard extends StatelessWidget {
           Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => context.push(RoutePaths.studentQuestionStatus),
+              onTap: () => context.push(RoutePaths.studentTutorSelection),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
                 child: Column(

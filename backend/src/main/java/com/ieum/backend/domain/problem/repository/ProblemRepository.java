@@ -2,6 +2,7 @@ package com.ieum.backend.domain.problem.repository;
 
 import com.ieum.backend.domain.problem.entity.Problem;
 import com.ieum.backend.domain.problem.entity.enums.ProblemStatus;
+import com.ieum.backend.domain.problem.entity.enums.Subject;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,4 +28,7 @@ public interface ProblemRepository extends JpaRepository<Problem, Long> {
 
     @Query("SELECT p FROM Problem p WHERE p.id IN :problemIds")
     List<Problem> findAllByIdIn(@Param("problemIds") List<Long> problemIds);
+
+    @Query("SELECT p FROM Problem p WHERE p.searching = true AND p.searchDeadline > :now AND p.subject IN :subjects")
+    List<Problem> findAllSearchingBySubjects(@Param("now") LocalDateTime now, @Param("subjects") List<Subject> subjects);
 }

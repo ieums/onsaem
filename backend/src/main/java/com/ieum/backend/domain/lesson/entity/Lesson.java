@@ -138,4 +138,15 @@ public class Lesson {
     @Column(name = "problem_id")
     private Long problemId;
 
+    @Column(name = "image_count", nullable = false, columnDefinition = "INT DEFAULT 0")
+    private int imageCount = 0;
+
+    public void incrementImageCount() {
+        this.imageCount++;
+    }
+
+    public boolean isImageLimitReached() {
+        return this.imageCount >= 10;
+    }
+
 }

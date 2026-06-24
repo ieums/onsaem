@@ -13,7 +13,9 @@ import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
+import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/screens/student_problem_edit_screen.dart';
+import 'package:ieum/features/student/utils/student_question_text_util.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
@@ -492,10 +494,25 @@ class _StudentProblemUploadScreenState
       return;
     }
 
-    // 매칭(강사찾기/강사선택)은 아직 연결하지 않는다 — 등록만 마치고 홈으로.
+    if (result.id == null) {
+      setState(() => _submitting = false);
+      _showSnack('문제 등록에 실패했어요. 다시 시도해 주세요.');
+      return;
+    }
+
+    final questionSummary = StudentQuestionTextUtil.summarize(
+      _descriptionController.text,
+    );
+    await ref.read(studentMatchingSessionProvider.notifier).startMatching(
+      problemId: result.id!,
+      studentId: studentId,
+      subject: _selectedSubject!,
+      questionSummary: questionSummary,
+      problemImageBytes: _problemImages.firstOrNull,
+    );
+
+    if (!mounted) return;
     setState(() => _submitting = false);
-    ref.invalidate(studentProblemsProvider);
-    _showSnack('문제가 등록됐어요.');
     context.go(RoutePaths.studentHome);
   }
 

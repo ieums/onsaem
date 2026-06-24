@@ -15,7 +15,7 @@ class MatchingStompService {
     void Function(String message)? onMatchCancelled,
     void Function(int problemId)? onNewProblem,
     List<int> matchingProblemIds = const [],
-    void Function(int problemId)? onMatched,
+    void Function(int problemId, String channelName, List<String> imageUrls, String? subject)? onMatched,
   }) {
     _stomp = StompClient(
       config: StompConfig(
@@ -69,7 +69,11 @@ class MatchingStompService {
                   final json =
                       jsonDecode(frame.body!) as Map<String, dynamic>;
                   if (json['type'] == 'MATCHED') {
-                    onMatched?.call(pId);
+                    final channelName = json['channelName'] as String? ?? '';
+                    final imageUrls =
+                        (json['imageUrls'] as List<dynamic>? ?? []).cast<String>();
+                    final subject = json['subject'] as String?;
+                    onMatched?.call(pId, channelName, imageUrls, subject);
                   }
                 } catch (_) {}
               },
