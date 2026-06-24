@@ -428,7 +428,7 @@ class _ToolPalette extends StatelessWidget {
                     Icons.undo_rounded,
                     size: 20,
                     color: canUndo
-                        ? AppColors.studentPoint
+                        ? AppColors.studentInk
                         : idleIconColor.withValues(alpha: 0.35),
                   ),
                 ),
@@ -491,9 +491,9 @@ class _ToolPalette extends StatelessWidget {
                         thumbShape:
                             const RoundSliderThumbShape(enabledThumbRadius: 6),
                         overlayShape: SliderComponentShape.noOverlay,
-                        activeTrackColor: AppColors.studentPoint,
+                        activeTrackColor: AppColors.studentInk,
                         inactiveTrackColor: dividerColor,
-                        thumbColor: AppColors.studentPoint,
+                        thumbColor: AppColors.studentInk,
                       ),
                       child: Slider(
                         value: toolSize,
@@ -602,7 +602,7 @@ class _ColorSwatch extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: selected ? AppColors.studentPoint : Colors.transparent,
+            color: selected ? AppColors.studentInk : Colors.transparent,
             width: 2.5,
           ),
           boxShadow: selected

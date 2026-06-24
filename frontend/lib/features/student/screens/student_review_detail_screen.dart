@@ -162,6 +162,30 @@ class _StudentReviewDetailScreenState
               ),
             _buildTabBar(shell),
             Expanded(
+              child: NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) {
+                  return [
+                    SliverToBoxAdapter(child: _buildVideoSection(shell)),
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _ReviewTabBarDelegate(
+                        tabController: _tabController,
+                        backgroundColor: pageBg,
+                        indicatorColor: AppColors.studentInk,
+                        labelColor: shell.titleColor,
+                        unselectedColor: shell.hintColor,
+                      ),
+                    ),
+                  ];
+                },
+                body: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildSummaryTab(shell),
+                    _buildConceptTab(shell),
+                    _buildMemoTab(shell),
+                  ],
+                ),
               child: TabBarView(
                 controller: _tabController,
                 children: [
@@ -371,30 +395,87 @@ class _StudentReviewDetailScreenState
     );
   }
 
-  // ── PDF tab ──────────────────────────────────────────────────────────────
+  Widget _buildConceptSectionCard(
+    ShellTheme shell,
+    StudentReviewConceptSection section,
+    int index,
+  ) {
+    return _buildConceptCard(
+      shell: shell,
+      leading: Container(
+        width: 26,
+        height: 26,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.studentPoint.withValues(alpha: 0.12),
+          shape: BoxShape.circle,
+        ),
+        child: Text(
+          '$index',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: AppColors.studentPoint,
+          ),
+        ),
+      ),
+      title: section.title,
+      body: section.body,
+      bullets: section.bullets,
+      bulletColor: AppColors.studentPoint,
+    );
+  }
 
-  Widget _buildPdfTab(ShellTheme shell, LessonReviewChatState state) {
-    if (state.isInitializing) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  Widget _buildConceptCard({
+    required ShellTheme shell,
+    required Widget leading,
+    required String title,
+    String? body,
+    required List<String> bullets,
+    required Color bulletColor,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final res = state.resources;
-    if (res == null || !res.hasPdf) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.picture_as_pdf_outlined,
-              size: 48,
-              color: shell.hintColor.withValues(alpha: 0.4),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'AI가 강의 요약 PDF를 준비 중입니다.',
-              style: TextStyle(color: shell.hintColor, fontSize: 14),
-            ),
-            const SizedBox(height: 4),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: shell.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: shell.cardBorder.withValues(alpha: 0.75)),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              leading,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                    color: shell.titleColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (body != null && body.isNotEmpty) ...[
+            const SizedBox(height: 10),
             Text(
               '잠시 후 다시 확인해 주세요.',
               style: TextStyle(
@@ -406,33 +487,242 @@ class _StudentReviewDetailScreenState
       );
     }
 
-    return Column(
+  Widget _buildMemoTab(ShellTheme shell) {
+    final memo = _currentMemo;
+    final isEmpty = memo == null || memo.content.isEmpty;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => _openPdfExternal(res.pdfUrl!),
-              icon: const Icon(Icons.download_rounded, size: 16),
-              label: const Text('다운로드'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.studentPoint,
-                textStyle: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-              ),
-            ),
+        Container(
+          decoration: BoxDecoration(
+            color: shell.cardBackground,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: shell.cardBorder.withValues(alpha: 0.7)),
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
           ),
-        ),
-        Expanded(
-          child: _isPdfLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _pdfError != null
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.sticky_note_2_outlined,
+                      size: 18,
+                      color: shell.hintColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '메모',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: shell.subtitleColor,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_memos.length > 1)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: shell.detailBackground,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _MemoPageButton(
+                              icon: Icons.chevron_left_rounded,
+                              enabled: _memoPageIndex > 0,
+                              onTap: () => setState(() {
+                                _memoPageIndex--;
+                                _isEditingMemo = false;
+                              }),
+                            ),
+                            Text(
+                              '${_memoPageIndex + 1}/${_memos.length}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: shell.subtitleColor,
+                              ),
+                            ),
+                            _MemoPageButton(
+                              icon: Icons.chevron_right_rounded,
+                              enabled: _memoPageIndex < _memos.length - 1,
+                              onTap: () => setState(() {
+                                _memoPageIndex++;
+                                _isEditingMemo = false;
+                              }),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                child: GestureDetector(
+                  onTap: !_isEditingMemo ? _startMemoEdit : null,
+                  child: Container(
+                    height: _memoBoxHeight,
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? shell.detailBackground
+                          : const Color(0xFFFAFBFE),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: _isEditingMemo
+                            ? shell.cardBorder
+                            : shell.cardBorder.withValues(alpha: 0.55),
+                      ),
+                    ),
+                    child: _isEditingMemo
+                        ? Theme(
+                            data: Theme.of(context).copyWith(
+                              inputDecorationTheme: const InputDecorationTheme(
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              textSelectionTheme: TextSelectionThemeData(
+                                cursorColor: shell.titleColor,
+                                selectionColor:
+                                    shell.cardBorder.withValues(alpha: 0.45),
+                                selectionHandleColor: shell.subtitleColor,
+                              ),
+                            ),
+                            child: TextField(
+                              controller: _memoEditController,
+                              autofocus: true,
+                              maxLines: null,
+                              expands: true,
+                              textAlignVertical: TextAlignVertical.top,
+                              style: TextStyle(
+                                fontSize: 15,
+                                height: 1.6,
+                                color: shell.titleColor,
+                              ),
+                              decoration: InputDecoration(
+                                hintText:
+                                    '수업 내용, 헷갈린 점, 복습할 키워드를 적어 보세요',
+                                hintStyle: TextStyle(
+                                  color: shell.hintColor,
+                                  fontSize: 14,
+                                  height: 1.5,
+                                ),
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                isCollapsed: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                          )
+                        : isEmpty
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.edit_note_rounded,
+                                    size: 36,
+                                    color: shell.hintColor.withValues(alpha: 0.55),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    '탭해서 메모 작성',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: shell.hintColor,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : SingleChildScrollView(
+                                child: Text(
+                                  memo.content,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    height: 1.65,
+                                    color: shell.titleColor,
+                                  ),
+                                ),
+                              ),
+                  ),
+                ),
+              ),
+              if (memo != null &&
+                  !_isEditingMemo &&
+                  memo.content.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      formatDotDateTime(memo.updatedAt),
+                      style: TextStyle(fontSize: 11, color: shell.hintColor),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Divider(height: 1, color: shell.cardBorder.withValues(alpha: 0.6)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: _isEditingMemo
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: _cancelMemoEdit,
+                              child: Text(
+                                '취소',
+                                style: TextStyle(color: shell.hintColor),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: _saveMemoEdit,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.studentPoint,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text('저장'),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
                         children: [
                           Text(
                             _pdfError!,
@@ -488,39 +778,21 @@ class _MessageBubble extends StatelessWidget {
             isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!isUser) ...[
-            _AiAvatar(isDark: isDark),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isUser
-                    ? AppColors.studentPoint
-                    : (isDark
-                        ? shell.detailBackground
-                        : shell.cardBackground),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isUser ? 16 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 16),
-                ),
-                border: isUser
-                    ? null
-                    : Border.all(
-                        color: shell.cardBorder.withValues(alpha: 0.6)),
-              ),
-              child: Text(
-                message.content,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.55,
-                  color: isUser ? Colors.white : shell.titleColor,
-                ),
-              ),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.studentPoint,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            body,
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.55,
+              color: shell.titleColor,
             ),
           ),
           if (isUser) const SizedBox(width: 8),

@@ -2,11 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
-import 'package:ieum/features/student/providers/student_wallet_provider.dart';
+import 'package:ieum/features/student/models/payment_models.dart';
+import 'package:ieum/features/student/providers/payment_provider.dart';
 
 /// 한 행 높이 × 5건까지 고정 노출, 그 이상은 스크롤
 const _kHistoryRowHeight = 64.0;
 const _kHistoryVisibleRows = 5;
+
+String _won(int n) {
+  final s = n.abs().toString();
+  final b = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) b.write(',');
+    b.write(s[i]);
+  }
+  return b.toString();
+}
+
+String _txDate(DateTime? d) {
+  if (d == null) return '';
+  final l = d.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${l.year}.${two(l.month)}.${two(l.day)} ${two(l.hour)}:${two(l.minute)}';
+}
+
+String _txTitle(CoinTransaction t) =>
+    t.typeDisplayName.isNotEmpty ? t.typeDisplayName : (t.description ?? '거래');
 
 void showStudentPaymentHistoryBottomSheet(BuildContext context) {
   showModalBottomSheet<void>(
@@ -21,7 +42,8 @@ void showStudentPaymentHistoryBottomSheet(BuildContext context) {
       return Consumer(
         builder: (context, ref, _) {
           final sheetShell = ShellTheme.of(sheetContext);
-          final history = ref.watch(studentWalletProvider).history;
+          final history =
+              ref.watch(coinTransactionsProvider).valueOrNull ?? const [];
           final bottom = MediaQuery.paddingOf(sheetContext).bottom;
           final listHeight = _kHistoryRowHeight *
               (history.length < _kHistoryVisibleRows
@@ -137,7 +159,7 @@ class _HistoryRow extends StatelessWidget {
   });
 
   final ShellTheme shell;
-  final CreditHistoryEntry entry;
+  final CoinTransaction entry;
   final bool showDivider;
 
   @override
@@ -158,7 +180,7 @@ class _HistoryRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        entry.title,
+                        _txTitle(entry),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -169,18 +191,18 @@ class _HistoryRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        entry.date,
+                        _txDate(entry.createdAt),
                         style: TextStyle(fontSize: 12, color: shell.hintColor),
                       ),
                     ],
                   ),
                 ),
                 Text(
-                  '${entry.pointDelta >= 0 ? '+' : ''}${formatCredits(entry.pointDelta.abs())}P',
+                  '${entry.amount >= 0 ? '+' : '-'}${_won(entry.amount)}P',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: entry.pointDelta >= 0
+                    color: entry.amount >= 0
                         ? AppColors.incomeGreen
                         : shell.subtitleColor,
                   ),
@@ -202,7 +224,8 @@ class StudentPaymentHistoryTabPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final shell = ShellTheme.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final history = ref.watch(studentWalletProvider).history;
+    final history =
+        ref.watch(coinTransactionsProvider).valueOrNull ?? const [];
     final preview = history.take(3).toList();
 
     return Column(
@@ -241,7 +264,7 @@ class StudentPaymentHistoryTabPanel extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                preview[i].title,
+                                _txTitle(preview[i]),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -252,7 +275,7 @@ class StudentPaymentHistoryTabPanel extends ConsumerWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                preview[i].date,
+                                _txDate(preview[i].createdAt),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: shell.hintColor,
@@ -262,11 +285,11 @@ class StudentPaymentHistoryTabPanel extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          '${preview[i].pointDelta >= 0 ? '+' : ''}${formatCredits(preview[i].pointDelta.abs())}P',
+                          '${preview[i].amount >= 0 ? '+' : '-'}${_won(preview[i].amount)}P',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
-                            color: preview[i].pointDelta >= 0
+                            color: preview[i].amount >= 0
                                 ? AppColors.incomeGreen
                                 : shell.subtitleColor,
                           ),
@@ -284,8 +307,8 @@ class StudentPaymentHistoryTabPanel extends ConsumerWidget {
           child: OutlinedButton(
             onPressed: () => showStudentPaymentHistoryBottomSheet(context),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.studentPoint,
-              side: const BorderSide(color: AppColors.studentPoint, width: 1.4),
+              foregroundColor: AppColors.studentInk,
+              side: const BorderSide(color: AppColors.studentInk, width: 1.4),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

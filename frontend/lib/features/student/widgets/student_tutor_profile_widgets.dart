@@ -59,7 +59,7 @@ class StudentPrimaryGradientButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: enabled
-                ? [AppColors.studentPoint, AppColors.primaryBlue]
+                ? [AppColors.studentInk, AppColors.primaryBlue]
                 : [
                     AppColors.studentPoint.withValues(alpha: 0.45),
                     AppColors.primaryBlue.withValues(alpha: 0.45),
@@ -172,9 +172,7 @@ class StudentTutorCompactCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectButtonTextColor =
-        isDark ? AppColors.shellOnSurfaceLight : Colors.white;
+    final selectButtonTextColor = AppColors.studentInk;
     final borderColor = emphasized
         ? AppColors.studentPoint.withValues(alpha: 0.45)
         : shell.cardBorder;
@@ -237,7 +235,7 @@ class StudentTutorCompactCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.studentPoint,
+                      color: AppColors.studentInk,
                     ),
                   ),
                 ),
@@ -287,12 +285,12 @@ class StudentTutorCompactCard extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(
                       color: emphasized
-                          ? AppColors.studentPoint
+                          ? AppColors.studentInk
                           : shell.cardBorder,
                       width: emphasized ? 1.5 : 1,
                     ),
                     foregroundColor: emphasized
-                        ? AppColors.studentPoint
+                        ? AppColors.studentInk
                         : shell.titleColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

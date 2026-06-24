@@ -42,7 +42,7 @@ class _StudentMatchingWaitScreenState
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
@@ -87,7 +87,7 @@ class _StudentMatchingWaitScreenState
                     children: [
                       const Spacer(flex: 2),
                       _MatchingRippleVisual(
-                        color: AppColors.studentPoint,
+                        color: AppColors.studentInk,
                         iconColor: isDark
                             ? AppColors.shellOnSurfaceLight
                             : Colors.white,
@@ -126,10 +126,10 @@ class _StudentMatchingWaitScreenState
                           onPressed: _switchToAiTutor,
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(
-                              color: AppColors.studentPoint,
+                              color: AppColors.studentInk,
                               width: 1.5,
                             ),
-                            foregroundColor: AppColors.studentPoint,
+                            foregroundColor: AppColors.studentInk,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(26),
                             ),

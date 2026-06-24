@@ -149,6 +149,8 @@ class _StudentLessonsScreenState
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
+          borderSide:
+              const BorderSide(color: AppColors.studentInk, width: 1.5),
           borderSide: const BorderSide(
               color: AppColors.studentPoint, width: 1.5),
         ),

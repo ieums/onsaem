@@ -50,7 +50,7 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
   ThemeData _flowTheme(bool isDark) {
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     return baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
@@ -84,8 +84,7 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
       child: Builder(
         builder: (context) {
           final shell = ShellTheme.of(context);
-          final buttonLabelColor =
-              isDark ? AppColors.shellOnSurfaceLight : Colors.white;
+          final buttonLabelColor = AppColors.studentInk;
 
           return Scaffold(
             backgroundColor: theme.scaffoldBackgroundColor,
@@ -131,7 +130,7 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: _step == 0
-                                  ? AppColors.studentPoint
+                                  ? AppColors.studentInk
                                   : shell.hintColor,
                             ),
                           ),
@@ -144,7 +143,7 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: _step == 1
-                                  ? AppColors.studentPoint
+                                  ? AppColors.studentInk
                                   : shell.hintColor,
                             ),
                           ),
@@ -206,7 +205,7 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                                         width: 6,
                                         height: 6,
                                         decoration: const BoxDecoration(
-                                          color: AppColors.studentPoint,
+                                          color: AppColors.studentInk,
                                           shape: BoxShape.circle,
                                         ),
                                       ),
@@ -216,7 +215,7 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                                         style: const TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w700,
-                                          color: AppColors.studentPoint,
+                                          color: AppColors.studentInk,
                                         ),
                                       ),
                                     ],
@@ -275,7 +274,7 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: const BorderSide(
-                                    color: AppColors.studentPoint,
+                                    color: AppColors.studentInk,
                                     width: 1.5,
                                   ),
                                 ),
@@ -380,7 +379,7 @@ class _ReportProgressBar extends StatelessWidget {
               child: DecoratedBox(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [AppColors.studentPoint, AppColors.primaryBlue],
+                    colors: [AppColors.studentInk, AppColors.primaryBlue],
                   ),
                 ),
               ),
@@ -483,7 +482,7 @@ class _ReportTypeTile extends StatelessWidget {
             color: shell.cardBackground,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? AppColors.studentPoint : shell.cardBorder,
+              color: selected ? AppColors.studentInk : shell.cardBorder,
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -506,7 +505,7 @@ class _ReportTypeTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: selected ? AppColors.studentPoint : shell.cardBorder,
+                    color: selected ? AppColors.studentInk : shell.cardBorder,
                     width: selected ? 2 : 1.5,
                   ),
                 ),
@@ -516,7 +515,7 @@ class _ReportTypeTile extends StatelessWidget {
                           width: 10,
                           height: 10,
                           decoration: const BoxDecoration(
-                            color: AppColors.studentPoint,
+                            color: AppColors.studentInk,
                             shape: BoxShape.circle,
                           ),
                         ),

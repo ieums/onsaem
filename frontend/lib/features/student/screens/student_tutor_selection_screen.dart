@@ -90,9 +90,7 @@ class _StudentTutorSelectionScreenState
                     onPressed: () => Navigator.pop(dialogContext, true),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.studentPoint,
-                      foregroundColor: isDark
-                          ? AppColors.shellOnSurfaceLight
-                          : Colors.white,
+                      foregroundColor: AppColors.studentInk,
                     ),
                     child: const Text(
                       '기다릴게요',
@@ -237,7 +235,7 @@ class _StudentTutorSelectionScreenState
   ThemeData _flowTheme(bool isDark) {
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     return baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );

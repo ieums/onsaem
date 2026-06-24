@@ -67,7 +67,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     final base =
         ref.watch(shellDarkModeProvider) ? AppTheme.shellDark : AppTheme.shellLight;
     return base.copyWith(
-      colorScheme: base.colorScheme.copyWith(primary: AppColors.studentPoint),
+      colorScheme: base.colorScheme.copyWith(primary: AppColors.studentInk),
     );
   }
 
@@ -109,7 +109,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
       _isShellDark(context) ? _scheme(context).surface : _fieldFill(context);
 
   Color _selectorRowFill(BuildContext context, {required bool selected}) {
-    if (selected) return AppColors.studentPoint;
+    if (selected) return AppColors.studentInk;
     if (_isShellDark(context)) return _scheme(context).surface;
     return _isShellThemed ? _menuSurface(context) : Colors.white;
   }
@@ -122,7 +122,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   }
 
   Color _selectorIconColor(BuildContext context, {required bool isOpen}) {
-    if (isOpen) return AppColors.studentPoint;
+    if (isOpen) return AppColors.studentInk;
     if (_isShellDark(context)) return AppColors.white70;
     return _textHint(context);
   }
@@ -133,7 +133,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   ColorScheme _scheme(BuildContext context) => Theme.of(context).colorScheme;
 
   Color _accentFill(BuildContext context) {
-    if (!_isShellThemed) return AppColors.studentPoint;
+    if (!_isShellThemed) return AppColors.studentInk;
     if (_isShellDark(context)) return _scheme(context).surfaceContainerHigh;
     return _scheme(context).primary;
   }
@@ -163,7 +163,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     }
     return FilledButton.styleFrom(
       backgroundColor:
-          _isShellThemed ? _scheme(context).primary : AppColors.studentPoint,
+          _isShellThemed ? _scheme(context).primary : AppColors.studentInk,
       foregroundColor:
           _isShellThemed ? _scheme(context).onPrimary : Colors.white,
       disabledBackgroundColor: AppColors.studentPoint.withValues(alpha: 0.4),
@@ -173,7 +173,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   }
 
   Color _focusBorderColor(BuildContext context) =>
-      _isShellThemed ? _scheme(context).primary : AppColors.studentPoint;
+      _isShellThemed ? _scheme(context).primary : AppColors.studentInk;
 
   @override
   void initState() {

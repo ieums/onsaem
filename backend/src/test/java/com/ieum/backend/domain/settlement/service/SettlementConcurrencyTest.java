@@ -1,5 +1,7 @@
 package com.ieum.backend.domain.settlement.service;
 
+import com.ieum.backend.domain.lesson.entity.Lesson;
+import com.ieum.backend.domain.lesson.repository.LessonRepository;
 import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
 import com.ieum.backend.domain.settlement.repository.SettlementRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -35,19 +37,27 @@ class SettlementConcurrencyTest {
 
     @Autowired SettlementService settlementService;
     @Autowired SettlementRepository settlementRepository;
+    @Autowired LessonRepository lessonRepository;
 
     private static final long TUTOR_ID = 7001L;
-    private static final long LESSON_ID = 8001L;
+    private static final long STUDENT_ID = 9001L;
     private static final int TOTAL_COIN = 100;
+
+    // 정산은 강의에서 강사를 권위있게 가져오므로, 실제 Lesson 행을 만들고 그 id를 쓴다.
+    private Long lessonId;
 
     @BeforeEach
     void setUp() {
         settlementRepository.deleteAll();
+        Lesson lesson = lessonRepository.save(
+                new Lesson("ch-settle-concurrency", TUTOR_ID, STUDENT_ID));
+        lessonId = lesson.getId();
     }
 
     @AfterEach
     void tearDown() {
         settlementRepository.deleteAll();
+        if (lessonId != null) lessonRepository.deleteById(lessonId);
     }
 
     @Test
@@ -64,7 +74,7 @@ class SettlementConcurrencyTest {
                 try {
                     barrier.await();
                     settlementService.calculate(
-                            new CalculateSettlementRequest(TUTOR_ID, LESSON_ID, TOTAL_COIN));
+                            new CalculateSettlementRequest(TUTOR_ID, lessonId, TOTAL_COIN));
                 } catch (Throwable t) {
                     synchronized (errors) {
                         errors.add(t);
