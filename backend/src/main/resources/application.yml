@@ -41,7 +41,7 @@ file:
 # 비밀번호 재설정(이메일 인증 코드)
 password-reset:
   # true면 실제 메일 발송(SMTP 계정 필요), false면 코드를 서버 로그에 출력(로컬 테스트용)
-  mail-enabled: ${MAIL_ENABLED:false}
+  mail-enabled: ${MAIL_ENABLED:true}
   from: ${MAIL_USERNAME:ieum.team@gmail.com}
   code-ttl-minutes: 10
 
