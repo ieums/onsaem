@@ -496,6 +496,31 @@ class _StudentProblemUploadScreenState
         ),
       );
       if (!mounted) return;
+      setState(() => _submitting = true);
+      // EditScreen에서 수정한 subject 반영을 위해 최신 목록 재조회
+      ref.invalidate(studentProblemsProvider);
+      List<StudentProblemModel> problems;
+      try {
+        problems = await ref.read(studentProblemsProvider.future);
+      } catch (_) {
+        problems = const [];
+      }
+      if (!mounted) return;
+      final updated = problems.firstWhere(
+        (p) => p.problemId == result.id,
+        orElse: () => StudentProblemModel.fromCreateResult(result),
+      );
+      final questionSummary = StudentQuestionTextUtil.summarize(
+        _descriptionController.text,
+      );
+      await ref.read(studentMatchingSessionProvider.notifier).startMatching(
+        problemId: result.id!,
+        studentId: studentId,
+        subject: updated.subject ?? _selectedSubject ?? 'UNKNOWN',
+        questionSummary: questionSummary,
+        problemImageBytes: _problemImages.firstOrNull,
+      );
+      if (!mounted) return;
       context.go(RoutePaths.studentHome);
       return;
     }
@@ -506,18 +531,41 @@ class _StudentProblemUploadScreenState
       return;
     }
 
+    setState(() => _submitting = false);
+    ref.invalidate(studentProblemsProvider);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StudentProblemEditScreen(
+          problem: StudentProblemModel.fromCreateResult(result),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _submitting = true);
+    ref.invalidate(studentProblemsProvider);
+    List<StudentProblemModel> problems;
+    try {
+      problems = await ref.read(studentProblemsProvider.future);
+    } catch (_) {
+      problems = const [];
+    }
+    if (!mounted) return;
+    final updated = problems.firstWhere(
+      (p) => p.problemId == result.id,
+      orElse: () => StudentProblemModel.fromCreateResult(result),
+    );
     final questionSummary = StudentQuestionTextUtil.summarize(
       _descriptionController.text,
     );
-    // 매칭 시작은 부가 단계 — 과목 미선택(null)·실패·지연이어도 문제는 이미 등록됐으니
-    // 무한 로딩에 갇히지 않게 null 방어 + try/catch + 타임아웃 후 홈으로 보낸다.
+    // 매칭 시작은 부가 단계 — 과목 미선택·실패·지연이어도 문제는 이미 등록됐으니
+    // 무한 로딩에 갇히지 않게 try/catch + 타임아웃. 과목은 AI 분류값을 우선 폴백.
     try {
       await ref
           .read(studentMatchingSessionProvider.notifier)
           .startMatching(
             problemId: result.id!,
             studentId: studentId,
-            subject: _selectedSubject ?? '',
+            subject: updated.subject ?? _selectedSubject ?? 'UNKNOWN',
             questionSummary: questionSummary,
             problemImageBytes: _problemImages.firstOrNull,
           )

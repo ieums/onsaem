@@ -11,6 +11,7 @@ import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/features/student/widgets/student_problem_chips.dart';
 import 'package:ieum/features/student/widgets/student_problem_image_viewer.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
+import 'package:ieum/features/student/screens/student_ai_tutor_screen.dart';
 
 /// 문제 상세 화면. 등록한 문제의 이미지·요약·분류를 보여주고, 분류 수정으로 진입.
 class StudentProblemDetailScreen extends ConsumerWidget {
@@ -101,6 +102,37 @@ class StudentProblemDetailScreen extends ConsumerWidget {
                         side: BorderSide(
                           color: AppColors.studentInk.withValues(alpha: 0.5),
                         ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                
+                                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 52,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => StudentAiTutorScreen(
+                              problemId: problem.problemId,
+                              problemSummary: problem.summary,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.smart_toy_rounded, size: 20),
+                      label: const Text(
+                        'AI 튜터에게 질문하기',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w800),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.studentInk,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),

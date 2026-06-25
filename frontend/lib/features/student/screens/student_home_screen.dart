@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,14 +6,11 @@ import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
-import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/providers/student_notification_provider.dart';
 import 'package:ieum/features/student/providers/student_shell_tab_provider.dart';
 import 'package:ieum/features/student/screens/student_problem_status_screen.dart';
-import 'package:ieum/features/student/utils/student_question_text_util.dart';
 import 'package:ieum/features/student/widgets/student_notification_dialog.dart';
 import 'package:ieum/features/student/widgets/student_problem_chips.dart';
-import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
 
 class StudentHomeScreen extends ConsumerStatefulWidget {
   const StudentHomeScreen({super.key});
@@ -25,32 +20,10 @@ class StudentHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
-  Timer? _pendingTickTimer;
-
-  @override
-  void dispose() {
-    _pendingTickTimer?.cancel();
-    super.dispose();
-  }
-
-  void _ensurePendingTickTimer(bool enabled) {
-    if (enabled) {
-      _pendingTickTimer ??= Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() {});
-      });
-      return;
-    }
-    _pendingTickTimer?.cancel();
-    _pendingTickTimer = null;
-  }
-
-
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
     final pageBg = Theme.of(context).scaffoldBackgroundColor;
-    final matchingSession = ref.watch(studentMatchingSessionProvider);
-    _ensurePendingTickTimer(matchingSession?.showOnHomePending ?? false);
 
     return ColoredBox(
       color: pageBg,
@@ -65,12 +38,6 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               _buildActionCards(context),
               const SizedBox(height: 28),
               _buildMyQuestions(context, shell),
-              if (matchingSession?.showOnHomePending == true) ...[
-                const SizedBox(height: 28),
-                _buildSectionTitle(context, shell, '매칭 대기 중인 질문'),
-                const SizedBox(height: 12),
-                _ActivePendingQuestionCard(session: matchingSession!),
-              ],
             ],
           ),
         ),
@@ -182,7 +149,6 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     );
   }
 
-  /// 학생 등록 문제 카드를 홈에 직접 노출. 카드 탭 → 질문 현황(간략+강사현황).
   Widget _buildMyQuestions(BuildContext context, ShellTheme shell) {
     const maxOnHome = 3;
     final async = ref.watch(studentProblemsProvider);
@@ -356,124 +322,6 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
       ),
     );
   }
-
-}
-
-class _ActivePendingQuestionCard extends StatelessWidget {
-  const _ActivePendingQuestionCard({required this.session});
-
-  final StudentMatchingSession session;
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellTheme.of(context);
-    final canSelectTutor =
-        session.status == StudentMatchingSessionStatus.selectingTutor;
-    final tutor = session.selectedTutor;
-    final tutorLabel = switch (session.status) {
-      StudentMatchingSessionStatus.connecting ||
-      StudentMatchingSessionStatus.connected =>
-        tutor?.name ?? '강사 연결 중',
-      StudentMatchingSessionStatus.selectingTutor => '강사 선택하기',
-      _ => '담당 강사 배정 대기 중',
-    };
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: shell.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: shell.cardBorder),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => context.push(RoutePaths.studentTutorSelection),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        TutorSubjectBadge(subject: session.subject),
-                        const Spacer(),
-                        Text(
-                          StudentQuestionTextUtil.waitingLabel(session.startedAt),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: shell.hintColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      session.questionSummary,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 1.45,
-                        fontWeight: FontWeight.w600,
-                        color: shell.titleColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Divider(height: 1, color: shell.cardBorder),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: canSelectTutor
-                  ? () => context.push(RoutePaths.studentTutorSelection)
-                  : null,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.person_outline_rounded,
-                      size: 18,
-                      color: canSelectTutor
-                          ? AppColors.studentInk
-                          : shell.hintColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        tutorLabel,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: canSelectTutor
-                              ? AppColors.studentInk
-                              : shell.subtitleColor,
-                        ),
-                      ),
-                    ),
-                    if (canSelectTutor)
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.studentInk,
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _HomeActionCard extends StatelessWidget {
@@ -536,4 +384,3 @@ class _HomeActionCard extends StatelessWidget {
     );
   }
 }
-

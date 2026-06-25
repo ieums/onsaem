@@ -23,6 +23,8 @@ public interface ProblemRepository extends JpaRepository<Problem, Long> {
 
     List<Problem> findAllByStudentId(Long studentId);
 
+    List<Problem> findAllByStudentIdAndStatus(Long studentId, ProblemStatus status);
+
     // 학생이 현재 '탐색 중(매칭 대기)'인 질문 수 — 동시 등록 개수 제한에 사용.
     long countByStudentIdAndStatus(Long studentId, ProblemStatus status);
 

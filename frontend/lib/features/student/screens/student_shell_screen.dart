@@ -10,7 +10,7 @@ import 'package:ieum/features/student/providers/student_shell_tab_provider.dart'
 import 'package:ieum/features/student/screens/student_home_screen.dart';
 import 'package:ieum/features/student/screens/student_lessons_screen.dart';
 import 'package:ieum/features/student/screens/student_my_page_screen.dart';
-import 'package:ieum/features/student/screens/student_questions_screen.dart';
+import 'package:ieum/features/student/screens/student_ai_tutor_list_screen.dart';
 
 /// 학생 탭: 홈 · 복습 · AI튜터 · 마이페이지
 class StudentShellScreen extends ConsumerStatefulWidget {
@@ -39,7 +39,7 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
   static final _screens = [
     StudentHomeScreen(),
     StudentLessonsScreen(),
-    StudentQuestionsScreen(),
+    StudentAiTutorListScreen(),
     StudentMyPageScreen(),
   ];
 

@@ -139,6 +139,31 @@ class StudentMatchingSessionNotifier
 
     await _repo.startMatching(problemId);
 
+    _connectStomp(studentId, problemId);
+  }
+
+  Future<void> resumeMatching({
+    required int problemId,
+    required int studentId,
+    required String subject,
+    required String questionSummary,
+  }) async {
+    final applicants = await _repo.getApplicants(problemId);
+    state = StudentMatchingSession(
+      problemId: problemId,
+      subject: subject,
+      questionSummary: questionSummary,
+      status: applicants.isNotEmpty
+          ? StudentMatchingSessionStatus.selectingTutor
+          : StudentMatchingSessionStatus.matching,
+      startedAt: DateTime.now(),
+      applicants: applicants,
+      imageUrls: const [],
+    );
+    _connectStomp(studentId, problemId);
+  }
+
+  void _connectStomp(int studentId, int problemId) {
     _stomp.connect(
       studentId,
       problemId,
