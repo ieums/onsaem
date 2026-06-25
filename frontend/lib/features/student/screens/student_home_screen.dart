@@ -195,7 +195,10 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
             _buildSectionTitle(context, shell, '내 질문'),
             const Spacer(),
             async.maybeWhen(
-              data: (items) => items.length > maxOnHome
+              data: (items) => items
+                          .where((p) => p.status != 'CANCELED')
+                          .length >
+                      maxOnHome
                   ? GestureDetector(
                       onTap: () => context.push(RoutePaths.studentProblemList),
                       child: Row(
@@ -223,11 +226,14 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
           loading: () => _questionsHint(shell, '질문을 불러오는 중…'),
           error: (_, _) => _questionsHint(shell, '질문을 불러오지 못했어요.'),
           data: (items) {
-            if (items.isEmpty) {
+            // 취소된 질문은 홈에 노출하지 않는다(마이페이지 내 질문에서 확인 가능).
+            final visible =
+                items.where((p) => p.status != 'CANCELED').toList();
+            if (visible.isEmpty) {
               return _questionsHint(
                   shell, '아직 등록한 질문이 없어요. 사진을 올려 첫 질문을 등록해 보세요.');
             }
-            final shown = items.take(maxOnHome).toList();
+            final shown = visible.take(maxOnHome).toList();
             return Column(
               children: [
                 for (var i = 0; i < shown.length; i++) ...[
@@ -263,6 +269,13 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     ShellTheme shell,
     StudentProblemModel item,
   ) {
+    final categories = [
+      if ((item.primaryType?.trim().isNotEmpty) ?? false)
+        item.primaryType!.trim(),
+      if ((item.secondaryType?.trim().isNotEmpty) ?? false)
+        item.secondaryType!.trim(),
+    ];
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -287,7 +300,23 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                   ProblemSubjectChip(subject: item.subject),
                   const SizedBox(width: 8),
                   ProblemStatusChip(status: item.status),
-                  const Spacer(),
+                  Expanded(
+                    child: categories.isEmpty
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Text(
+                              categories.join(' · '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: shell.hintColor,
+                              ),
+                            ),
+                          ),
+                  ),
                   Icon(Icons.chevron_right,
                       size: 20, color: shell.chevronColor),
                 ],
