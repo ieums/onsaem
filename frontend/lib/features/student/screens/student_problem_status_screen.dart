@@ -53,26 +53,23 @@ class _StudentProblemStatusScreenState
     }
   }
 
-  Future<void> _cancelMatching(BuildContext context) async {
+  Future<void> _deleteQuestion(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('매칭 취소',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: const Text(
-            '매칭을 취소하시겠어요?\n신청한 강사들의 목록에서도 사라져요.'),
+        title: const Text('질문 삭제'),
+        content: const Text('이 질문을 삭제할까요? 삭제하면 되돌릴 수 없어요.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('돌아가기'),
+            child: const Text('닫기'),
           ),
-          FilledButton(
+          TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.buttonDanger,
-            ),
-            child: const Text('취소하기',
-                style: TextStyle(color: Colors.white)),
+            child: const Text('삭제',
+                style: TextStyle(
+                    color: AppColors.buttonDanger,
+                    fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -84,46 +81,6 @@ class _StudentProblemStatusScreenState
     if (!context.mounted) return;
     ref.invalidate(studentProblemsProvider);
     Navigator.of(context).pop();
-  }
-
-  /// 질문 삭제(취소) — PENDING 질문을 지워 3개 제한 슬롯을 비운다.
-  Future<void> _deleteQuestion(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('질문 삭제'),
-        content: const Text('이 질문을 삭제할까요? 삭제하면 되돌릴 수 없어요.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('취소')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('삭제',
-                style: TextStyle(
-                    color: AppColors.buttonDanger,
-                    fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    try {
-      await ref
-          .read(problemRepositoryProvider)
-          .cancelProblem(widget.problem.problemId);
-      ref.invalidate(studentProblemsProvider);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('질문을 삭제했어요.')),
-      );
-      Navigator.of(context).pop();
-    } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('삭제에 실패했어요. 잠시 후 다시 시도해 주세요.')),
-      );
-    }
   }
 
   Future<void> _loadApplicants() async {
@@ -250,7 +207,7 @@ class _StudentProblemStatusScreenState
                     width: double.infinity,
                     height: 48,
                     child: OutlinedButton(
-                      onPressed: () => _cancelMatching(context),
+                      onPressed: () => _deleteQuestion(context),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.buttonDanger,
                         side: BorderSide(
@@ -261,7 +218,7 @@ class _StudentProblemStatusScreenState
                         ),
                       ),
                       child: const Text(
-                        '매칭 취소',
+                        '질문 삭제',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
@@ -269,22 +226,6 @@ class _StudentProblemStatusScreenState
                       ),
                     ),
                   ),
-                  if (widget.problem.status == 'PENDING') ...[
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: TextButton.icon(
-                        onPressed: () => _deleteQuestion(context),
-                        icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                        label: const Text('질문 삭제',
-                            style: TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w700)),
-                        style: TextButton.styleFrom(
-                            foregroundColor: AppColors.buttonDanger),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

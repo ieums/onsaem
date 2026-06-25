@@ -1,6 +1,7 @@
 package com.ieum.backend.domain.auth.controller;
 
 import com.ieum.backend.domain.auth.dto.TutorAvailabilityRequest;
+import com.ieum.backend.domain.auth.dto.TutorProfileResponse;
 import com.ieum.backend.domain.auth.service.TutorService;
 import com.ieum.backend.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,11 @@ import org.springframework.web.bind.annotation.*;
 public class TutorController {
 
     private final TutorService tutorService;
+
+    @GetMapping("/{tutorId}")
+    public ApiResponse<TutorProfileResponse> getProfile(@PathVariable Long tutorId) {
+        return ApiResponse.ok(tutorService.getProfile(tutorId));
+    }
 
     @PatchMapping("/{tutorId}/availability")
     public ApiResponse<Void> updateAvailability(
