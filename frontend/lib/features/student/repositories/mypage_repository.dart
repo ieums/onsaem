@@ -37,12 +37,24 @@ class MypageRepository {
     String? phone,
     String? birthDate, // 'yyyy-MM-dd'
     String? profileImageUrl,
+    String? bio,
+    String? school,
+    String? major,
+    List<String>? subjects,
+    String? educationStatus,
+    int? experienceYears,
   }) async {
     await _dio.patch('/auth/me', data: {
       if (name != null && name.isNotEmpty) 'name': name,
       if (phone != null && phone.isNotEmpty) 'phone': phone,
       if (birthDate != null && birthDate.isNotEmpty) 'birthDate': birthDate,
       if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
+      if (bio != null) 'bio': bio,
+      if (school != null) 'school': school,
+      if (major != null) 'major': major,
+      if (subjects != null) 'subjects': subjects,
+      if (educationStatus != null) 'educationStatus': educationStatus,
+      if (experienceYears != null) 'experienceYears': experienceYears,
     });
   }
 

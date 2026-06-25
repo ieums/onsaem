@@ -20,4 +20,8 @@ abstract final class RoutePaths {
   static const studentReviewWrite = '/student/review-write';
   static const studentReport = '/student/report';
   static const tutorHome = '/tutor';
+  static const tutorProfileEdit = '/tutor/profile-edit';
+  static const tutorAcademicEdit = '/tutor/academic-edit';
+  static const tutorMyReviews = '/tutor/my-reviews';
+  static const tutorMyReports = '/tutor/my-reports';
 }
