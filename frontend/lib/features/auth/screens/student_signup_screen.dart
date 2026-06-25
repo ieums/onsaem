@@ -706,7 +706,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     for (final domain in _presetDomainsForWidth) {
       for (final weight in [FontWeight.w500, FontWeight.w600]) {
         painter.text = TextSpan(
-          text: domain,
+          text: _domainLabel(domain),
           style: _domainTextStyle.copyWith(fontWeight: weight),
         );
         painter.layout();
@@ -718,6 +718,11 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     const safetyBuffer = 8.0;
     return maxText + horizontalPadding + iconAndGap + safetyBuffer;
   }
+
+  /// 도메인 표시 라벨 — 실제 도메인은 앞에 '@'를 붙여 보여준다('@gmail.com').
+  /// '직접입력'은 모드 라벨이라 그대로.
+  String _domainLabel(String domain) =>
+      domain == '직접입력' ? domain : '@$domain';
 
   Widget _buildDomainTrigger(BuildContext context) {
     return Material(
@@ -735,7 +740,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
             children: [
               Expanded(
                 child: Text(
-                  _selectedDomain,
+                  _domainLabel(_selectedDomain),
                   style: _domainTextStyle.copyWith(color: _textPrimary(context)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -782,7 +787,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             child: Text(
-              domain,
+              _domainLabel(domain),
               style: _domainTextStyle.copyWith(
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: _selectorLabelColor(context, selected: isSelected),

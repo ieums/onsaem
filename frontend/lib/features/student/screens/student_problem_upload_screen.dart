@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show ImageFilter;
 
@@ -52,6 +53,8 @@ class _StudentProblemUploadScreenState
   final List<Uint8List> _problemImages = [];
   String? _selectedSubject;
   bool _submitting = false; // OCR 분석 중(로딩 오버레이 표시)
+  // 분석 스테퍼 시작 단계 — 0: 처음(업로드→OCR→분류), 2: 선택 후(분류만)
+  int _analyzeStartStep = 0;
 
   @override
   void dispose() {
@@ -433,7 +436,10 @@ class _StudentProblemUploadScreenState
       return;
     }
     final repository = ref.read(problemRepositoryProvider);
-    setState(() => _submitting = true);
+    setState(() {
+      _analyzeStartStep = 0; // 처음: 업로드 → OCR → 분류 전체
+      _submitting = true;
+    });
     ProblemCreateResult result;
     try {
       result = await repository.createProblem(
@@ -456,7 +462,10 @@ class _StudentProblemUploadScreenState
       setState(() => _submitting = false); // 선택 시트는 가리지 않음
       final index = await _pickDetectedProblem(result.allDetected);
       if (!mounted || index == null) return;
-      setState(() => _submitting = true);
+      setState(() {
+        _analyzeStartStep = 2; // 선택 후: OCR 끝, 분류만 진행(실측 신호 반영)
+        _submitting = true;
+      });
       try {
         result = await repository.selectProblem(
           detectionId: result.detectionId!,
@@ -548,13 +557,23 @@ class _StudentProblemUploadScreenState
     final questionSummary = StudentQuestionTextUtil.summarize(
       _descriptionController.text,
     );
-    await ref.read(studentMatchingSessionProvider.notifier).startMatching(
-      problemId: result.id!,
-      studentId: studentId,
-      subject: updated.subject ?? _selectedSubject ?? 'UNKNOWN',
-      questionSummary: questionSummary,
-      problemImageBytes: _problemImages.firstOrNull,
-    );
+    // 매칭 시작은 부가 단계 — 과목 미선택·실패·지연이어도 문제는 이미 등록됐으니
+    // 무한 로딩에 갇히지 않게 try/catch + 타임아웃. 과목은 AI 분류값을 우선 폴백.
+    try {
+      await ref
+          .read(studentMatchingSessionProvider.notifier)
+          .startMatching(
+            problemId: result.id!,
+            studentId: studentId,
+            subject: updated.subject ?? _selectedSubject ?? 'UNKNOWN',
+            questionSummary: questionSummary,
+            problemImageBytes: _problemImages.firstOrNull,
+          )
+          .timeout(const Duration(seconds: 12));
+    } catch (e) {
+      debugPrint('[upload] 매칭 시작 건너뜀(등록은 완료됨): $e');
+    }
+
     if (!mounted) return;
     setState(() => _submitting = false);
     context.go(RoutePaths.studentHome);
@@ -743,17 +762,8 @@ class _StudentProblemUploadScreenState
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 46,
-                      height: 46,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3.4,
-                        valueColor: const AlwaysStoppedAnimation(AppColors.studentInk),
-                        backgroundColor: AppColors.studentPoint.withValues(alpha: 0.15),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
                     Text(
                       '문제를 분석하고 있어요',
                       style: TextStyle(
@@ -762,10 +772,13 @@ class _StudentProblemUploadScreenState
                         color: shell.titleColor,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'AI가 문제를 읽는 중이에요. 잠시만요!',
-                      style: TextStyle(fontSize: 13, color: shell.hintColor),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: 232,
+                      child: _AnalyzingProgress(
+                        shell: shell,
+                        startStep: _analyzeStartStep,
+                      ),
                     ),
                   ],
                 ),
@@ -963,6 +976,128 @@ class _StudentProblemUploadScreenState
               ),
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// 분석 진행 단계 시각화(추정 스테퍼).
+/// 백엔드는 OCR+분류를 한 번에 처리해 실시간 신호가 없으므로, 단계별 추정 시간으로 진행한다.
+/// 핵심: 실제 응답(=오버레이 제거) 전까지 **마지막 단계를 '완료'로 만들지 않는다**(거짓 완료 방지).
+class _AnalyzingProgress extends StatefulWidget {
+  const _AnalyzingProgress({required this.shell, this.startStep = 0});
+
+  final ShellTheme shell;
+  final int startStep; // 0: 처음(업로드부터), 2: 선택 후(분류만)
+
+  @override
+  State<_AnalyzingProgress> createState() => _AnalyzingProgressState();
+}
+
+class _AnalyzingProgressState extends State<_AnalyzingProgress> {
+  static const _steps = ['사진 업로드', '문제 글자 인식 (OCR)', 'AI가 과목·유형 분류'];
+  // 단계별 추정 소요(ms) — 튜닝값. OCR이 제일 길다.
+  static const _estMs = [400, 8000, 3500];
+
+  Timer? _timer;
+  int _elapsed = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+      if (mounted) setState(() => _elapsed += 200);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  /// 현재 진행 중인 단계. startStep 이전은 이미 완료로 친다.
+  /// 추정 시간이 다 지나도 **마지막 단계에서 멈춰(active 유지)** 거짓 완료를 막는다.
+  int get _activeStep {
+    var acc = 0;
+    for (var i = widget.startStep; i < _estMs.length; i++) {
+      acc += _estMs[i];
+      if (_elapsed < acc) return i;
+    }
+    return _steps.length - 1;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shell = widget.shell;
+    final active = _activeStep;
+    final showHint = _elapsed >= 12000; // 오래 걸릴 때 안심 문구
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < _steps.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          _stepRow(
+            shell,
+            label: _steps[i],
+            done: i < widget.startStep || i < active,
+            active: i == active,
+          ),
+        ],
+        if (showHint) ...[
+          const SizedBox(height: 16),
+          Text(
+            '조금만 더 기다려 주세요 🙏',
+            style: TextStyle(fontSize: 12.5, color: shell.hintColor),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _stepRow(ShellTheme shell,
+      {required String label, required bool done, required bool active}) {
+    final Widget icon;
+    if (done) {
+      icon = const Icon(Icons.check_circle_rounded,
+          size: 20, color: AppColors.studentInk);
+    } else if (active) {
+      icon = const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+            strokeWidth: 2.4, color: AppColors.studentInk),
+      );
+    } else {
+      icon = Icon(Icons.radio_button_unchecked_rounded,
+          size: 20, color: shell.hintColor.withValues(alpha: 0.5));
+    }
+
+    final Color textColor;
+    if (done) {
+      textColor = shell.titleColor;
+    } else if (active) {
+      textColor = AppColors.studentInk;
+    } else {
+      textColor = shell.hintColor;
+    }
+
+    return Row(
+      children: [
+        SizedBox(width: 20, height: 20, child: Center(child: icon)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: (done || active) ? FontWeight.w700 : FontWeight.w500,
+              color: textColor,
+            ),
+          ),
+        ),
       ],
     );
   }

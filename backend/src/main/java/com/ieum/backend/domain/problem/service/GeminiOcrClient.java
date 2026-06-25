@@ -40,12 +40,16 @@ public class GeminiOcrClient {
     @Value("${gemini.api.ocr-model:gemini-2.5-flash}")
     private String model;
 
+    // 기본 모델이 과부하(503)면 자동으로 갈아탈 폴백 모델. 보통 더 안정적인(가용성↑) 모델.
+    @Value("${gemini.api.ocr-fallback-model:gemini-2.5-flash}")
+    private String fallbackModel;
+
     // thinking 예산. flash/flash-lite는 0으로 끌 수 있고, 2.5-pro는 0 불가(-1=자동/동적).
     @Value("${gemini.api.ocr-thinking-budget:0}")
     private int thinkingBudget;
 
-    private String geminiUrl() {
-        return "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
+    private String geminiUrl(String useModel) {
+        return "https://generativelanguage.googleapis.com/v1beta/models/" + useModel + ":generateContent";
     }
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -167,25 +171,57 @@ public class GeminiOcrClient {
         }
         // 여러 장이 한 세트(지문이 페이지에 걸침, 문제가 다른 페이지)일 수 있어 한 번에 보낸다.
         // 출력이 길어 잘리던 문제는 maxOutputTokens를 모델 최대치로 올려 대응.
+        try {
+            return callWithRetries(images, model);
+        } catch (HttpStatusCodeException e) {
+            // 기본 모델이 일시 과부하면(503/5xx/429) → 폴백 모델로 한 번 더 시도
+            if (isTransient(e) && fallbackModel != null
+                    && !fallbackModel.isBlank() && !fallbackModel.equals(model)) {
+                log.warn("OCR 기본모델({}) 과부하({}) — 폴백모델({})로 재시도",
+                        model, e.getStatusCode(), fallbackModel);
+                try {
+                    return callWithRetries(images, fallbackModel);
+                } catch (Exception fe) {
+                    log.error("OCR 폴백모델도 실패", fe);
+                    throw overloadException(fe);
+                }
+            }
+            log.error("OCR API 호출 실패", e);
+            throw isTransient(e)
+                    ? overloadException(e)
+                    : BusinessException.internalError("문제 분석에 실패했어요. 잠시 후 다시 시도해 주세요.", e);
+        } catch (Exception e) {
+            log.error("OCR API 호출 실패", e);
+            throw BusinessException.internalError("문제 분석에 실패했어요. 잠시 후 다시 시도해 주세요.", e);
+        }
+    }
+
+    /** 한 모델로 MAX_ATTEMPTS까지 재시도(일시 오류만). 소진되면 예외를 그대로 던진다. */
+    private OcrResult callWithRetries(List<MultipartFile> images, String useModel) throws Exception {
         for (int attempt = 1; ; attempt++) {
             try {
-                return callApi(images);
+                return callApi(images, useModel);
             } catch (HttpStatusCodeException e) {
-                // 503/502/500/429 등 일시 과부하·레이트리밋이면 잠깐 쉬고 재시도
-                boolean transientError =
-                        e.getStatusCode().is5xxServerError() || e.getStatusCode().value() == 429;
-                if (transientError && attempt < MAX_ATTEMPTS) {
-                    log.warn("OCR 일시 오류({}) — 재시도 {}/{}", e.getStatusCode(), attempt, MAX_ATTEMPTS);
+                if (isTransient(e) && attempt < MAX_ATTEMPTS) {
+                    log.warn("OCR 일시 오류({}) — {} 재시도 {}/{}",
+                            e.getStatusCode(), useModel, attempt, MAX_ATTEMPTS);
                     backoff(attempt);
                     continue;
                 }
-                log.error("OCR API 호출 실패", e);
-                throw BusinessException.internalError("OCR API 호출 실패: " + e.getMessage(), e);
-            } catch (Exception e) {
-                log.error("OCR API 호출 실패", e);
-                throw BusinessException.internalError("OCR API 호출 실패: " + e.getMessage(), e);
+                throw e;
             }
         }
+    }
+
+    /** 503/5xx/429 = 일시적 과부하·레이트리밋 */
+    private boolean isTransient(HttpStatusCodeException e) {
+        return e.getStatusCode().is5xxServerError() || e.getStatusCode().value() == 429;
+    }
+
+    /** 사용자에게 보여줄 깨끗한 과부하 메시지(raw 응답 노출 금지). */
+    private BusinessException overloadException(Throwable cause) {
+        return BusinessException.serviceUnavailable(
+                "지금 AI 분석 요청이 많아 혼잡해요. 잠시 후 다시 시도해 주세요.", cause);
     }
 
     /** 재시도 전 백오프 대기 (1초, 2초 …) */
@@ -197,7 +233,7 @@ public class GeminiOcrClient {
         }
     }
 
-    private OcrResult callApi(List<MultipartFile> images) throws Exception {
+    private OcrResult callApi(List<MultipartFile> images, String useModel) throws Exception {
         List<Map<String, Object>> parts = new ArrayList<>();
         parts.add(Map.of("text", OCR_PROMPT));
 
@@ -234,7 +270,7 @@ public class GeminiOcrClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
-        String urlWithKey = geminiUrl() + "?key=" + apiKey;
+        String urlWithKey = geminiUrl(useModel) + "?key=" + apiKey;
         ResponseEntity<String> response = restTemplate.postForEntity(urlWithKey, request, String.class);
 
         return parseResponse(response.getBody());

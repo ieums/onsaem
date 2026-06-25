@@ -50,7 +50,9 @@ class StudentMatchingSession {
   List<StudentTutorProfile> get candidates =>
       applicants.map(StudentTutorProfile.fromApplicant).toList();
 
-  bool get showOnHomePending => true;
+  // 홈 화면의 '매칭 대기 중인 질문' 카드 노출 여부.
+  // false로 끄면 홈에서 안 보임(매칭 세션 로직 자체는 그대로). 다시 보이게 하려면 true.
+  bool get showOnHomePending => false;
 
   StudentTutorProfile? get selectedTutor {
     if (selectedTutorId == null) return null;

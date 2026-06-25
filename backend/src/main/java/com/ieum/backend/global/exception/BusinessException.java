@@ -56,4 +56,9 @@ public class BusinessException extends RuntimeException {
     public static BusinessException internalError(String message, Throwable cause) {
         return new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", message, cause);
     }
+
+    /** 외부 서비스 과부하 등 일시적 사용 불가(503). 보통 잠시 후 재시도 안내용. */
+    public static BusinessException serviceUnavailable(String message, Throwable cause) {
+        return new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", message, cause);
+    }
 }

@@ -445,7 +445,8 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     return maxText + 24 + 26 + 8;
   }
 
-  double get _domainBoxWidth => _measureSelectorWidth(_presetDomainsForWidth);
+  double get _domainBoxWidth =>
+      _measureSelectorWidth(_presetDomainsForWidth.map(_domainLabel).toList());
 
   double get _educationBoxWidth => _measureSelectorWidth(_educationOptions);
 
@@ -919,9 +920,13 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     );
   }
 
+  /// 도메인 표시 라벨 — 실제 도메인은 앞에 '@'('@gmail.com'). '직접입력'은 그대로.
+  String _domainLabel(String domain) =>
+      domain == '직접입력' ? domain : '@$domain';
+
   Widget _buildDomainTrigger(BuildContext context) => _buildSelectorTrigger(
         context,
-        label: _selectedDomain,
+        label: _domainLabel(_selectedDomain),
         isOpen: _isDomainMenuOpen,
         onTap: _toggleDomainMenu,
       );
@@ -981,6 +986,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
         context,
         options: _domainOptions,
         selected: _selectedDomain,
+        labelOf: _domainLabel,
         onSelect: (value) {
           setState(() => _selectedDomain = value);
           _closeDomainMenu();
@@ -1002,6 +1008,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     required List<String> options,
     required String selected,
     required ValueChanged<String> onSelect,
+    String Function(String)? labelOf,
   }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
@@ -1018,7 +1025,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                   child: Text(
-                    option,
+                    labelOf == null ? option : labelOf(option),
                     style: _selectorTextStyle.copyWith(
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: _selectorLabelColor(context, selected: isSelected),
