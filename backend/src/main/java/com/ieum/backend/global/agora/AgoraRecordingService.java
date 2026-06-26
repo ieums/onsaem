@@ -5,6 +5,8 @@ import com.ieum.backend.domain.lesson.dto.RecordingStopResponseDto;
 import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.global.config.AgoraConfig;
 import com.ieum.backend.global.exception.BusinessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
@@ -28,6 +30,7 @@ import java.util.Map;
 @Service
 public class AgoraRecordingService {
 
+    private static final Logger log = LoggerFactory.getLogger(AgoraRecordingService.class);
     private static final String BASE_URL = "https://api.agora.io/v1/apps";
     private static final int RECORDING_TOKEN_EXPIRE = 7200; // 2시간
 
@@ -223,6 +226,8 @@ public class AgoraRecordingService {
                 .onStatus(
                         status -> status.isError(),
                         (req, res) -> {
+                            String body = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
+                            log.error("[Agora] API 오류 — url={} status={} body={}", req.getURI(), res.getStatusCode(), body);
                             throw BusinessException.internalError(
                                     "Agora Recording API 오류: " + res.getStatusCode());
                         }
