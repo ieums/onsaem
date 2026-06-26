@@ -56,11 +56,6 @@ public class Tutor extends Account {
     @Column(name = "subject", length = 50)
     private List<String> subjects = new ArrayList<>();
 
-    @ElementCollection
-    @CollectionTable(name = "tutor_lecture_style", joinColumns = @JoinColumn(name = "tutor_id"))
-    @Column(name = "style", length = 50)
-    private List<String> lectureStyles = new ArrayList<>();
-
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_status", nullable = false, length = 20)
     private VerificationStatus verificationStatus;
@@ -111,7 +106,7 @@ public class Tutor extends Account {
                   AuthProvider provider, String providerUserId, String profileImageUrl,
                   LocalDate birthDate, String phone,
                   String bio, String school, String major,Integer experienceYears, EducationStatus educationStatus,
-                  List<String> subjects, List<String> lectureStyles) {
+                  List<String> subjects) {
         super(name, email, password, provider, providerUserId, profileImageUrl, birthDate, phone);
         this.bio = bio;
         this.school = school;
@@ -119,7 +114,6 @@ public class Tutor extends Account {
         this.experienceYears = experienceYears;
         this.educationStatus = educationStatus;
         this.subjects = subjects != null ? subjects : new ArrayList<>();
-        this.lectureStyles = lectureStyles != null ? lectureStyles : new ArrayList<>();
         this.grade = TutorGrade.ROOKIE;
         this.verificationStatus = VerificationStatus.PENDING;
         this.reviewCount = 0;
