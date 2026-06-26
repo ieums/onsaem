@@ -226,8 +226,8 @@ public class AgoraRecordingService {
                 .onStatus(
                         status -> status.isError(),
                         (req, res) -> {
-                            String body = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
-                            log.error("[Agora] API 오류 — url={} status={} body={}", req.getURI(), res.getStatusCode(), body);
+                            String errorBody = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
+                            log.error("[Agora] API 오류 — url={} status={} body={}", req.getURI(), res.getStatusCode(), errorBody);
                             throw BusinessException.internalError(
                                     "Agora Recording API 오류: " + res.getStatusCode());
                         }
