@@ -75,9 +75,18 @@ class _StudentProblemStatusScreenState
       ),
     );
     if (confirmed != true || !mounted) return;
-    await ref
-        .read(studentMatchingSessionProvider.notifier)
-        .cancelMatching();
+    final session = ref.read(studentMatchingSessionProvider);
+    final hasActiveSession =
+        session != null && session.problemId == widget.problem.problemId;
+    if (hasActiveSession) {
+      await ref
+          .read(studentMatchingSessionProvider.notifier)
+          .cancelMatching();
+    } else {
+      try {
+        await MatchingRepository().cancelProblem(widget.problem.problemId);
+      } catch (_) {}
+    }
     if (!context.mounted) return;
     ref.invalidate(studentProblemsProvider);
     Navigator.of(context).pop();

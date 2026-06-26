@@ -1,6 +1,8 @@
 package com.ieum.backend.domain.matching.service;
 
+import com.ieum.backend.domain.auth.entity.Student;
 import com.ieum.backend.domain.auth.entity.Tutor;
+import com.ieum.backend.domain.auth.repository.StudentRepository;
 import com.ieum.backend.domain.auth.repository.TutorRepository;
 import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.domain.lesson.repository.LessonRepository;
@@ -34,6 +36,7 @@ public class MatchingService {
     private final LessonService lessonService;
     private final LessonRepository lessonRepository;
     private final TutorRepository tutorRepository;
+    private final StudentRepository studentRepository;
 
     @Transactional
     public void startSearching(Long problemId, int minutes) {
@@ -150,7 +153,11 @@ public class MatchingService {
             String channelName = "problem-" + problemId;
             Lesson lesson = lessonService.createLesson(tutorId, studentId, channelName);
             String subject = problem.getSubject() != null ? problem.getSubject().name() : null;
-            notificationService.notifyMatched(problemId, tutorId, studentId, lesson.getId(), channelName, problem.getImageUrls(), subject);
+            Tutor tutor = tutorRepository.findById(tutorId)
+                    .orElseThrow(() -> new IllegalStateException("강사를 찾을 수 없습니다. id=" + tutorId));
+            Student student = studentRepository.findById(studentId)
+                    .orElseThrow(() -> new IllegalStateException("학생을 찾을 수 없습니다. id=" + studentId));
+            notificationService.notifyMatched(problemId, tutorId, studentId, lesson.getId(), channelName, problem.getImageUrls(), subject, tutor.getProfileImageUrl(), student.getProfileImageUrl());
         }
     }
 

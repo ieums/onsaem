@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/providers/current_user_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../student/providers/problem_provider.dart';
@@ -19,12 +20,16 @@ class LessonScreen extends ConsumerStatefulWidget {
   final String channelName;
   final List<String> imageUrls;
   final String? subject;
+  final String? tutorProfileImageUrl;
+  final String? studentProfileImageUrl;
 
   const LessonScreen({
     super.key,
     required this.channelName,
     this.imageUrls = const [],
     this.subject,
+    this.tutorProfileImageUrl,
+    this.studentProfileImageUrl,
   });
 
   @override
@@ -33,6 +38,7 @@ class LessonScreen extends ConsumerStatefulWidget {
 
 class _LessonScreenState extends ConsumerState<LessonScreen> {
   final _imagePicker = ImagePicker();
+  final GlobalKey _whiteboardKey = GlobalKey();
 
   // ─── 타이머 ──────────────────────────────────────────────────────────────────
   Timer? _timer;
@@ -83,6 +89,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(lessonProvider.notifier).setWhiteboardKey(_whiteboardKey);
       final session = ref.read(currentUserProvider);
       ref.read(lessonProvider.notifier).initialize(
             widget.channelName,
@@ -317,11 +324,13 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
 
     return ClipPath(
       clipper: const _WhiteboardClipper(),
-      child: Container(
-        color: AppColors.whiteboardBackground,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onScaleStart: (d) {
+      child: RepaintBoundary(
+        key: _whiteboardKey,
+        child: Container(
+          color: AppColors.whiteboardBackground,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onScaleStart: (d) {
             final s = ref.read(lessonProvider);
             if (s.selectedImageIndex != null) {
               if (_isDrawingGesture) notifier.cancelCurrentStroke();
@@ -446,7 +455,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                           child: Image.network(
                             img.url,
                             fit: BoxFit.fill,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                            errorBuilder: (ctx, err, trace) => const SizedBox.shrink(),
                           ),
                         ),
                       ),
@@ -466,10 +475,10 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
-  // ─── 우측 플로팅 툴바 ────────────────────────────────────────────────────────
 
   static const _penColors = [
     Colors.black,
@@ -560,12 +569,12 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _Avatar(
-            label: state.isTutor ? 'T' : 'S',
+            imageUrl: widget.tutorProfileImageUrl,
             color: AppColors.primaryBlue,
           ),
           const SizedBox(width: 6),
           _Avatar(
-            label: state.isTutor ? 'S' : 'T',
+            imageUrl: widget.studentProfileImageUrl,
             color: AppColors.roleStudentAccent,
           ),
           const SizedBox(width: 20),
@@ -781,24 +790,35 @@ class _ColorDot extends StatelessWidget {
 // ─── 아바타 ────────────────────────────────────────────────────────────────────
 
 class _Avatar extends StatelessWidget {
-  final String label;
+  final String? imageUrl;
   final Color color;
 
-  const _Avatar({required this.label, required this.color});
+  const _Avatar({required this.color, this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: 18,
-      backgroundColor: color,
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
+    const size = 36.0;
+    final url = imageUrl;
+    if (url != null) {
+      return ClipOval(
+        child: Image.network(
+          ApiConstants.resolveImageUrl(url),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (ctx, err, stack) => _placeholder(size),
         ),
-      ),
+      );
+    }
+    return _placeholder(size);
+  }
+
+  Widget _placeholder(double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: const Icon(Icons.person_rounded, size: 20, color: Colors.white),
     );
   }
 }

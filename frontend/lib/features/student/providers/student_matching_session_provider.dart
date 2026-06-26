@@ -29,6 +29,8 @@ class StudentMatchingSession {
     this.matchRequestedTutorId,
     this.matchCancelledMessage,
     this.isSearchExpiringSoon = false,
+    this.tutorProfileImageUrl,
+    this.studentProfileImageUrl,
   });
 
   final int problemId;
@@ -44,6 +46,8 @@ class StudentMatchingSession {
   final int? matchRequestedTutorId;
   final String? matchCancelledMessage;
   final bool isSearchExpiringSoon;
+  final String? tutorProfileImageUrl;
+  final String? studentProfileImageUrl;
 
   int get lessonPrice => StudentLessonPricing.priceForDifficulty(StudentLessonPricing.medium);
 
@@ -77,6 +81,8 @@ class StudentMatchingSession {
     Object? matchRequestedTutorId = _sentinel,
     Object? matchCancelledMessage = _sentinel,
     bool? isSearchExpiringSoon,
+    Object? tutorProfileImageUrl = _sentinel,
+    Object? studentProfileImageUrl = _sentinel,
   }) {
     return StudentMatchingSession(
       problemId: problemId ?? this.problemId,
@@ -101,6 +107,12 @@ class StudentMatchingSession {
           : matchCancelledMessage as String?,
       isSearchExpiringSoon:
           isSearchExpiringSoon ?? this.isSearchExpiringSoon,
+      tutorProfileImageUrl: tutorProfileImageUrl == _sentinel
+          ? this.tutorProfileImageUrl
+          : tutorProfileImageUrl as String?,
+      studentProfileImageUrl: studentProfileImageUrl == _sentinel
+          ? this.studentProfileImageUrl
+          : studentProfileImageUrl as String?,
     );
   }
 }
@@ -208,13 +220,15 @@ class StudentMatchingSessionNotifier
         state = state!.copyWith(isSearchExpiringSoon: true);
       },
       onSearchExpired: () => cancelMatching(),
-      onMatched: (channelName, imageUrls, subject) {
+      onMatched: (channelName, imageUrls, subject, tutorProfileImageUrl, studentProfileImageUrl) {
         if (state == null) return;
         state = state!.copyWith(
           channelName: channelName,
           imageUrls: imageUrls,
           subject: subject ?? state!.subject,
           status: StudentMatchingSessionStatus.connected,
+          tutorProfileImageUrl: tutorProfileImageUrl,
+          studentProfileImageUrl: studentProfileImageUrl,
         );
       },
       onTutorUnavailable: (id) => _updateApplicantAvailability(id, false),

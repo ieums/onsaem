@@ -109,7 +109,7 @@ class _StudentLessonsScreenState
                   return ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                     itemCount: items.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (_, _) =>
                         const SizedBox(height: 10),
                     itemBuilder: (_, index) => _SessionCard(
                       session: items[index],

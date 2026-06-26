@@ -182,6 +182,8 @@ final appRouter = GoRouter(
             channelName: extra['channelName'] as String,
             imageUrls: (extra['imageUrls'] as List?)?.cast<String>() ?? const [],
             subject: extra['subject'] as String?,
+            tutorProfileImageUrl: extra['tutorProfileImageUrl'] as String?,
+            studentProfileImageUrl: extra['studentProfileImageUrl'] as String?,
           );
         }
         return LessonScreen(channelName: extra as String);

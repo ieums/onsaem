@@ -130,13 +130,13 @@ public class AgoraRecordingService {
         String url = BASE_URL + "/" + agoraConfig.getAppId()
                 + "/cloud_recording/resourceid/" + resourceId + "/mode/mix/start";
 
-        // 오디오 전용 녹화 설정 (강사 카메라 영상 제외)
+        // 오디오+비디오 녹화 설정 (화이트보드 커스텀 비디오 소스 포함)
         Map<String, Object> recordingConfig = new HashMap<>();
         recordingConfig.put("maxIdleTime", 30);
-        recordingConfig.put("streamTypes", 0);                          // 0=오디오 전용
+        recordingConfig.put("streamTypes", 3);                          // 3=오디오+비디오
         recordingConfig.put("channelType", 0);
         recordingConfig.put("subscribeAudioUids", List.of("#allstream#"));
-        recordingConfig.put("unsubscribeVideoUids", List.of("#allstream#"));
+        recordingConfig.put("subscribeVideoUids", List.of("#allstream#"));
 
         // S3 저장 설정
         Map<String, Object> storageConfig = new HashMap<>();
@@ -148,9 +148,17 @@ public class AgoraRecordingService {
         storageConfig.put("fileNamePrefix",
                 List.of("lessons", "recordings", String.valueOf(lessonId)));
 
+        Map<String, Object> transcodingConfig = new HashMap<>();
+        transcodingConfig.put("width", 1280);
+        transcodingConfig.put("height", 720);
+        transcodingConfig.put("fps", 15);
+        transcodingConfig.put("bitrate", 1000);
+        transcodingConfig.put("mixedVideoLayout", 1);                   // 1=bestFit
+
         Map<String, Object> clientRequest = new HashMap<>();
         clientRequest.put("token", token);
         clientRequest.put("recordingConfig", recordingConfig);
+        clientRequest.put("transcodingConfig", transcodingConfig);
         clientRequest.put("storageConfig", storageConfig);
 
         Map<String, Object> body = new HashMap<>();

@@ -62,6 +62,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
     state = state.copyWith(problems: const AsyncLoading());
     try {
       final list = await _repository.getSearchingProblems(_tutorId);
+      if (!mounted) return;
       state = state.copyWith(
         problems: AsyncData(
           list.where((p) => !p.alreadyApplied).toList(),
@@ -75,6 +76,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
         onNewProblem: _onNewProblem,
       );
     } catch (e, st) {
+      if (!mounted) return;
       state = state.copyWith(problems: AsyncError(e, st));
     }
   }
@@ -102,6 +104,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
   Future<void> _onNewProblem(int problemId) async {
     try {
       final list = await _repository.getSearchingProblems(_tutorId);
+      if (!mounted) return;
       state = state.copyWith(
         problems: AsyncData(
           list.where((p) => !p.alreadyApplied).toList(),
@@ -198,6 +201,7 @@ class TutorApplicationsNotifier
     state = state.copyWith(applications: const AsyncLoading());
     try {
       final list = await _repository.getTutorApplications(_tutorId);
+      if (!mounted) return;
       state = state.copyWith(applications: AsyncData(list));
       final matchingIds = list
           .where((a) => a.status == 'PENDING' || a.status == 'CONFIRMING')
@@ -207,18 +211,21 @@ class TutorApplicationsNotifier
         _tutorId,
         (problemId) => _removeByProblemId(problemId),
         matchingProblemIds: matchingIds,
-        onMatched: (problemId, channelName, imageUrls, subject) {
+        onMatched: (problemId, channelName, imageUrls, subject, tutorProfileImageUrl, studentProfileImageUrl) {
           _removeByProblemId(problemId);
           if (channelName.isNotEmpty) {
             appRouter.go('/lesson', extra: {
               'channelName': channelName,
               'imageUrls': imageUrls,
               'subject': subject,
+              'tutorProfileImageUrl': tutorProfileImageUrl,
+              'studentProfileImageUrl': studentProfileImageUrl,
             });
           }
         },
       );
     } catch (e, st) {
+      if (!mounted) return;
       state = state.copyWith(applications: AsyncError(e, st));
     }
   }

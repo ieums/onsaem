@@ -1,10 +1,15 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/app_constants.dart';
 import '../data/lesson_repository.dart';
 import '../domain/lesson_model.dart';
@@ -173,10 +178,17 @@ class LessonNotifier extends StateNotifier<LessonState> {
   RtcEngine? _engine;
   String? _currentStrokeId;
   final Map<String, DrawingStroke> _deletedStrokes = {};
+  GlobalKey? _whiteboardKey;
+  int? _customVideoTrackId;
+  Timer? _captureTimer;
 
   LessonNotifier(this._repo) : super(const LessonState());
 
   RtcEngine? get engine => _engine;
+
+  void setWhiteboardKey(GlobalKey key) {
+    _whiteboardKey = key;
+  }
 
   // ─── 초기화 ────────────────────────────────────────────────────────────────
 
@@ -203,6 +215,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         role: 'PUBLISHER',
       );
 
+      if (!mounted) return;
       state = state.copyWith(
         token: tokenResp.token,
         appId: tokenResp.appId,
@@ -214,6 +227,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
           Permission.camera,
           Permission.microphone,
         ].request();
+        if (!mounted) return;
         if (statuses[Permission.camera] != PermissionStatus.granted ||
             statuses[Permission.microphone] != PermissionStatus.granted) {
           state = state.copyWith(
@@ -251,38 +265,82 @@ class LessonNotifier extends StateNotifier<LessonState> {
         await _engine!.enableVideo();
         await _engine!.enableLocalVideo(false);
 
+        if (isTutor) {
+          await _engine!.getMediaEngine().setExternalVideoSource(
+            enabled: true,
+            useTexture: false,
+            sourceType: ExternalVideoSourceType.videoFrame,
+          );
+          _customVideoTrackId = await _engine!.createCustomVideoTrack();
+        }
+
         await _engine!.joinChannel(
           token: tokenResp.token,
           channelId: channelName,
           uid: agoraUid,
-          options: const ChannelMediaOptions(
+          options: ChannelMediaOptions(
             clientRoleType: ClientRoleType.clientRoleBroadcaster,
             channelProfile: ChannelProfileType.channelProfileCommunication,
             publishMicrophoneTrack: true,
             publishCameraTrack: false,
+            publishCustomVideoTrack: isTutor,
+            customVideoTrackId: _customVideoTrackId ?? 0,
           ),
         );
+        if (!mounted) return;
       }
 
       _repo.connectStomp(channelName, _onRemoteDrawEvent);
 
       if (!kIsWeb && isTutor) {
         await _startRecording();
+        _startWhiteboardCapture();
       }
 
       state = state.copyWith(isLoading: false);
 
       if (imageUrls.isNotEmpty) {
-        final images = imageUrls
-            .map((url) => ImageItem(
-                  url: url,
-                  width: _kDefaultImageWidth,
-                  height: _kDefaultImageHeight,
-                ))
-            .toList();
+        final images = <ImageItem>[];
+        for (var i = 0; i < imageUrls.length; i++) {
+          final resolvedUrl = ApiConstants.resolveImageUrl(imageUrls[i]);
+          double imgWidth = 400.0;
+          double imgHeight = 400.0;
+          try {
+            final completer = Completer<ui.Image>();
+            final stream =
+                NetworkImage(resolvedUrl).resolve(const ImageConfiguration());
+            late ImageStreamListener listener;
+            listener = ImageStreamListener(
+              (info, _) {
+                completer.complete(info.image);
+                stream.removeListener(listener);
+              },
+              onError: (_, _) {
+                completer.completeError('load failed');
+                stream.removeListener(listener);
+              },
+            );
+            stream.addListener(listener);
+            final loaded = await completer.future;
+            final origW = loaded.width.toDouble();
+            final origH = loaded.height.toDouble();
+            if (origW > 0) {
+              imgWidth = 400.0;
+              imgHeight = 400.0 * origH / origW;
+            }
+          } catch (_) {}
+          images.add(ImageItem(
+            url: resolvedUrl,
+            x: i * 440.0 + 30.0,
+            y: 30.0,
+            width: imgWidth,
+            height: imgHeight,
+          ));
+        }
         state = state.copyWith(backgroundImages: images);
       }
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -820,6 +878,34 @@ class LessonNotifier extends StateNotifier<LessonState> {
     state = state.copyWith(isRecording: true);
   }
 
+  void _startWhiteboardCapture() {
+    _captureTimer = Timer.periodic(const Duration(milliseconds: 500), (t) async {
+      if (_engine == null || _customVideoTrackId == null || _whiteboardKey == null) return;
+      final boundary = _whiteboardKey!.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      try {
+        final image = await boundary.toImage(pixelRatio: 1.0);
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        if (byteData == null) return;
+        final bytes = Uint8List.fromList(byteData.buffer.asUint8List());
+        await _engine!.getMediaEngine().pushVideoFrame(
+          frame: ExternalVideoFrame(
+            type: VideoBufferType.videoBufferRawData,
+            format: VideoPixelFormat.videoPixelRgba,
+            buffer: bytes,
+            stride: image.width,
+            height: image.height,
+            timestamp: DateTime.now().millisecondsSinceEpoch,
+          ),
+          videoTrackId: _customVideoTrackId!,
+        );
+      } catch (e) {
+        debugPrint('[화이트보드 캡처] 오류: $e');
+      }
+    });
+  }
+
   Future<void> pauseRecording() async {
     final lessonId = state.lessonId;
     if (!state.isRecording || lessonId == null) return;
@@ -844,6 +930,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
     if (lessonId == null) return;
 
     try {
+      _captureTimer?.cancel();
       String? recordingUrl = state.recordingUrl;
 
       if (state.isRecording) {
@@ -883,6 +970,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
   @override
   void dispose() {
+    _captureTimer?.cancel();
     _engine?.leaveChannel().then((_) => _engine?.release());
     _repo.disconnectStomp();
     super.dispose();

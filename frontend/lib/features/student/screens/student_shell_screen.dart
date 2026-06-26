@@ -91,6 +91,8 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
             'channelName': session.channelName!,
             'imageUrls': session.imageUrls,
             'subject': session.subject,
+            'tutorProfileImageUrl': session.tutorProfileImageUrl,
+            'studentProfileImageUrl': session.studentProfileImageUrl,
           });
         }
       }
