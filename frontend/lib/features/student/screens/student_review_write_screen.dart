@@ -298,8 +298,9 @@ class _StudentReviewWriteScreenState
                               ),
                               const SizedBox(height: 6),
                               GestureDetector(
-                                onTap: () {
-                                  context.push(
+                                onTap: () async {
+                                  // 신고 제출 성공(true)이면 리뷰 화면으로 안 돌아오고 바로 홈으로.
+                                  final reported = await context.push<bool>(
                                     RoutePaths.studentReport,
                                     extra: StudentReportArgs(
                                       lessonId: widget.args.lessonId,
@@ -308,6 +309,9 @@ class _StudentReviewWriteScreenState
                                       personName: widget.args.tutorName,
                                     ),
                                   );
+                                  if (reported == true && mounted) {
+                                    _finish(submitted: false);
+                                  }
                                 },
                                 child: const Text(
                                   '신고하기',

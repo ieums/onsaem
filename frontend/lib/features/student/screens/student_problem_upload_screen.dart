@@ -14,6 +14,7 @@ import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
+import 'package:ieum/features/student/screens/student_ai_tutor_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_edit_screen.dart';
 import 'package:ieum/features/student/utils/student_question_text_util.dart';
 import 'package:ieum/core/theme/app_colors.dart';
@@ -22,7 +23,10 @@ import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class StudentProblemUploadScreen extends ConsumerStatefulWidget {
-  const StudentProblemUploadScreen({super.key});
+  /// forAiTutor=true: AI 튜터 탭에서 진입. 등록 후 매칭 대신 바로 AI 튜터 채팅으로 간다.
+  const StudentProblemUploadScreen({super.key, this.forAiTutor = false});
+
+  final bool forAiTutor;
 
   @override
   ConsumerState<StudentProblemUploadScreen> createState() =>
@@ -487,6 +491,11 @@ class _StudentProblemUploadScreenState
         ),
       );
       if (!mounted) return;
+      // AI 튜터 모드: 매칭 없이 바로 그 문제로 AI 튜터 채팅 진입.
+      if (widget.forAiTutor) {
+        _openAiTutor(result.id!, result.summary);
+        return;
+      }
       setState(() => _submitting = true);
       // EditScreen에서 수정한 subject 반영을 위해 최신 목록 재조회
       ref.invalidate(studentProblemsProvider);
@@ -532,6 +541,11 @@ class _StudentProblemUploadScreenState
       ),
     );
     if (!mounted) return;
+    // AI 튜터 모드: 매칭 없이 바로 그 문제로 AI 튜터 채팅 진입.
+    if (widget.forAiTutor) {
+      _openAiTutor(result.id!, result.summary);
+      return;
+    }
     setState(() => _submitting = true);
     ref.invalidate(studentProblemsProvider);
     List<StudentProblemModel> problems;
@@ -568,6 +582,20 @@ class _StudentProblemUploadScreenState
     if (!mounted) return;
     setState(() => _submitting = false);
     context.go(RoutePaths.studentHome);
+  }
+
+  /// AI 튜터 모드: 등록한 문제로 바로 AI 튜터 채팅 화면을 연다(업로드 화면 대체).
+  void _openAiTutor(int problemId, String? summary) {
+    ref.invalidate(studentProblemsProvider);
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => StudentAiTutorScreen(
+          problemId: problemId,
+          problemSummary: summary,
+        ),
+      ),
+    );
   }
 
   @override

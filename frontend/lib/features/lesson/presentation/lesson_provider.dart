@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/network/api_error.dart';
 import '../../../core/utils/simulator_detector.dart';
 import '../data/lesson_repository.dart';
 import '../domain/lesson_model.dart';
@@ -220,6 +221,29 @@ class LessonNotifier extends StateNotifier<LessonState> {
         studentId: tokenResp.studentId,
         tutorId: tokenResp.tutorId,
       );
+
+      // 과금 강의 시작(학생만): 기본 30분(50코인) 홀드 + ACTIVE 전환.
+      // 부족하면 백엔드가 "코인이 부족합니다" 400 → error로 노출(충전 유도). 강사는 과금 안 함.
+      if (!isTutor &&
+          tokenResp.studentId != null &&
+          tokenResp.tutorId != null) {
+        try {
+          await _repo.startLesson(
+            lessonId: tokenResp.lessonId,
+            studentId: tokenResp.studentId!,
+            tutorId: tokenResp.tutorId!,
+          );
+        } catch (e) {
+          if (!mounted) return;
+          state = state.copyWith(
+            isLoading: false,
+            error: apiErrorMessage(e,
+                fallback: '강의 시작에 실패했어요. 코인을 확인해 주세요.'),
+          );
+          return;
+        }
+        if (!mounted) return;
+      }
 
       if (!kIsWeb) {
         // iOS 시뮬레이터엔 카메라/마이크 하드웨어가 없어 권한을 받을 수 없다.

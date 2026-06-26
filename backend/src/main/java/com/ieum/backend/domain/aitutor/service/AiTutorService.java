@@ -11,6 +11,8 @@ import com.ieum.backend.domain.aitutor.entity.AiTutorSessionStatus;
 import com.ieum.backend.domain.aitutor.repository.AiTutorMessageRepository;
 import com.ieum.backend.domain.aitutor.repository.AiTutorSessionRepository;
 import com.ieum.backend.domain.aitutor.repository.ProblemQueryRepository;
+import com.ieum.backend.domain.payment.service.CoinService;
+import com.ieum.backend.domain.payment.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -30,6 +32,8 @@ public class AiTutorService {
     private final ProblemQueryRepository problemQueryRepository;
     private final GeminiPromptBuilder promptBuilder;
     private final GeminiClient geminiClient;
+    private final SubscriptionService subscriptionService;
+    private final CoinService coinService;
 
     @Transactional
     public CreateSessionResponse createSession(Long studentId, Long problemId) {
@@ -63,6 +67,12 @@ public class AiTutorService {
         if (session.getStatus() == AiTutorSessionStatus.CLOSED) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, AiTutorMessages.SESSION_CLOSED);
+        }
+
+        // 0) 과금: 구독자는 무료, 비구독자는 질문(메시지)당 3코인 차감.
+        //    잔액 부족이면 useForAi가 예외 → @Transactional 롤백(메시지 저장 안 됨) → 프론트가 충전 유도.
+        if (!subscriptionService.hasActiveSubscription(studentId)) {
+            coinService.useForAi(studentId);
         }
 
         // 1) 학생 메시지 저장

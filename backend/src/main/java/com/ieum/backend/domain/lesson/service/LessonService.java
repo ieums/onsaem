@@ -11,13 +11,17 @@ import com.ieum.backend.domain.lesson.entity.Lesson.LessonStatus;
 import com.ieum.backend.domain.lesson.policy.LessonPolicy;
 import com.ieum.backend.domain.lesson.repository.LessonRepository;
 import com.ieum.backend.domain.payment.service.CoinService;
+import com.ieum.backend.domain.report.entity.enums.ReportStatus;
+import com.ieum.backend.domain.report.repository.ReportRepository;
 import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
+import com.ieum.backend.domain.settlement.repository.SettlementRepository;
 import com.ieum.backend.domain.settlement.service.SettlementService;
 import com.ieum.backend.global.agora.AgoraRecordingService;
 import com.ieum.backend.global.agora.RtcTokenBuilder2;
 import com.ieum.backend.global.config.AgoraConfig;
 import com.ieum.backend.global.exception.BusinessException;
 import com.ieum.backend.domain.lessonreview.service.LessonMediaStorage;
+import com.ieum.backend.domain.problem.service.ImageStorageService;
 import com.ieum.backend.global.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @Slf4j
@@ -40,6 +45,9 @@ public class LessonService {
     private final CoinService coinService;
     private final SettlementService settlementService;
     private final LessonMediaStorage lessonMediaStorage;
+    private final ImageStorageService imageStorageService; // local/S3 자동 분기 (강의 임시 이미지)
+    private final SettlementRepository settlementRepository; // 정산 보류/확정 판단
+    private final ReportRepository reportRepository;         // 신고 보류 게이팅
 
     @Transactional
     public Lesson createLesson(Long tutorId, Long studentId, String channelName) {
@@ -118,7 +126,8 @@ public class LessonService {
         if (lesson.isImageLimitReached()) {
             throw BusinessException.badRequest("이미지는 최대 10장까지 업로드할 수 있습니다.");
         }
-        String imageUrl = s3Service.uploadTempImage(lessonId, file);
+        // 문제 이미지와 동일하게 프로파일별 저장(local=디스크, prod=S3) → local에서 500 안 남.
+        String imageUrl = imageStorageService.store(file);
         lesson.incrementImageCount();
         return new LessonImageResponseDto(imageUrl);
     }
@@ -132,6 +141,11 @@ public class LessonService {
     @Transactional
     public void startLesson(Long lessonId, Long studentId, Long tutorId) {
         Lesson lesson = findByIdOrThrow(lessonId);
+
+        // 재진입/중복 호출 시 이중 홀드 방지 — 이미 시작(과금)된 강의면 그대로 둔다.
+        if (lesson.getStatus() == LessonStatus.ACTIVE || lesson.isBillable()) {
+            return;
+        }
 
         int cost = LessonPolicy.BASE_COST_COIN;
         coinService.hold(studentId, cost, lessonId);
@@ -185,7 +199,6 @@ public class LessonService {
     @Transactional
     public void completeLesson(Long lessonId, String recordingUrl) {
         Lesson lesson = findByIdOrThrow(lessonId);
-        boolean wasActive = lesson.getStatus() == LessonStatus.ACTIVE;
 
         lesson.complete(recordingUrl);  // recordingUrl null이면 기존 값 유지
 
@@ -206,10 +219,30 @@ public class LessonService {
                     lessonId, e.getMessage());
         }
 
-        if (wasActive && lesson.isBillable()) {
-            coinService.confirmDeduct(lesson.getStudentId(), lesson.getCoinCost(), lessonId);
+        // 정산은 즉시 하지 않고 24h 보류한다(완료 직후 신고가 들어오면 막아야 하므로).
+        // 코인은 홀드 상태로 그대로 두고, finalizeDueSettlements() 스케줄러가
+        // 24h 경과 + 미신고일 때 확정차감 + 정산한다.
+    }
+
+    /**
+     * 보류된 정산 확정 — 스케줄러가 주기 호출.
+     * 완료된 과금 강의 중 종료 24h 경과 + 정산 미생성 + (그 강의에) 열린 신고 없음 → 확정차감 + 정산.
+     * 열린 신고가 있으면 건너뛴다(코인은 홀드 유지 → 운영자 처리 전까지 보류).
+     */
+    @Transactional
+    public void finalizeDueSettlements() {
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(24);
+        List<Lesson> due = lessonRepository
+                .findByStatusAndCoinCostIsNotNullAndEndedAtBefore(LessonStatus.COMPLETED, cutoff);
+        for (Lesson lesson : due) {
+            if (settlementRepository.findByLessonId(lesson.getId()).isPresent()) continue; // 이미 정산됨
+            boolean blocked = reportRepository.existsByLessonIdAndStatusIn(
+                    lesson.getId(), List.of(ReportStatus.PENDING, ReportStatus.REVIEWING));
+            if (blocked) continue; // 신고 보류 — 정산 안 함(홀드 유지)
+
+            coinService.confirmDeduct(lesson.getStudentId(), lesson.getCoinCost(), lesson.getId());
             settlementService.calculate(new CalculateSettlementRequest(
-                    lesson.getTutorId(), lessonId, lesson.getCoinCost()));
+                    lesson.getTutorId(), lesson.getId(), lesson.getCoinCost()));
         }
     }
 

@@ -177,10 +177,11 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
   /// 상대 취소/타임아웃 시 열려있는 매칭 요청 다이얼로그를 결과 없이 닫는다(confirmed=null).
   void _dismissMatchDialog() {
     final ctx = _matchDialogContext;
-    if (ctx != null && ctx.mounted) {
-      Navigator.of(ctx).pop();
-    }
-    _matchDialogContext = null;
+    _matchDialogContext = null; // 먼저 비워 재진입 방지
+    if (!mounted || ctx == null || !ctx.mounted) return;
+    final nav = Navigator.of(ctx);
+    // 다이얼로그가 실제로 떠 있을 때만 닫는다. canPop=false면 마지막 페이지라 pop하면 크래시.
+    if (nav.canPop()) nav.pop();
   }
 
   /// 매칭 취소 안내 다이얼로그(강사 화면과 동일 디자인).

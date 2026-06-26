@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
@@ -44,6 +47,17 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // 인앱 알람(배너)용 초기화 — 오프라인 토글과 무관하게 STOMP로 도착하면 알림이 뜨도록.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppNotificationService.instance.initialize().then((_) {
+        AppNotificationService.instance.ensurePermission();
+      });
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = ref.watch(shellDarkModeProvider);
 
@@ -52,6 +66,12 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
       final prevReq = prev?.matchRequestedProblemId;
       final nextReq = next.matchRequestedProblemId;
       if (nextReq != null && nextReq != prevReq) {
+        // 인앱 알람: 신청해둔 문제를 학생이 선택했음 (오프라인이어도 도착하면 뜸).
+        AppNotificationService.instance.showBanner(
+          dedupeKey: 'match-requested-$nextReq',
+          title: '학생이 선택했어요!',
+          body: '신청한 문제를 학생이 선택했어요. 5분 안에 수락해 주세요.',
+        );
         _showMatchRequestedDialog(
           context,
           nextReq,
@@ -93,10 +113,26 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
         return AlertDialog(
           title:
               const Text('매칭 요청', style: TextStyle(fontWeight: FontWeight.w800)),
-          content: Text(
-            message.isNotEmpty
-                ? message
-                : '학생과 연결됐어요.\n지금 바로 수업을 시작할까요?',
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message.isNotEmpty
+                    ? message
+                    : '학생과 연결됐어요.\n지금 바로 수업을 시작할까요?',
+              ),
+              const SizedBox(height: 14),
+              // 5분 카운트다운 — 0이 되면 자동으로 닫힘(서버 CONFIRMING 타임아웃과 동일).
+              _MatchCountdown(
+                duration: const Duration(minutes: 5),
+                onExpire: () {
+                  if (Navigator.of(dialogContext).canPop()) {
+                    Navigator.pop(dialogContext);
+                  }
+                },
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -135,10 +171,11 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
   /// 상대 취소/타임아웃 시 열려있는 매칭 요청 다이얼로그를 결과 없이 닫는다(confirmed=null).
   void _dismissMatchDialog() {
     final ctx = _matchDialogContext;
-    if (ctx != null && ctx.mounted) {
-      Navigator.of(ctx).pop();
-    }
-    _matchDialogContext = null;
+    _matchDialogContext = null; // 먼저 비워 재진입 방지
+    if (!mounted || ctx == null || !ctx.mounted) return;
+    final nav = Navigator.of(ctx);
+    // 다이얼로그가 실제로 떠 있을 때만 닫는다. canPop=false면 마지막 페이지라 pop하면 크래시.
+    if (nav.canPop()) nav.pop();
   }
 
   void _showMatchCancelledDialog(BuildContext context, String message) {
@@ -161,6 +198,63 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 매칭 요청 다이얼로그용 5분 카운트다운. 0이 되면 onExpire 호출.
+class _MatchCountdown extends StatefulWidget {
+  const _MatchCountdown({required this.duration, this.onExpire});
+
+  final Duration duration;
+  final VoidCallback? onExpire;
+
+  @override
+  State<_MatchCountdown> createState() => _MatchCountdownState();
+}
+
+class _MatchCountdownState extends State<_MatchCountdown> {
+  late int _remaining = widget.duration.inSeconds;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => _remaining--);
+      if (_remaining <= 0) {
+        t.cancel();
+        widget.onExpire?.call();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = _remaining.clamp(0, 359999);
+    final m = s ~/ 60;
+    final sec = s % 60;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.timer_outlined, size: 16, color: AppColors.primaryBlue),
+        const SizedBox(width: 6),
+        Text(
+          '남은 시간 $m:${sec.toString().padLeft(2, '0')}',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primaryBlue,
+          ),
+        ),
+      ],
     );
   }
 }
