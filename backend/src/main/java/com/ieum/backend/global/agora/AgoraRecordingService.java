@@ -231,32 +231,50 @@ public class AgoraRecordingService {
         return new String[]{recordingUrl, uploadingStatus};
     }
 
-    /** S3 ListObjectsV2로 lessons/recordings/{lessonId}/ 경로에서 .m3u8 파일을 찾아 URL 반환 */
+    /** S3 ListObjectsV2로 lessons/recordings/{lessonId}/ 경로에서 .m3u8 파일을 찾아 URL 반환
+     *  최대 10회, 3초 간격으로 폴링 — Agora 업로드 완료까지 대기 */
     private String findM3u8FromS3(Long lessonId) {
         if (s3Client == null) {
             log.warn("[Agora] S3Client 미주입 상태 (prod 프로파일 아님) — S3 탐색 생략");
             return "";
         }
         String prefix = "lessons/recordings/" + lessonId + "/";
-        try {
-            ListObjectsV2Response listResponse = s3Client.listObjectsV2(
-                    ListObjectsV2Request.builder()
-                            .bucket(bucket)
-                            .prefix(prefix)
-                            .build()
-            );
-            for (S3Object object : listResponse.contents()) {
-                if (object.key().endsWith(".m3u8")) {
-                    String resolvedUrl = "https://" + bucket + ".s3." + region
-                            + ".amazonaws.com/" + object.key();
-                    log.info("[Agora] S3에서 .m3u8 파일 발견 - {}", resolvedUrl);
-                    return resolvedUrl;
+        int maxAttempts = 10;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                ListObjectsV2Response listResponse = s3Client.listObjectsV2(
+                        ListObjectsV2Request.builder()
+                                .bucket(bucket)
+                                .prefix(prefix)
+                                .build()
+                );
+                for (S3Object object : listResponse.contents()) {
+                    if (object.key().endsWith(".m3u8")) {
+                        String resolvedUrl = "https://" + bucket + ".s3." + region
+                                + ".amazonaws.com/" + object.key();
+                        log.info("[Agora] S3에서 .m3u8 파일 발견 (시도 {}/{}) - {}", attempt, maxAttempts, resolvedUrl);
+                        return resolvedUrl;
+                    }
+                }
+                log.info("[Agora] S3 .m3u8 파일 없음 (시도 {}/{}) - prefix={}", attempt, maxAttempts, prefix);
+                if (attempt < maxAttempts) {
+                    Thread.sleep(3000);
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                log.warn("[Agora] S3 폴링 인터럽트 - lessonId={}", lessonId);
+                break;
+            } catch (Exception e) {
+                log.error("[Agora] S3 ListObjects 실패 (시도 {}/{}) - prefix={}, error={}", attempt, maxAttempts, prefix, e.getMessage());
+                if (attempt < maxAttempts) {
+                    try { Thread.sleep(3000); } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
-            log.warn("[Agora] S3 경로 {}에서 .m3u8 파일 없음", prefix);
-        } catch (Exception e) {
-            log.error("[Agora] S3 ListObjects 실패 - prefix={}, error={}", prefix, e.getMessage());
         }
+        log.warn("[Agora] S3 .m3u8 파일 최종 미발견 - lessonId={}", lessonId);
         return "";
     }
 
