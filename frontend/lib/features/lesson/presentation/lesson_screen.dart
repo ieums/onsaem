@@ -637,17 +637,17 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             shell: shell,
             onTap: () => notifier.toggleMic(),
           ),
-          if (state.isTutor) ...[
-            const SizedBox(width: 8),
-            _ControlBtn(
-              icon: state.localCameraEnabled
-                  ? Icons.videocam_outlined
-                  : Icons.videocam_off_outlined,
-              active: state.localCameraEnabled,
-              shell: shell,
-              onTap: () => notifier.toggleCamera(),
-            ),
-          ],
+          // if (state.isTutor) ...[
+          //   const SizedBox(width: 8),
+          //   _ControlBtn(
+          //     icon: state.localCameraEnabled
+          //         ? Icons.videocam_outlined
+          //         : Icons.videocam_off_outlined,
+          //     active: state.localCameraEnabled,
+          //     shell: shell,
+          //     onTap: () => notifier.toggleCamera(),
+          //   ),
+          // ],
         ],
       ),
     );
@@ -682,6 +682,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                 canvas: VideoCanvas(
                   uid: remoteUid,
                   renderMode: RenderModeType.renderModeHidden,
+                  sourceType: VideoSourceType.videoSourceCamera,
                 ),
                 connection: RtcConnection(channelId: channelName),
               ),

@@ -189,7 +189,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
   String? _currentStrokeId;
   final Map<String, DrawingStroke> _deletedStrokes = {};
   GlobalKey? _whiteboardKey;
-  int? _customVideoTrackId;
+  // int? _customVideoTrackId;
   Timer? _captureTimer;
 
   LessonNotifier(this._repo) : super(const LessonState());
@@ -322,7 +322,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
             useTexture: false,
             sourceType: ExternalVideoSourceType.videoFrame,
           );
-          _customVideoTrackId = await _engine!.createCustomVideoTrack();
+          // _customVideoTrackId = await _engine!.createCustomVideoTrack();
         }
 
         await _engine!.joinChannel(
@@ -333,9 +333,9 @@ class LessonNotifier extends StateNotifier<LessonState> {
             clientRoleType: ClientRoleType.clientRoleBroadcaster,
             channelProfile: ChannelProfileType.channelProfileCommunication,
             publishMicrophoneTrack: true,
-            publishCameraTrack: false,
-            publishCustomVideoTrack: isTutor,
-            customVideoTrackId: _customVideoTrackId ?? 0,
+            publishCameraTrack: isTutor,
+            // publishCustomVideoTrack: isTutor,
+            // customVideoTrackId: _customVideoTrackId ?? 0,
           ),
         );
         if (!mounted) return;
@@ -398,28 +398,28 @@ class LessonNotifier extends StateNotifier<LessonState> {
     }
   }
 
-  // ─── 카메라 토글 ────────────────────────────────────────────────────────────
+  // ─── 카메라 토글 (후일 디벨롭용) ─────────────────────────────────────────────
 
-  Future<void> toggleCamera() async {
-    if (_engine == null) return;
-    final next = !state.localCameraEnabled;
-    await _engine!.enableLocalVideo(next);
-    await _engine!.updateChannelMediaOptions(
-      ChannelMediaOptions(publishCameraTrack: next),
-    );
-    if (next) await _engine!.startPreview();
-    state = state.copyWith(localCameraEnabled: next);
-    final channelName = state.channelName;
-    if (channelName != null) {
-      _repo.sendDraw(
-        channelName,
-        DrawEvent(
-          senderId: _repo.sessionId,
-          type: next ? DrawType.cameraOn : DrawType.cameraOff,
-        ),
-      );
-    }
-  }
+  // Future<void> toggleCamera() async {
+  //   if (_engine == null) return;
+  //   final next = !state.localCameraEnabled;
+  //   await _engine!.enableLocalVideo(next);
+  //   await _engine!.updateChannelMediaOptions(
+  //     ChannelMediaOptions(publishCameraTrack: next),
+  //   );
+  //   if (next) await _engine!.startPreview();
+  //   state = state.copyWith(localCameraEnabled: next);
+  //   final channelName = state.channelName;
+  //   if (channelName != null) {
+  //     _repo.sendDraw(
+  //       channelName,
+  //       DrawEvent(
+  //         senderId: _repo.sessionId,
+  //         type: next ? DrawType.cameraOn : DrawType.cameraOff,
+  //       ),
+  //     );
+  //   }
+  // }
 
   // ─── 마이크 토글 ────────────────────────────────────────────────────────────
 
@@ -934,7 +934,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
   void _startWhiteboardCapture() {
     _captureTimer = Timer.periodic(const Duration(milliseconds: 500), (t) async {
-      if (_engine == null || _customVideoTrackId == null || _whiteboardKey == null) return;
+      if (_engine == null || _whiteboardKey == null) return;
       final boundary = _whiteboardKey!.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
       if (boundary == null) return;
@@ -952,7 +952,6 @@ class LessonNotifier extends StateNotifier<LessonState> {
             height: image.height,
             timestamp: DateTime.now().millisecondsSinceEpoch,
           ),
-          videoTrackId: _customVideoTrackId!,
         );
       } catch (e) {
         debugPrint('[화이트보드 캡처] 오류: $e');

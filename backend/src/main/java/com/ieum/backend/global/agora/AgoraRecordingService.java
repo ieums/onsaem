@@ -145,8 +145,9 @@ public class AgoraRecordingService {
         // 오디오+비디오 녹화 설정 (화이트보드 커스텀 비디오 소스 포함)
         Map<String, Object> recordingConfig = new HashMap<>();
         recordingConfig.put("maxIdleTime", 30);
-        recordingConfig.put("streamTypes", 3);                          // 3=오디오+비디오
+        recordingConfig.put("streamTypes", 3);
         recordingConfig.put("channelType", 0);
+        recordingConfig.put("videoStreamType", 0);
         recordingConfig.put("subscribeUids", List.of("#allstream#"));
 
         // S3 저장 설정
