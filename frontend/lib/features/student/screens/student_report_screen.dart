@@ -122,7 +122,7 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
         description: _detailController.text,
       );
       if (!mounted) return;
-      context.pop();
+      context.pop(true); // 제출 성공 → 호출부(리뷰/완료 화면)가 홈으로 보냄
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final rootContext = appRouter.routerDelegate.navigatorKey.currentContext;
         if (rootContext == null) return;

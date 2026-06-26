@@ -7,6 +7,7 @@ class TutorApplicationModel {
     required this.status,
     required this.appliedAt,
     this.summary,
+    this.studentDescription,
     this.subject,
     this.primaryType,
     this.secondaryType,
@@ -23,6 +24,7 @@ class TutorApplicationModel {
   final String status;
   final DateTime appliedAt;
   final String? summary;
+  final String? studentDescription;
   final String? subject;
   final String? primaryType;
   final String? secondaryType;
@@ -40,6 +42,7 @@ class TutorApplicationModel {
       status: json['status'] as String? ?? 'PENDING',
       appliedAt: DateTime.parse(json['appliedAt'] as String),
       summary: json['summary'] as String?,
+      studentDescription: json['studentDescription'] as String?,
       subject: json['subject'] as String?,
       primaryType: json['primaryType'] as String?,
       secondaryType: json['secondaryType'] as String?,
@@ -80,6 +83,7 @@ class TutorApplicationModel {
       problemId: problemId,
       studentId: 0,
       summary: summary,
+      studentDescription: studentDescription,
       subject: subject,
       primaryType: primaryType,
       secondaryType: secondaryType,

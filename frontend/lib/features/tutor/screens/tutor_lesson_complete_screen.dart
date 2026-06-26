@@ -17,8 +17,9 @@ class TutorLessonCompleteScreen extends ConsumerWidget {
 
   final TutorLessonCompleteArgs args;
 
-  void _openReport(BuildContext context) {
-    context.push(
+  Future<void> _openReport(BuildContext context) async {
+    // 신고 제출 성공(true)이면 완료 화면에 안 머물고 바로 강사 홈으로.
+    final reported = await context.push<bool>(
       RoutePaths.studentReport, // reporterType은 서버가 JWT(role=TUTOR)로 자동 판별
       extra: StudentReportArgs(
         lessonId: args.lessonId,
@@ -27,6 +28,9 @@ class TutorLessonCompleteScreen extends ConsumerWidget {
         personName: '학생',
       ),
     );
+    if (reported == true && context.mounted) {
+      context.go(RoutePaths.tutorHome);
+    }
   }
 
   @override

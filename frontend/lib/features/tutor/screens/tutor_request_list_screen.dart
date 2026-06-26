@@ -241,6 +241,33 @@ class _TutorRequestListScreenState
     );
   }
 
+  String _cardTitle(TutorApplicationModel app) {
+    final primary = app.primaryType ?? '';
+    final secondary = app.secondaryType ?? '';
+    if (primary.isEmpty) return secondary;
+    if (secondary.isEmpty) return primary;
+    return '$primary · $secondary';
+  }
+
+  /// 대분류·소분류 키워드 칩 (강사 홈 카드와 동일).
+  Widget _keywordChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: _shell.hintColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: _shell.titleColor,
+        ),
+      ),
+    );
+  }
+
   Widget _buildRequestCard(TutorApplicationModel app) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -256,21 +283,68 @@ class _TutorRequestListScreenState
             children: [
               TutorRequestProblemThumbnail(
                 imageUrl: app.imageUrls.firstOrNull,
-                title: app.primaryType,
+                title: _cardTitle(app),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    // 과목 · 대분류 · 소분류 → 키워드 칩 (강사 홈 카드와 동일)
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
                       children: [
                         TutorSubjectBadge(subject: app.subjectLabel),
+                        if ((app.primaryType ?? '').isNotEmpty)
+                          _keywordChip(app.primaryType!),
+                        if ((app.secondaryType ?? '').isNotEmpty)
+                          _keywordChip(app.secondaryType!),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // 본문 = 문제 요약(summary)
+                    Text(
+                      (app.summary?.trim().isNotEmpty ?? false)
+                          ? app.summary!.trim()
+                          : '문제 요약 없음',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: _shell.titleColor,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    // 부가 = 학생이 입력한 설명 — 있을 때만
+                    if ((app.studentDescription ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        app.studentDescription!.trim(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: _shell.hintColor,
+                          height: 1.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    // 시간 + 상태 (신청 리스트 고유 정보는 유지)
+                    Row(
+                      children: [
+                        Text(
+                          _timeAgo(app.appliedAt),
+                          style:
+                              TextStyle(fontSize: 11, color: _shell.hintColor),
+                        ),
                         const Spacer(),
                         Text(
                           app.statusLabel,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: app.status == 'ACCEPTED'
                                 ? AppColors.primaryBlue
@@ -278,34 +352,6 @@ class _TutorRequestListScreenState
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      app.primaryType ?? '-',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _shell.titleColor,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (app.secondaryType != null &&
-                        app.secondaryType!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        app.secondaryType!,
-                        style:
-                            TextStyle(fontSize: 13, color: _shell.hintColor),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    const SizedBox(height: 4),
-                    Text(
-                      _timeAgo(app.appliedAt),
-                      style:
-                          TextStyle(fontSize: 11, color: _shell.hintColor),
                     ),
                   ],
                 ),

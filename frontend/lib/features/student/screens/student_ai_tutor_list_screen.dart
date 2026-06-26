@@ -5,11 +5,20 @@ import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/screens/student_ai_tutor_screen.dart';
+import 'package:ieum/features/student/screens/student_problem_upload_screen.dart';
 import 'package:ieum/features/student/widgets/student_problem_chips.dart';
 
 /// AI 튜터 탭. 내가 올린 문제 목록 → 문제 선택 → 그 문제로 AI 튜터 채팅.
 class StudentAiTutorListScreen extends ConsumerWidget {
   const StudentAiTutorListScreen({super.key});
+
+  void _registerForAiTutor(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const StudentProblemUploadScreen(forAiTutor: true),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,8 +45,30 @@ class StudentAiTutorListScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
               child: Text(
-                '질문할 문제를 선택하세요',
+                '질문할 문제를 선택하거나 새로 등록하세요',
                 style: TextStyle(fontSize: 13.5, color: shell.hintColor),
+              ),
+            ),
+            // 새 문제 등록 → 등록 후 바로 그 문제로 AI 튜터 채팅 (forAiTutor)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _registerForAiTutor(context),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('새 문제 등록하기',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.studentInk,
+                    side: BorderSide(
+                        color: AppColors.studentInk.withValues(alpha: 0.5)),
+                    minimumSize: const Size.fromHeight(46),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
               ),
             ),
             Expanded(

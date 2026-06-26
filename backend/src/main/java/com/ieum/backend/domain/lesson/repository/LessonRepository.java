@@ -15,4 +15,8 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     List<Lesson> findByStatusAndCreatedAtBefore(Lesson.LessonStatus status, LocalDateTime threshold);
 
     boolean existsByTutorIdAndStatusIn(Long tutorId, java.util.Collection<Lesson.LessonStatus> statuses);
+
+    // 정산 확정 대상: 완료된 과금 강의(coinCost 존재) 중 종료가 cutoff 이전
+    List<Lesson> findByStatusAndCoinCostIsNotNullAndEndedAtBefore(
+            Lesson.LessonStatus status, LocalDateTime threshold);
 }

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/models/mypage_models.dart';
 import 'package:ieum/features/student/providers/mypage_provider.dart';
+import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
 
 /// 내 활동 — 내가 쓴 리뷰 목록. GET /reviews/me
@@ -53,7 +56,7 @@ class StudentMyReviewsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                       itemCount: items.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (_, i) => _card(shell, items[i]),
+                      itemBuilder: (_, i) => _card(context, shell, items[i]),
                     );
                   },
                 ),
@@ -78,37 +81,96 @@ class StudentMyReviewsScreen extends ConsumerWidget {
         ],
       );
 
-  Widget _card(ShellTheme shell, MyReview r) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: shell.cardBackground,
+  Widget _card(BuildContext context, ShellTheme shell, MyReview r) {
+    final tappable = r.tutorId != null;
+    final tutorText =
+        (r.tutorName?.trim().isNotEmpty ?? false) ? '${r.tutorName!.trim()} 강사' : '강사';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: shell.cardBorder.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        onTap: tappable
+            ? () => context.push('${RoutePaths.studentTutorProfile}/${r.tutorId}')
+            : null,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: shell.cardBackground,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: shell.cardBorder.withValues(alpha: 0.5)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (var s = 1; s <= 5; s++)
-                Icon(
-                  s <= r.rating ? Icons.star_rounded : Icons.star_outline_rounded,
-                  size: 18,
-                  color: const Color(0xFFF5A623),
-                ),
-              const Spacer(),
-              Text(_ymd(r.createdAt),
-                  style: TextStyle(fontSize: 12, color: shell.hintColor)),
+              // 강사 이름 + 과목 칩 (+ 프로필로 가는 화살표)
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      tutorText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: shell.titleColor,
+                      ),
+                    ),
+                  ),
+                  if ((r.subject ?? '').isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    _subjectChip(subjectLabel(r.subject)),
+                  ],
+                  const Spacer(),
+                  if (tappable)
+                    Icon(Icons.chevron_right, size: 18, color: shell.hintColor),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // 별점 + 날짜
+              Row(
+                children: [
+                  for (var s = 1; s <= 5; s++)
+                    Icon(
+                      s <= r.rating
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
+                      size: 18,
+                      color: const Color(0xFFF5A623),
+                    ),
+                  const Spacer(),
+                  Text(_ymd(r.createdAt),
+                      style: TextStyle(fontSize: 12, color: shell.hintColor)),
+                ],
+              ),
+              if ((r.comment?.trim().isNotEmpty) ?? false) ...[
+                const SizedBox(height: 10),
+                Text(r.comment!.trim(),
+                    style: TextStyle(
+                        fontSize: 14, height: 1.4, color: shell.titleColor)),
+              ],
             ],
           ),
-          if ((r.comment?.trim().isNotEmpty) ?? false) ...[
-            const SizedBox(height: 10),
-            Text(r.comment!.trim(),
-                style: TextStyle(
-                    fontSize: 14, height: 1.4, color: shell.titleColor)),
-          ],
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _subjectChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.studentPoint.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.studentInk,
+        ),
       ),
     );
   }

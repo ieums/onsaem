@@ -14,6 +14,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../student/providers/problem_provider.dart';
 import '../../student/providers/student_matching_session_provider.dart';
 import '../../student/screens/student_review_write_screen.dart';
+import '../../student/utils/coin_shortage.dart';
 import '../../student/utils/problem_enum_labels.dart';
 import '../../tutor/screens/tutor_lesson_complete_screen.dart';
 import '../../../core/theme/shell_theme_extension.dart';
@@ -94,13 +95,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(lessonProvider.notifier).setWhiteboardKey(_whiteboardKey);
-      final session = ref.read(currentUserProvider);
-      ref.read(lessonProvider.notifier).initialize(
-            widget.channelName,
-            session?.id ?? 0,
-            session?.isTutor ?? false,
-            imageUrls: widget.imageUrls,
-          );
+      _startLessonInit();
       // 웹에서는 isInChannel이 설정되지 않으므로 즉시 타이머 시작
       if (kIsWeb) _startTimer();
     });
@@ -110,6 +105,16 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
+  void _startLessonInit() {
+    final session = ref.read(currentUserProvider);
+    ref.read(lessonProvider.notifier).initialize(
+          widget.channelName,
+          session?.id ?? 0,
+          session?.isTutor ?? false,
+          imageUrls: widget.imageUrls,
+        );
   }
 
   @override
@@ -170,17 +175,26 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           _offset = Offset(next.remoteOffsetX, next.remoteOffsetY);
         });
       }
-      // 에러 스낵바
+      // 에러 처리
       if (prev?.error != next.error && next.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.error!.contains('최대 10장')
-                ? '이미지는 최대 10장까지 업로드할 수 있습니다.'
-                : next.error!),
-            backgroundColor: AppColors.buttonDanger,
-          ),
-        );
-        ref.read(lessonProvider.notifier).clearError();
+        if (isCoinShortageMessage(next.error)) {
+          // 강의 시작 코인(50) 부족 → 충전 안내 후 재진입.
+          ref.read(lessonProvider.notifier).clearError();
+          () async {
+            final charged = await promptRechargeAndReturn(context);
+            if (charged && mounted) _startLessonInit();
+          }();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(next.error!.contains('최대 10장')
+                  ? '이미지는 최대 10장까지 업로드할 수 있습니다.'
+                  : next.error!),
+              backgroundColor: AppColors.buttonDanger,
+            ),
+          );
+          ref.read(lessonProvider.notifier).clearError();
+        }
       }
       // 원격 카메라 비율 동기화
       if (prev?.remoteCameraRatio != next.remoteCameraRatio &&

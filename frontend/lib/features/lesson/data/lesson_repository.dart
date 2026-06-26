@@ -31,6 +31,19 @@ class LessonRepository {
         response.data['data'] as Map<String, dynamic>);
   }
 
+  /// 과금 강의 시작 — 기본 30분(50코인) 홀드 + ACTIVE 전환.
+  /// 잔액 부족이면 백엔드가 400("코인이 부족합니다")을 던진다(프론트가 충전 유도).
+  Future<void> startLesson({
+    required int lessonId,
+    required int studentId,
+    required int tutorId,
+  }) async {
+    await _dio.post('/lesson/$lessonId/start', queryParameters: {
+      'studentId': studentId,
+      'tutorId': tutorId,
+    });
+  }
+
   Future<RecordingStartResponse> startRecording(int lessonId) async {
     final response = await _dio.post('/lesson/$lessonId/recording/start');
     return RecordingStartResponse.fromJson(

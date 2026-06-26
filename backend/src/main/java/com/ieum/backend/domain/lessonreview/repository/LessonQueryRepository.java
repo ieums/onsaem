@@ -53,6 +53,10 @@ public class LessonQueryRepository {
                       SELECT 1 FROM lesson_transcript t
                       WHERE t.lesson_id = l.id AND t.status = 'COMPLETED'
                   )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM reports r
+                      WHERE r.lesson_id = l.id AND r.status IN ('PENDING', 'REVIEWING')
+                  )
                 """;
         return jdbcTemplate.queryForList(sql, Long.class);
     }
