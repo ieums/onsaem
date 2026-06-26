@@ -207,6 +207,9 @@ public class AgoraRecordingService {
         body.put("uid", "0");
         body.put("clientRequest", clientRequest);
 
+        log.info("[Agora] startRecording 요청 body - cname={}, uid=0, recordingConfig={}, transcodingConfig={}",
+                channelName, recordingConfig, transcodingConfig);
+
         Map<String, Object> response = post(url, body);
         String sid = (String) response.get("sid");
         if (sid == null) {
@@ -317,7 +320,8 @@ public class AgoraRecordingService {
                 .onStatus(
                         status -> status.isError(),
                         (req, res) -> {
-                            String errorBody = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
+                            byte[] bytes = res.getBody().readAllBytes();
+                            String errorBody = bytes.length > 0 ? new String(bytes, StandardCharsets.UTF_8) : "(empty body)";
                             log.error("[Agora] API 오류 — url={} status={} body={}", req.getURI(), res.getStatusCode(), errorBody);
                             throw BusinessException.internalError(
                                     "Agora Recording API 오류: " + res.getStatusCode());
