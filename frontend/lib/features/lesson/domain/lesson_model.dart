@@ -8,6 +8,8 @@ class TokenResponse {
   final String channelName;
   final String appId;
   final int expireAt;
+  final int? studentId;
+  final int? tutorId;
 
   TokenResponse({
     required this.lessonId,
@@ -15,6 +17,8 @@ class TokenResponse {
     required this.channelName,
     required this.appId,
     required this.expireAt,
+    this.studentId,
+    this.tutorId,
   });
 
   factory TokenResponse.fromJson(Map<String, dynamic> json) => TokenResponse(
@@ -23,6 +27,8 @@ class TokenResponse {
         channelName: json['channelName'] as String,
         appId: json['appId'] as String,
         expireAt: (json['expireAt'] as num).toInt(),
+        studentId: (json['studentId'] as num?)?.toInt(),
+        tutorId: (json['tutorId'] as num?)?.toInt(),
       );
 }
 

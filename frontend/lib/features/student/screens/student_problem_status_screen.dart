@@ -36,21 +36,30 @@ class _StudentProblemStatusScreenState
     final session = ref.read(studentMatchingSessionProvider);
     if (session != null && session.problemId == widget.problem.problemId) return;
 
-    if (widget.problem.searching) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final studentId = ref.read(currentUserProvider)?.id;
-        if (studentId == null) return;
+    // searching 여부와 무관하게 세션을 복원한다.
+    // (세션이 없으면 '선택하기'가 무반응이 되므로 — selectTutor가 state를 필요로 함)
+    _loadingApplicants = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final studentId = ref.read(currentUserProvider)?.id;
+      if (studentId == null) {
+        setState(() => _loadingApplicants = false);
+        return;
+      }
+      try {
         await ref.read(studentMatchingSessionProvider.notifier).resumeMatching(
               problemId: widget.problem.problemId,
               studentId: studentId,
               subject: widget.problem.subject ?? '',
               questionSummary: widget.problem.summary ?? '',
             );
-      });
-    } else {
-      _loadApplicants();
-    }
+      } catch (_) {
+        // 세션 복원 실패 시 신청 목록만이라도 보여줌(선택은 제한될 수 있음)
+        await _loadApplicants();
+      } finally {
+        if (mounted) setState(() => _loadingApplicants = false);
+      }
+    });
   }
 
   Future<void> _deleteQuestion(BuildContext context) async {

@@ -19,6 +19,7 @@ abstract final class RoutePaths {
   static const studentClassroom = '/student/classroom';
   static const studentReviewWrite = '/student/review-write';
   static const studentReport = '/student/report';
+  static const tutorLessonComplete = '/tutor/lesson-complete';
   static const tutorHome = '/tutor';
   static const tutorProfileEdit = '/tutor/profile-edit';
   static const tutorAcademicEdit = '/tutor/academic-edit';

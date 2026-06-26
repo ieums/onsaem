@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/simulator_detector.dart';
 import '../data/lesson_repository.dart';
 import '../domain/lesson_model.dart';
 
@@ -29,6 +30,8 @@ class LessonState {
   final String? token;
   final String? appId;
   final int? lessonId;
+  final int? studentId;
+  final int? tutorId;
   final int? uid;
   final bool isTutor;
 
@@ -69,6 +72,8 @@ class LessonState {
     this.token,
     this.appId,
     this.lessonId,
+    this.studentId,
+    this.tutorId,
     this.uid,
     this.isTutor = false,
     this.isInChannel = false,
@@ -102,6 +107,8 @@ class LessonState {
     String? token,
     String? appId,
     int? lessonId,
+    int? studentId,
+    int? tutorId,
     int? uid,
     bool? isTutor,
     bool? isInChannel,
@@ -131,6 +138,8 @@ class LessonState {
   }) {
     return LessonState(
       channelName: channelName ?? this.channelName,
+      studentId: studentId ?? this.studentId,
+      tutorId: tutorId ?? this.tutorId,
       token: token ?? this.token,
       appId: appId ?? this.appId,
       lessonId: lessonId ?? this.lessonId,
@@ -214,27 +223,40 @@ class LessonNotifier extends StateNotifier<LessonState> {
         uid: agoraUid.toString(),
         role: 'PUBLISHER',
       );
+      if (!mounted) return; // 비동기 도중 강의실 이탈로 dispose되면 중단
 
       if (!mounted) return;
       state = state.copyWith(
         token: tokenResp.token,
         appId: tokenResp.appId,
         lessonId: tokenResp.lessonId,
+        studentId: tokenResp.studentId,
+        tutorId: tokenResp.tutorId,
       );
 
       if (!kIsWeb) {
-        final statuses = await [
-          Permission.camera,
-          Permission.microphone,
-        ].request();
+        // iOS 시뮬레이터엔 카메라/마이크 하드웨어가 없어 권한을 받을 수 없다.
+        // 수업은 오디오 전용이고 채널 입장(join)은 네트워크라 권한 없이도 되므로,
+        // 시뮬에선 권한 게이트를 통째로 건너뛰고 바로 입장한다(테스트 목적).
+        // 실기기는 기존대로 카메라+마이크 권한을 요구한다.
+        final isSim = await isIosSimulator();
         if (!mounted) return;
-        if (statuses[Permission.camera] != PermissionStatus.granted ||
-            statuses[Permission.microphone] != PermissionStatus.granted) {
-          state = state.copyWith(
-            isLoading: false,
-            error: '카메라/마이크 권한이 필요합니다',
-          );
-          return;
+        if (!isSim) {
+          final statuses = await [
+            Permission.camera,
+            Permission.microphone,
+          ].request();
+          if (!mounted) return;
+          if (statuses[Permission.camera] != PermissionStatus.granted ||
+              statuses[Permission.microphone] != PermissionStatus.granted) {
+            state = state.copyWith(
+              isLoading: false,
+              error: '카메라/마이크 권한이 필요합니다',
+            );
+            return;
+          }
+        } else {
+          debugPrint('[Lesson] iOS 시뮬레이터 → 권한 게이트 스킵, 바로 입장');
         }
 
         _engine = createAgoraRtcEngine();
@@ -243,7 +265,12 @@ class LessonNotifier extends StateNotifier<LessonState> {
         _engine!.registerEventHandler(
           RtcEngineEventHandler(
             onJoinChannelSuccess: (connection, elapsed) {
+              debugPrint('[Agora] 채널 입장 성공: ${connection.channelId}');
               state = state.copyWith(isInChannel: true);
+            },
+            // join 실패가 조용히 묻히지 않도록 에러를 로그로 노출(시간 안 가는 원인 진단용).
+            onError: (err, msg) {
+              debugPrint('[Agora] onError: $err / $msg');
             },
             onUserJoined: (connection, remoteUid, elapsed) {
               state = state.copyWith(remoteUid: remoteUid);
@@ -297,6 +324,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         _startWhiteboardCapture();
       }
 
+      if (!mounted) return; // Agora 입장/녹화 시작 동안 이탈했으면 중단
       state = state.copyWith(isLoading: false);
 
       if (imageUrls.isNotEmpty) {

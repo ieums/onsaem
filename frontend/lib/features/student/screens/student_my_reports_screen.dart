@@ -19,13 +19,20 @@ const _statusLabels = {
   'RESOLVED': '처리 완료',
   'REJECTED': '반려',
 };
+// 백엔드 ReportReason enum과 동일하게 유지 (코드→표시 라벨).
 const _reasonLabels = {
-  'NO_SHOW': '무단 이탈/노쇼',
-  'ABUSE': '욕설/비방',
-  'INAPPROPRIATE': '불쾌한 콘텐츠',
-  'SPAM': '스팸/광고',
+  // 사람(강사/학생)
+  'ABUSE': '욕설/모욕',
+  'NO_SHOW': '노쇼/불참',
+  'INAPPROPRIATE': '부적절한 행동',
   'FRAUD': '사기/허위',
-  'OTHER': '기타',
+  'SPAM': '스팸/광고',
+  // 강의
+  'CONNECTION_ISSUE': '연결/음성·영상 문제',
+  'TECHNICAL_ISSUE': '기술 오류(녹화·판서 등)',
+  'LESSON_NOT_HELD': '강의 미진행/중단',
+  // 공통
+  'ETC': '기타',
 };
 
 /// 내 활동 — 내가 접수한 신고 목록. GET /reports/me

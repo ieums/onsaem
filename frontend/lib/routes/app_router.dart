@@ -26,6 +26,7 @@ import 'package:ieum/features/tutor/screens/tutor_profile_edit_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_academic_edit_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_my_reviews_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_my_reports_screen.dart';
+import 'package:ieum/features/tutor/screens/tutor_lesson_complete_screen.dart';
 import '../features/lesson/presentation/lesson_screen.dart';
 import '../features/matching/models/searching_problem_model.dart';
 import '../features/matching/screens/problem_detail_screen.dart';
@@ -149,6 +150,18 @@ final appRouter = GoRouter(
           );
         }
         return StudentReportScreen(args: extra);
+      },
+    ),
+    GoRoute(
+      path: RoutePaths.tutorLessonComplete,
+      builder: (_, state) {
+        final extra = state.extra;
+        if (extra is! TutorLessonCompleteArgs) {
+          return const Scaffold(
+            body: Center(child: Text('강의 정보를 불러올 수 없습니다.')),
+          );
+        }
+        return TutorLessonCompleteScreen(args: extra);
       },
     ),
     GoRoute(

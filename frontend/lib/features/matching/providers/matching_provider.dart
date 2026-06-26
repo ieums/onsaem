@@ -60,20 +60,22 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
 
   Future<void> _init() async {
     state = state.copyWith(problems: const AsyncLoading());
+    // STOMP는 목록 조회 성공/실패와 무관하게 먼저 연결한다.
+    // (예전엔 getSearchingProblems가 실패하면 connect를 못 타 실시간이 죽었음)
+    _stomp.connect(
+      _tutorId,
+      removeProblem,
+      onMatchRequested: onMatchRequested,
+      onMatchCancelled: onMatchCancelled,
+      onNewProblem: _onNewProblem,
+    );
     try {
       final list = await _repository.getSearchingProblems(_tutorId);
-      if (!mounted) return;
+      if (!mounted) return; // 비동기 도중 화면 이탈로 dispose되면 state 건드리지 않음
       state = state.copyWith(
         problems: AsyncData(
           list.where((p) => !p.alreadyApplied).toList(),
         ),
-      );
-      _stomp.connect(
-        _tutorId,
-        removeProblem,
-        onMatchRequested: onMatchRequested,
-        onMatchCancelled: onMatchCancelled,
-        onNewProblem: _onNewProblem,
       );
     } catch (e, st) {
       if (!mounted) return;
@@ -121,7 +123,12 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
   }
 
   void onMatchCancelled(String message) {
-    state = state.copyWith(matchCancelledMessage: message);
+    // 학생과 동일하게 요청도 비워서, 화면이 열려있는 매칭 요청 다이얼로그를 닫을 수 있게 한다.
+    state = state.copyWith(
+      matchCancelledMessage: message,
+      matchRequestedProblemId: null,
+      matchRequestedMessage: null,
+    );
   }
 
   Future<void> confirmMatch(int problemId) async {
@@ -201,7 +208,7 @@ class TutorApplicationsNotifier
     state = state.copyWith(applications: const AsyncLoading());
     try {
       final list = await _repository.getTutorApplications(_tutorId);
-      if (!mounted) return;
+      if (!mounted) return; // dispose 후 state 접근 방지
       state = state.copyWith(applications: AsyncData(list));
       final matchingIds = list
           .where((a) => a.status == 'PENDING' || a.status == 'CONFIRMING')
@@ -233,6 +240,12 @@ class TutorApplicationsNotifier
   Future<void> cancelApplication(int problemId) async {
     await _repository.cancelApplication(problemId, _tutorId);
     _removeByProblemId(problemId);
+  }
+
+  /// 재입장한 강사가 대기 중인 매칭 요청(CONFIRMING)을 신청 목록에서 직접 확정한다.
+  /// 양쪽(강사·학생)이 다 확정되면 백엔드가 MATCHED를 보내고, _init의 onMatched가 강의실로 이동시킨다.
+  Future<void> confirmMatch(int problemId) async {
+    await _repository.confirmMatch(problemId, _tutorId);
   }
 
   void _removeByProblemId(int problemId) {

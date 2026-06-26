@@ -3,6 +3,7 @@ class SearchingProblemModel {
     required this.problemId,
     required this.studentId,
     this.summary,
+    this.studentDescription,
     this.subject,
     this.primaryType,
     this.secondaryType,
@@ -17,6 +18,7 @@ class SearchingProblemModel {
   final int problemId;
   final int studentId;
   final String? summary;
+  final String? studentDescription;
   final String? subject;
   final String? primaryType;
   final String? secondaryType;
@@ -32,6 +34,7 @@ class SearchingProblemModel {
       problemId: json['problemId'] as int,
       studentId: json['studentId'] as int,
       summary: json['summary'] as String?,
+      studentDescription: json['studentDescription'] as String?,
       subject: json['subject'] as String?,
       primaryType: json['primaryType'] as String?,
       secondaryType: json['secondaryType'] as String?,

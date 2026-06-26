@@ -10,6 +10,7 @@ import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/auth/data/auth_controller.dart';
 import 'package:ieum/features/auth/utils/password_rules.dart';
+import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/core/network/api_error.dart';
 
 class TutorSignupScreen extends ConsumerStatefulWidget {
@@ -51,7 +52,6 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _majorController = TextEditingController();
-  final _subjectInputController = TextEditingController();
   final _experienceController = TextEditingController();
   final _introController = TextEditingController();
   final _schoolController = TextEditingController();
@@ -192,19 +192,6 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     );
   }
 
-  ButtonStyle _roundAccentButtonStyle(BuildContext context, {required bool enabled}) {
-    final fill = _accentButtonFill(context);
-    final fg = _accentButtonForeground(context);
-    return FilledButton.styleFrom(
-      backgroundColor: enabled ? fill : fill.withValues(alpha: 0.4),
-      foregroundColor: fg,
-      disabledBackgroundColor: fill.withValues(alpha: 0.4),
-      disabledForegroundColor: fg.withValues(alpha: 0.45),
-      padding: EdgeInsets.zero,
-      shape: const CircleBorder(),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
@@ -231,8 +218,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _majorController.dispose();
-    _schoolController.dispose(); 
-    _subjectInputController.dispose();
+    _schoolController.dispose();
     _experienceController.dispose();
     _introController.dispose();
     super.dispose();
@@ -500,13 +486,58 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     }
   }
 
-  void _addSubjectKeyword() {
-    final value = _subjectInputController.text.trim();
-    if (value.isEmpty) return;
-    setState(() {
-      _subjectKeywords.add(value);
-      _subjectInputController.clear();
-    });
+  /// 과외 가능 과목 — problem subject enum(미분류 제외) 다중 선택 칩.
+  Widget _buildSubjectChips(BuildContext context) {
+    final selectedFill = _isShellDark(context)
+        ? _scheme(context).surfaceContainerHigh
+        : (_isShellThemed ? _scheme(context).primary : AppColors.primaryBlue);
+    final selectedFg = _accentButtonForeground(context);
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      // subjectLabels = {KOREAN:국어, MATH:수학, ENGLISH:영어, SOCIAL:사회, SCIENCE:과학, UNKNOWN:미분류}
+      // '미분류'(UNKNOWN)는 과외 가능 과목으로 고를 수 없어야 하므로 제외한다.
+      // 표시는 라벨('국어'), 저장은 enum 키('KOREAN') — 학생 질문/Problem.subject와 동일한 형태로
+      // 맞춰야 매칭(Subject enum 비교)이 동작한다.
+      children: subjectLabels.entries
+          .where((entry) => entry.key != 'UNKNOWN')
+          .map((entry) {
+        final code = entry.key; // 'KOREAN'
+        final label = entry.value; // '국어'
+        final selected = _subjectKeywords.contains(code);
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() {
+            if (selected) {
+              _subjectKeywords.remove(code);
+            } else {
+              _subjectKeywords.add(code);
+            }
+          }),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            decoration: BoxDecoration(
+              color: selected ? selectedFill : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected
+                    ? Colors.transparent
+                    : _scheme(context).outlineVariant,
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: selected ? selectedFg : _scheme(context).onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 
   Widget _buildDomainRow(BuildContext context) {
@@ -735,21 +766,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                   const SizedBox(height: 20),
                   _buildLabel(context, '과외 가능 과목'),
                   const SizedBox(height: 8),
-                  _buildKeywordInputRow(
-                    context,
-                    controller: _subjectInputController,
-                    hint: '과목 입력',
-                    onAdd: _addSubjectKeyword,
-                  ),
-                  if (_subjectKeywords.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    _buildKeywordWrap(
-                      context,
-                      _subjectKeywords,
-                      (keyword) =>
-                          setState(() => _subjectKeywords.remove(keyword)),
-                    ),
-                  ],
+                  _buildSubjectChips(context),
                   const SizedBox(height: 20),
                   _buildLabel(context, '경력 연수'),
                   const SizedBox(height: 8),
@@ -1037,92 +1054,6 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
           );
         }).toList(),
       ),
-    );
-  }
-
-  Widget _buildKeywordInputRow(
-    BuildContext context, {
-    required TextEditingController controller,
-    required String hint,
-    required VoidCallback onAdd,
-    bool enabled = true,
-  }) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildTextField(
-            context,
-            controller: controller,
-            hint: hint,
-            onSubmitted: enabled ? (_) => onAdd() : null,
-          ),
-        ),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 48,
-          height: 48,
-          child: FilledButton(
-            onPressed: enabled ? onAdd : null,
-            style: _roundAccentButtonStyle(context, enabled: enabled),
-            child: Icon(
-              Icons.add,
-              size: 26,
-              color: _accentButtonForeground(context),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildKeywordWrap(
-    BuildContext context,
-    List<String> keywords,
-    ValueChanged<String> onRemove,
-  ) {
-    final chipFill = _isShellDark(context)
-        ? _scheme(context).surfaceContainerHigh
-        : (_isShellThemed ? _scheme(context).primary : AppColors.primaryBlue);
-    final chipFg = _accentButtonForeground(context);
-    final chipBorder = _isShellDark(context)
-        ? Border.all(color: _scheme(context).primary, width: 1)
-        : null;
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: keywords.map((keyword) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-          decoration: BoxDecoration(
-            color: chipFill,
-            borderRadius: BorderRadius.circular(20),
-            border: chipBorder,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '#$keyword',
-                style: TextStyle(
-                  color: chipFg,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: () => onRemove(keyword),
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: Icon(Icons.close, size: 16, color: chipFg),
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
     );
   }
 

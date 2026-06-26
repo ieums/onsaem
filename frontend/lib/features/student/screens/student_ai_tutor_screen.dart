@@ -349,8 +349,6 @@ class _MessageBubble extends StatelessWidget {
     t = t.replaceAll(RegExp(r'^\s{0,3}#{1,6}\s*', multiLine: true), '');
     t = t.replaceAllMapped(RegExp(r'\*\*\*(.+?)\*\*\*'), (m) => m[1]!);
     t = t.replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (m) => m[1]!);
-    t = t.replaceAllMapped(RegExp(r'\*(.+?)\*'), (m) => m[1]!);
-    t = t.replaceAllMapped(RegExp(r'__(.+?)__'), (m) => m[1]!);
     t = t.replaceAllMapped(RegExp(r'\[([^\]]+)\]\([^)]+\)'), (m) => m[1]!);
     t = t.replaceAll(RegExp(r'^\s*[-*]\s+', multiLine: true), '• ');
     return t.trim();

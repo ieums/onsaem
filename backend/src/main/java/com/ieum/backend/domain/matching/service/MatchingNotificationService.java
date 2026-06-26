@@ -92,6 +92,14 @@ public class MatchingNotificationService {
         );
     }
 
+    /** 문제가 취소/종료되어 더 이상 탐색 대상이 아님 → 모든 강사 리스트에서 즉시 제거. */
+    public void notifyProblemRemoved(Long problemId) {
+        messagingTemplate.convertAndSend(
+                "/topic/new-problem",
+                Map.of("type", "PROBLEM_REMOVED", "problemId", problemId)
+        );
+    }
+
     public void notifyMatchRequested(Long problemId, Long tutorId, Long studentId) {
         Map<String, Object> tutorPayload = new HashMap<>();
         tutorPayload.put("type", "MATCH_REQUESTED");
@@ -116,20 +124,20 @@ public class MatchingNotificationService {
         String studentMsg;
         switch (cancelledBy) {
             case "tutor" -> {
-                tutorMsg   = "강의를 취소하셨습니다.";
-                studentMsg = "상대방이 강의를 취소하셨습니다.";
+                tutorMsg   = "매칭을 취소했어요.";
+                studentMsg = "상대방이 매칭을 취소했어요.";
             }
             case "student" -> {
-                tutorMsg   = "상대방이 강의를 취소하셨습니다.";
-                studentMsg = "강의를 취소하셨습니다.";
+                tutorMsg   = "상대방이 매칭을 취소했어요.";
+                studentMsg = "매칭을 취소했어요.";
             }
             case "timeout_tutor" -> {
-                tutorMsg   = "응답하지 않아 강의가 취소되었습니다.";
-                studentMsg = "상대방이 응답하지 않아 강의가 취소되었습니다.";
+                tutorMsg   = "시간 내 응답하지 않아 매칭이 취소됐어요.";
+                studentMsg = "상대방이 응답하지 않아 매칭이 취소됐어요.";
             }
             default -> {
-                tutorMsg   = "상대방이 응답하지 않아 강의가 취소되었습니다.";
-                studentMsg = "응답하지 않아 강의가 취소되었습니다.";
+                tutorMsg   = "상대방이 응답하지 않아 매칭이 취소됐어요.";
+                studentMsg = "시간 내 응답하지 않아 매칭이 취소됐어요.";
             }
         }
 

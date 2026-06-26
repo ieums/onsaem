@@ -6,11 +6,13 @@ import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
+import 'package:ieum/features/student/repositories/mypage_repository.dart';
 import 'package:ieum/features/student/screens/student_report_screen.dart';
 import 'package:ieum/routes/app_router.dart';
 
 class StudentReviewWriteArgs {
   const StudentReviewWriteArgs({
+    required this.lessonId,
     required this.tutorId,
     required this.tutorName,
     required this.subject,
@@ -18,6 +20,7 @@ class StudentReviewWriteArgs {
     required this.avatarInitial,
   });
 
+  final int lessonId;
   final String tutorId;
   final String tutorName;
   final String subject;
@@ -82,14 +85,32 @@ class _StudentReviewWriteScreenState
     });
   }
 
-  void _submit() {
+  bool _submitting = false;
+
+  Future<void> _submit() async {
     if (_rating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('별점을 선택해 주세요.')),
       );
       return;
     }
-    _finish(submitted: true);
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    try {
+      await MypageRepository().createReview(
+        lessonId: widget.args.lessonId,
+        rating: _rating,
+        comment: _reviewController.text,
+      );
+      if (!mounted) return;
+      _finish(submitted: true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('리뷰 등록에 실패했어요. 잠시 후 다시 시도해 주세요.')),
+      );
+    }
   }
 
   @override
@@ -281,8 +302,10 @@ class _StudentReviewWriteScreenState
                                   context.push(
                                     RoutePaths.studentReport,
                                     extra: StudentReportArgs(
-                                      tutorId: widget.args.tutorId,
-                                      tutorName: widget.args.tutorName,
+                                      lessonId: widget.args.lessonId,
+                                      personType: ReportPersonType.tutor,
+                                      personId: widget.args.tutorId,
+                                      personName: widget.args.tutorName,
                                     ),
                                   );
                                 },

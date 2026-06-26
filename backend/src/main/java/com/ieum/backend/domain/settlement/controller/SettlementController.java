@@ -109,4 +109,17 @@ public class SettlementController {
     public ResponseEntity<SettlementResponse> failWithdraw(@PathVariable Long id) {
         return ResponseEntity.ok(settlementService.failWithdraw(id));
     }
+
+    /**
+     * 정산 취소(롤백) — 강의 환불/취소 시.
+     * 보통은 환불 플로우가 settlementService.cancelByLesson(lessonId)를 호출하지만,
+     * 운영자가 정산 id로 직접 취소할 수 있도록 노출.
+     * POST /api/v1/settlements/{id}/cancel
+     *
+     * TODO: 추후 관리자 권한 체크 추가
+     */
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<SettlementResponse> cancelSettlement(@PathVariable Long id) {
+        return ResponseEntity.ok(settlementService.cancelSettlement(id));
+    }
 }

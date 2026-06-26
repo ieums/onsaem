@@ -65,7 +65,9 @@ class MatchingRepository {
 
   // ─── 학생용 API ──────────────────────────────────────────────────────────────
 
-  Future<void> startMatching(int problemId, {int minutes = 30}) async {
+  // 탐색 기본 기간 = 1일(1440분). 강사가 항상 온라인은 아니라 '구인 게시판'처럼
+  // 하루 동안 열어두고, 강사가 로그인할 때 보고 신청하도록 한다.
+  Future<void> startMatching(int problemId, {int minutes = 1440}) async {
     await _dio.post(
       '/matching/$problemId/start',
       data: {'minutes': minutes},
@@ -101,7 +103,7 @@ class MatchingRepository {
     );
   }
 
-  Future<void> extendSearch(int problemId, {int minutes = 30}) async {
+  Future<void> extendSearch(int problemId, {int minutes = 1440}) async {
     await _dio.post(
       '/matching/$problemId/extend',
       data: {'minutes': minutes},

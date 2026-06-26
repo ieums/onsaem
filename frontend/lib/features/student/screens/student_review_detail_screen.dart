@@ -6,18 +6,25 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ieum/core/constants/api_constants.dart';
+import 'package:ieum/core/storage/token_storage.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/data/models/lesson_review_message.dart';
-import 'package:ieum/features/student/data/models/lesson_review_session.dart';
 import 'package:ieum/features/student/providers/lesson_review_provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class StudentReviewDetailScreen extends ConsumerStatefulWidget {
-  const StudentReviewDetailScreen({super.key, required this.session});
+  const StudentReviewDetailScreen({
+    super.key,
+    required this.lessonId,
+    required this.title,
+  });
 
-  final LessonReviewSession session;
+  /// 복습 대상 강의. 세션은 진입 시 init(lessonId)이 없으면 만들고 있으면 재사용한다.
+  final int lessonId;
+  final String title;
 
   @override
   ConsumerState<StudentReviewDetailScreen> createState() =>
@@ -44,7 +51,7 @@ class _StudentReviewDetailScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref
           .read(lessonReviewChatProvider.notifier)
-          .init(widget.session.lessonId);
+          .init(widget.lessonId);
     });
   }
 
@@ -59,8 +66,13 @@ class _StudentReviewDetailScreenState
   }
 
   Future<void> _initVideo(String url) async {
-  _videoPlayerController =
-      VideoPlayerController.networkUrl(Uri.parse(url));
+  // 녹음은 인증+소유권 체크 엔드포인트(local)라 JWT를 함께 보낸다.
+  // (prod의 presigned S3 URL은 헤더가 있어도 무시되므로 안전)
+  final token = await tokenStorage.readAccessToken();
+  _videoPlayerController = VideoPlayerController.networkUrl(
+    Uri.parse(url),
+    httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : const {},
+  );
   await _videoPlayerController!.initialize();
   _chewieController = ChewieController(
     videoPlayerController: _videoPlayerController!,
@@ -71,8 +83,10 @@ class _StudentReviewDetailScreenState
   if (mounted) setState(() {});
 }
 
-  Future<void> _loadPdf(String url) async {
+  Future<void> _loadPdf(String rawUrl) async {
     if (_pdfLocalPath != null || _isPdfLoading) return;
+    // PDF는 상대경로(/uploads/...)로 와서 origin을 붙여 절대화해야 다운로드된다.
+    final url = ApiConstants.resolveImageUrl(rawUrl);
     setState(() {
       _isPdfLoading = true;
       _pdfError = null;
@@ -80,7 +94,7 @@ class _StudentReviewDetailScreenState
     try {
       final dir = await getTemporaryDirectory();
       final file = File(
-          '${dir.path}/review_${widget.session.sessionId}.pdf');
+          '${dir.path}/review_${widget.lessonId}.pdf');
       if (!file.existsSync()) {
         await Dio().download(url, file.path);
       }
@@ -100,8 +114,8 @@ class _StudentReviewDetailScreenState
     }
   }
 
-  Future<void> _openPdfExternal(String url) async {
-    final uri = Uri.parse(url);
+  Future<void> _openPdfExternal(String rawUrl) async {
+    final uri = Uri.parse(ApiConstants.resolveImageUrl(rawUrl));
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
@@ -135,7 +149,8 @@ class _StudentReviewDetailScreenState
       final res = next.resources;
       if (res == null) return;
       if (_videoPlayerController == null && res.hasVideo) {
-        _initVideo(res.recordingUrl!);
+        // 로컬은 '/uploads/...' 상대경로, prod는 S3 절대 URL → resolve로 통일
+        _initVideo(ApiConstants.resolveImageUrl(res.recordingUrl!));
       }
       if (_pdfLocalPath == null && !_isPdfLoading && res.hasPdf) {
         _loadPdf(res.pdfUrl!);
@@ -190,7 +205,7 @@ class _StudentReviewDetailScreenState
           ),
           Expanded(
             child: Text(
-              state.session?.title ?? widget.session.title,
+              state.session?.title ?? widget.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -246,7 +261,7 @@ class _StudentReviewDetailScreenState
             TextButton(
               onPressed: () => ref
                   .read(lessonReviewChatProvider.notifier)
-                  .init(widget.session.lessonId),
+                  .init(widget.lessonId),
               child: const Text('다시 시도'),
             ),
           ],

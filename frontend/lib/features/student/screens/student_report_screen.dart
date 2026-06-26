@@ -1,19 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ieum/core/network/api_error.dart';
+import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/features/student/repositories/mypage_repository.dart';
 import 'package:ieum/routes/app_router.dart';
+
+/// 신고 대상 상대방 종류(강의 종료 후: 학생↔강사).
+enum ReportPersonType { tutor, student }
 
 class StudentReportArgs {
   const StudentReportArgs({
-    required this.tutorId,
-    required this.tutorName,
+    required this.lessonId,
+    required this.personType,
+    required this.personId,
+    required this.personName,
   });
 
-  final String tutorId;
-  final String tutorName;
+  final int lessonId;
+  final ReportPersonType personType; // 상대방이 강사인지 학생인지
+  final String personId;
+  final String personName;
 }
 
 class StudentReportScreen extends ConsumerStatefulWidget {
@@ -27,19 +37,37 @@ class StudentReportScreen extends ConsumerStatefulWidget {
 }
 
 class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
-  static const _reportTypes = [
-    '욕설 / 비방',
-    '불쾌한 콘텐츠',
-    '스팸 / 광고',
-    '사기 / 허위 정보',
-    '무단 이탈 / 노쇼',
-    '기타',
+  // 사람(강사/학생) 신고 사유 — 백엔드 ReportReason '사람' 그룹과 동일.
+  static const _personReasons = <({String label, String code})>[
+    (label: '욕설/모욕', code: 'ABUSE'),
+    (label: '노쇼/불참', code: 'NO_SHOW'),
+    (label: '부적절한 행동', code: 'INAPPROPRIATE'),
+    (label: '사기/허위', code: 'FRAUD'),
+    (label: '스팸/광고', code: 'SPAM'),
+    (label: '기타', code: 'ETC'),
   ];
+  // 강의 신고 사유 — 백엔드 ReportReason '강의' 그룹과 동일.
+  static const _lessonReasons = <({String label, String code})>[
+    (label: '연결/음성·영상 문제', code: 'CONNECTION_ISSUE'),
+    (label: '기술 오류(녹화·판서 등)', code: 'TECHNICAL_ISSUE'),
+    (label: '강의 미진행/중단', code: 'LESSON_NOT_HELD'),
+    (label: '기타', code: 'ETC'),
+  ];
+
+  // 현재 신고 대상에 맞는 사유 목록.
+  List<({String label, String code})> get _activeReasons =>
+      _targetIsLesson ? _lessonReasons : _personReasons;
+
   static const _maxDetailLength = 500;
 
   final _detailController = TextEditingController();
   int _step = 0;
   int? _selectedTypeIndex;
+  bool _targetIsLesson = false; // false=상대방, true=강의 자체(품질이슈)
+  bool _submitting = false;
+
+  String get _personRoleLabel =>
+      widget.args.personType == ReportPersonType.tutor ? '강사' : '학생';
 
   @override
   void dispose() {
@@ -61,17 +89,55 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
     setState(() => _step = 1);
   }
 
-  void _submit() {
-    if (_selectedTypeIndex == null) return;
-    if (!mounted) return;
-    context.pop();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final rootContext = appRouter.routerDelegate.navigatorKey.currentContext;
-      if (rootContext == null) return;
-      ScaffoldMessenger.of(rootContext).showSnackBar(
-        const SnackBar(content: Text('신고가 접수되었습니다.')),
+  Future<void> _submit() async {
+    if (_selectedTypeIndex == null || _submitting) return;
+
+    final me = ref.read(currentUserProvider);
+    if (me == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인이 필요해요.')),
       );
-    });
+      return;
+    }
+    setState(() => _submitting = true);
+
+    final targetType = _targetIsLesson
+        ? 'LESSON'
+        : (widget.args.personType == ReportPersonType.tutor ? 'TUTOR' : 'STUDENT');
+    final targetId =
+        _targetIsLesson ? widget.args.lessonId : int.tryParse(widget.args.personId);
+    if (targetId == null) {
+      setState(() => _submitting = false);
+      return;
+    }
+
+    try {
+      await MypageRepository().createReport(
+        reporterId: me.id,
+        reporterType: me.isTutor ? 'TUTOR' : 'STUDENT',
+        targetType: targetType,
+        targetId: targetId,
+        lessonId: widget.args.lessonId,
+        reasons: [_activeReasons[_selectedTypeIndex!].code],
+        description: _detailController.text,
+      );
+      if (!mounted) return;
+      context.pop();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final rootContext = appRouter.routerDelegate.navigatorKey.currentContext;
+        if (rootContext == null) return;
+        ScaffoldMessenger.of(rootContext).showSnackBar(
+          const SnackBar(content: Text('신고가 접수되었습니다.')),
+        );
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      // 서버가 주는 실제 사유(당사자 아님/대상 불일치/중복 등)를 그대로 노출 — 원인 파악용.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(apiErrorMessage(e, fallback: '신고 접수에 실패했어요. 잠시 후 다시 시도해 주세요.'))),
+      );
+    }
   }
 
   @override
@@ -160,10 +226,50 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                         children: [
                           _ReportTargetCard(
                             shell: shell,
-                            tutorName: widget.args.tutorName,
+                            name: _targetIsLesson ? '강의' : widget.args.personName,
+                            roleLabel: _targetIsLesson
+                                ? '진행한 수업'
+                                : _personRoleLabel,
                           ),
                           const SizedBox(height: 20),
                           if (_step == 0) ...[
+                            Text(
+                              '무엇을 신고하나요?',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: shell.titleColor,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _TargetToggle(
+                                    shell: shell,
+                                    label: '$_personRoleLabel 신고',
+                                    selected: !_targetIsLesson,
+                                    onTap: () => setState(() {
+                                      _targetIsLesson = false;
+                                      _selectedTypeIndex = null;
+                                    }),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _TargetToggle(
+                                    shell: shell,
+                                    label: '강의 신고',
+                                    selected: _targetIsLesson,
+                                    onTap: () => setState(() {
+                                      _targetIsLesson = true;
+                                      _selectedTypeIndex = null;
+                                    }),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
                             Text(
                               '신고 유형을 선택해 주세요',
                               style: TextStyle(
@@ -173,11 +279,11 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                               ),
                             ),
                             const SizedBox(height: 14),
-                            for (var i = 0; i < _reportTypes.length; i++) ...[
+                            for (var i = 0; i < _activeReasons.length; i++) ...[
                               if (i > 0) const SizedBox(height: 10),
                               _ReportTypeTile(
                                 shell: shell,
-                                label: _reportTypes[i],
+                                label: _activeReasons[i].label,
                                 selected: _selectedTypeIndex == i,
                                 onTap: () => setState(() => _selectedTypeIndex = i),
                               ),
@@ -211,7 +317,7 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        _reportTypes[_selectedTypeIndex!],
+                                        _activeReasons[_selectedTypeIndex!].label,
                                         style: const TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w700,
@@ -391,14 +497,60 @@ class _ReportProgressBar extends StatelessWidget {
   }
 }
 
-class _ReportTargetCard extends StatelessWidget {
-  const _ReportTargetCard({
+class _TargetToggle extends StatelessWidget {
+  const _TargetToggle({
     required this.shell,
-    required this.tutorName,
+    required this.label,
+    required this.selected,
+    required this.onTap,
   });
 
   final ShellTheme shell;
-  final String tutorName;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.studentPoint.withValues(alpha: 0.18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? AppColors.studentInk : shell.cardBorder,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: selected ? AppColors.studentInk : shell.subtitleColor,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportTargetCard extends StatelessWidget {
+  const _ReportTargetCard({
+    required this.shell,
+    required this.name,
+    required this.roleLabel,
+  });
+
+  final ShellTheme shell;
+  final String name;
+  final String roleLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -416,7 +568,7 @@ class _ReportTargetCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tutorName,
+                  name,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -425,7 +577,7 @@ class _ReportTargetCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '강사',
+                  roleLabel,
                   style: TextStyle(
                     fontSize: 12,
                     color: shell.subtitleColor,

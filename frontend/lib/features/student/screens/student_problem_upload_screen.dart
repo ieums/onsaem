@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui' show ImageFilter;
 
 import 'package:dio/dio.dart';
@@ -234,16 +233,8 @@ class _StudentProblemUploadScreenState
   }
 
   Future<void> _pickFromGallery() async {
-    // 웹은 dart:io Platform 접근 시 런타임 에러 → kIsWeb으로 가드
-    if (!kIsWeb && Platform.isIOS) {
-      if (!await _ensurePermission(
-        permission: Permission.photos,
-        label: '사진',
-      )) {
-        return;
-      }
-    }
-
+    // iOS 갤러리는 PHPicker(앱이 라이브러리에 직접 접근 안 함)라 사진 권한이 필요 없다.
+    // permission_handler로 미리 막으면 오히려 '권한 필요'로 차단되므로 게이트를 두지 않는다.
     final remaining = _maxImages - _problemImages.length;
     if (remaining <= 0) {
       _showSnack('사진은 최대 $_maxImages장까지 올릴 수 있어요.');

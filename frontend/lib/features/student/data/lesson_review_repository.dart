@@ -4,6 +4,7 @@ import 'package:ieum/core/network/dio_client.dart';
 import 'models/lesson_review_session.dart';
 import 'models/lesson_review_message.dart';
 import 'models/lesson_review_resources.dart';
+import 'models/review_lesson_item.dart';
 
 class LessonReviewRepository {
   final Dio _dio;
@@ -17,6 +18,14 @@ class LessonReviewRepository {
       data: {'lessonId': lessonId},
     );
     return LessonReviewSession.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  // 복습 목록 (완료된 강의 + 준비 상태). 전사 전이면 ready=false.
+  Future<List<ReviewLessonItem>> listReviewLessons() async {
+    final res = await _dio.get('/lesson-review/lessons');
+    return (res.data as List)
+        .map((e) => ReviewLessonItem.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   // 복습 세션 목록

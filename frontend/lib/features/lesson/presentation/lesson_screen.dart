@@ -8,10 +8,14 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/constants/route_paths.dart';
 import '../../../core/providers/current_user_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../student/providers/problem_provider.dart';
 import '../../student/providers/student_matching_session_provider.dart';
+import '../../student/screens/student_review_write_screen.dart';
+import '../../student/utils/problem_enum_labels.dart';
+import '../../tutor/screens/tutor_lesson_complete_screen.dart';
 import '../../../core/theme/shell_theme_extension.dart';
 import 'lesson_provider.dart';
 import 'whiteboard_painter.dart';
@@ -117,14 +121,45 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
       if (!kIsWeb && next.isInChannel && !(prev?.isInChannel ?? false)) {
         _startTimer();
       }
-      // 수업 완료 시 홈으로 이동
+      // 수업 완료 → 학생: 리뷰 작성 / 강사: 완료 화면
       if (next.isCompleted && !(prev?.isCompleted ?? false)) {
         ref.invalidate(studentProblemsProvider);
+        final isTutor =
+            next.isTutor || (ref.read(currentUserProvider)?.isTutor ?? false);
+        final lessonId = next.lessonId;
+        // 학생 리뷰용 강사 정보는 매칭 세션이 비워지기 전에 확보
+        final session = ref.read(studentMatchingSessionProvider);
+        final selectedTutor = session?.selectedTutor;
         ref
             .read(studentMatchingSessionProvider.notifier)
             .cancelMatching()
             .catchError((_) {});
-        context.go('/');
+
+        if (lessonId == null) {
+          context.go('/');
+        } else if (isTutor) {
+          context.go(
+            RoutePaths.tutorLessonComplete,
+            extra: TutorLessonCompleteArgs(
+              lessonId: lessonId,
+              studentId: next.studentId,
+            ),
+          );
+        } else {
+          final subject = session?.subject ?? '';
+          final subjectText = subject.isNotEmpty ? subjectLabel(subject) : '';
+          context.go(
+            RoutePaths.studentReviewWrite,
+            extra: StudentReviewWriteArgs(
+              lessonId: lessonId,
+              tutorId: (next.tutorId?.toString()) ?? selectedTutor?.id ?? '',
+              tutorName: selectedTutor?.name ?? '강사',
+              subject: subjectText,
+              tutorSubtitle: subjectText.isNotEmpty ? '$subjectText 강사' : '강사',
+              avatarInitial: selectedTutor?.avatarInitial ?? '강',
+            ),
+          );
+        }
       }
       // 원격 줌 동기화
       if (prev?.remoteScale != next.remoteScale ||
@@ -256,7 +291,10 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               ),
             ),
             child: Text(
-              widget.subject ?? widget.channelName,
+              // enum 키(KOREAN 등) 대신 표시명(국어/수학…)으로. subject 없으면 채널명 폴백.
+              (widget.subject != null && widget.subject!.isNotEmpty)
+                  ? subjectLabel(widget.subject)
+                  : widget.channelName,
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,

@@ -146,3 +146,20 @@ class TutorSettlementCalendarTransaction {
 
   bool get isDeposit => amount > 0;
 }
+
+/// 강사 정산 입금 계좌. 미등록 시 필드가 null.
+class SettlementAccount {
+  const SettlementAccount({this.bank, this.account, this.holder});
+
+  final String? bank;
+  final String? account;
+  final String? holder;
+
+  factory SettlementAccount.fromJson(Map<String, dynamic> json) {
+    return SettlementAccount(
+      bank: json['bank'] as String?,
+      account: json['account'] as String?,
+      holder: json['holder'] as String?,
+    );
+  }
+}

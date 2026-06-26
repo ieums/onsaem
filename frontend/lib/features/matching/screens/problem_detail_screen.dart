@@ -7,6 +7,7 @@ import 'package:ieum/features/student/widgets/student_problem_image_viewer.dart'
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/matching/models/searching_problem_model.dart';
 import 'package:ieum/features/matching/providers/matching_provider.dart';
+import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/features/tutor/providers/tutor_availability_provider.dart';
 
 class ProblemDetailScreen extends ConsumerStatefulWidget {
@@ -43,12 +44,42 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
     }
   }
 
+  /// 오프라인 상태에서 신청 시도 시 안내. '온라인 전환' 누르면 켜고 바로 신청.
+  Future<void> _showOfflineDialog() async {
+    final goOnline = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('오프라인 상태예요',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        content: const Text(
+            '온라인으로 전환해야 학생이 선택할 수 있어요.\n지금 온라인으로 전환할까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('닫기'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.primaryBlue),
+            child: const Text('온라인으로 전환',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (goOnline != true || !mounted) return;
+    await ref.read(tutorAvailabilityProvider.notifier).toggle(true);
+    if (!mounted) return;
+    await _apply();
+  }
+
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
     final isOnline = ref.watch(tutorAvailabilityProvider);
     final problem = widget.problem;
-    final canApply = isOnline && !problem.alreadyApplied && !_isApplying;
+    // 오프라인이어도 버튼은 눌리게 해서 안내 다이얼로그를 띄운다.
+    final canTapApply = !problem.alreadyApplied && !_isApplying;
 
     return Scaffold(
       backgroundColor: shell.scaffoldBackground,
@@ -101,7 +132,9 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
                 children: [
                   Expanded(
                     child: FilledButton(
-                      onPressed: canApply ? _apply : null,
+                      onPressed: !canTapApply
+                          ? null
+                          : (isOnline ? _apply : _showOfflineDialog),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.primaryBlue,
                         disabledBackgroundColor:
@@ -142,7 +175,7 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
                         ),
                       ),
                       child: Text(
-                        problem.alreadyApplied ? '닫기' : '거절',
+                        problem.alreadyApplied ? '닫기' : '넘기기',
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -202,8 +235,8 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
           _infoRow('과목', problem.subjectLabel, shell),
           _infoRow('유형 (대)', problem.primaryType ?? '-', shell),
           _infoRow('유형 (소)', problem.secondaryType ?? '-', shell),
-          _infoRow('난이도', problem.difficulty ?? '-', shell),
-          _infoRow('시험 유형', problem.examType ?? '-', shell),
+          _infoRow('난이도', difficultyLabel(problem.difficulty), shell),
+          _infoRow('시험 유형', examTypeLabel(problem.examType), shell),
         ],
       ),
     );

@@ -56,11 +56,6 @@ public class Tutor extends Account {
     @Column(name = "subject", length = 50)
     private List<String> subjects = new ArrayList<>();
 
-    @ElementCollection
-    @CollectionTable(name = "tutor_lecture_style", joinColumns = @JoinColumn(name = "tutor_id"))
-    @Column(name = "style", length = 50)
-    private List<String> lectureStyles = new ArrayList<>();
-
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_status", nullable = false, length = 20)
     private VerificationStatus verificationStatus;
@@ -78,6 +73,16 @@ public class Tutor extends Account {
     @Column(name = "is_available", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
     private boolean available = true;
 
+    // ── 정산 입금 계좌 (마이페이지 > 정산 계좌 관리) ──
+    @Column(name = "settlement_bank", length = 30)
+    private String settlementBank;
+
+    @Column(name = "settlement_account", length = 50)
+    private String settlementAccount;
+
+    @Column(name = "settlement_holder", length = 50)
+    private String settlementHolder;
+
     public void updateAvailability(boolean available) {
         this.available = available;
     }
@@ -94,12 +99,26 @@ public class Tutor extends Account {
         if (experienceYears != null) this.experienceYears = experienceYears;
     }
 
+    /** 정산 계좌 등록·수정 */
+    public void updateSettlementAccount(String bank, String account, String holder) {
+        this.settlementBank = bank;
+        this.settlementAccount = account;
+        this.settlementHolder = holder;
+    }
+
+    /** 출금 가능 여부 — 은행/계좌번호/예금주가 모두 등록돼 있어야 한다. */
+    public boolean hasSettlementAccount() {
+        return settlementBank != null && !settlementBank.isBlank()
+                && settlementAccount != null && !settlementAccount.isBlank()
+                && settlementHolder != null && !settlementHolder.isBlank();
+    }
+
     @Builder
     private Tutor(String name, String email, String password,
                   AuthProvider provider, String providerUserId, String profileImageUrl,
                   LocalDate birthDate, String phone,
                   String bio, String school, String major,Integer experienceYears, EducationStatus educationStatus,
-                  List<String> subjects, List<String> lectureStyles) {
+                  List<String> subjects) {
         super(name, email, password, provider, providerUserId, profileImageUrl, birthDate, phone);
         this.bio = bio;
         this.school = school;
@@ -107,7 +126,6 @@ public class Tutor extends Account {
         this.experienceYears = experienceYears;
         this.educationStatus = educationStatus;
         this.subjects = subjects != null ? subjects : new ArrayList<>();
-        this.lectureStyles = lectureStyles != null ? lectureStyles : new ArrayList<>();
         this.grade = TutorGrade.ROOKIE;
         this.verificationStatus = VerificationStatus.PENDING;
         this.reviewCount = 0;

@@ -27,11 +27,9 @@ public class TranscriptService {
 
     private static final String TRANSCRIBE_PROMPT = ClasspathLoader.loadAsString("prompts/lesson-transcribe.md");
 
-    private static final String VIDEO_MIME = "video/mp4";
-
     private final LessonQueryRepository lessonQueryRepository;
     private final LessonTranscriptRepository lessonTranscriptRepository;
-    private final S3VideoService s3VideoService;
+    private final LessonMediaStorage lessonMediaStorage;
     private final GeminiFileClient geminiFileClient;
     private final GeminiProperties geminiProperties;
 
@@ -66,14 +64,16 @@ public class TranscriptService {
 
         Path videoPath = null;
         try {
-            videoPath = s3VideoService.downloadToTempFile(lesson.recordingUrl());
-            log.info("[Transcript] 강의 {} S3 다운로드 완료: {}", lessonId, videoPath);
+            videoPath = lessonMediaStorage.fetchRecordingToTemp(lessonId, lesson.recordingUrl());
+            // 실제 파일 확장자에 맞는 MIME으로 업로드 (mp3를 video/mp4로 올리면 Gemini가 처리 실패).
+            String mime = mimeOf(videoPath);
+            log.info("[Transcript] 강의 {} 녹음 다운로드 완료: {} (mime={})", lessonId, videoPath, mime);
 
-            String fileUri = geminiFileClient.uploadAndWaitActive(videoPath, VIDEO_MIME);
+            String fileUri = geminiFileClient.uploadAndWaitActive(videoPath, mime);
             log.info("[Transcript] 강의 {} Gemini 업로드/ACTIVE 완료: {}", lessonId, fileUri);
 
             String text = geminiFileClient.generateWithFile(
-                    geminiProperties.model(), TRANSCRIBE_PROMPT, fileUri, VIDEO_MIME);
+                    geminiProperties.model(), TRANSCRIBE_PROMPT, fileUri, mime);
             log.info("[Transcript] 강의 {} 전사 완료 (length={})", lessonId, text.length());
 
             transcript.markCompleted(text, null);
@@ -88,5 +88,17 @@ public class TranscriptService {
                 catch (IOException ignored) { }
             }
         }
+    }
+
+    /** 파일 확장자 → Gemini 업로드용 MIME. (mp3 등 오디오를 video/mp4로 올리면 처리 실패) */
+    private String mimeOf(Path path) {
+        String name = path.getFileName().toString().toLowerCase();
+        if (name.endsWith(".mp3")) return "audio/mpeg";
+        if (name.endsWith(".m4a") || name.endsWith(".aac")) return "audio/mp4";
+        if (name.endsWith(".wav")) return "audio/wav";
+        if (name.endsWith(".ogg")) return "audio/ogg";
+        if (name.endsWith(".webm")) return "video/webm";
+        if (name.endsWith(".mp4")) return "video/mp4";
+        return "audio/mpeg"; // 기본값(오디오)
     }
 }

@@ -1,6 +1,7 @@
 package com.ieum.backend.domain.settlement.entity;
 
 import com.ieum.backend.domain.settlement.entity.enums.SettlementStatus;
+import com.ieum.backend.global.exception.BusinessException;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -76,5 +77,17 @@ public class Settlement {
     // 송금 실패
     public void markFailed() {
         this.status = SettlementStatus.FAILED;
+    }
+
+    /**
+     * 정산 취소(롤백) — 강의 환불/취소 시. 이미 송금 완료(TRANSFERRED)된 건은
+     * 실제 돈이 나갔으므로 자동 롤백 불가(별도 회수 절차 필요).
+     */
+    public void cancel() {
+        if (this.status == SettlementStatus.TRANSFERRED) {
+            throw BusinessException.conflict(
+                    "이미 송금 완료된 정산은 취소할 수 없습니다. settlementId: " + this.id);
+        }
+        this.status = SettlementStatus.CANCELED;
     }
 }

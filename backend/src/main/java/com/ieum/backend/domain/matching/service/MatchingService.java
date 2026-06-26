@@ -43,8 +43,13 @@ public class MatchingService {
         Problem problem = problemRepository.findById(problemId)
                 .orElseThrow(() -> new IllegalStateException("문제를 찾을 수 없습니다. id=" + problemId));
 
-        if (problem.getStatus() != ProblemStatus.PENDING) {
-            throw new IllegalStateException("탐색을 시작할 수 없는 상태입니다. status=" + problem.getStatus());
+        ProblemStatus status = problem.getStatus();
+        if (status != ProblemStatus.PENDING && status != ProblemStatus.EXPIRED) {
+            throw new IllegalStateException("탐색을 시작할 수 없는 상태입니다. status=" + status);
+        }
+        // 만료된 질문 '다시 요청' → 탐색 대기로 되돌림
+        if (status == ProblemStatus.EXPIRED) {
+            problem.reopen();
         }
 
         problem.startSearching(LocalDateTime.now().plusMinutes(minutes));
@@ -151,7 +156,7 @@ public class MatchingService {
                     });
 
             String channelName = "problem-" + problemId;
-            Lesson lesson = lessonService.createLesson(tutorId, studentId, channelName);
+            Lesson lesson = lessonService.createLesson(tutorId, studentId, channelName, problemId);
             String subject = problem.getSubject() != null ? problem.getSubject().name() : null;
             Tutor tutor = tutorRepository.findById(tutorId)
                     .orElseThrow(() -> new IllegalStateException("강사를 찾을 수 없습니다. id=" + tutorId));
