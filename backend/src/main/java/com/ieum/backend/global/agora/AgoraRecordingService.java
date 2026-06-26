@@ -138,8 +138,7 @@ public class AgoraRecordingService {
         recordingConfig.put("maxIdleTime", 30);
         recordingConfig.put("streamTypes", 3);                          // 3=오디오+비디오
         recordingConfig.put("channelType", 0);
-        recordingConfig.put("subscribeAudioUids", List.of("#allstream#"));
-        recordingConfig.put("subscribeVideoUids", List.of("#allstream#"));
+        recordingConfig.put("subscribeUids", List.of("#allstream#"));
 
         // S3 저장 설정
         Map<String, Object> storageConfig = new HashMap<>();
