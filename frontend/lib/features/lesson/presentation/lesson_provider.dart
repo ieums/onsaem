@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -188,17 +187,18 @@ class LessonNotifier extends StateNotifier<LessonState> {
   RtcEngine? _engine;
   String? _currentStrokeId;
   final Map<String, DrawingStroke> _deletedStrokes = {};
-  GlobalKey? _whiteboardKey;
+  // GlobalKey? _whiteboardKey;
   // int? _customVideoTrackId;
   Timer? _captureTimer;
+  bool _recordingStarted = false;
 
   LessonNotifier(this._repo) : super(const LessonState());
 
   RtcEngine? get engine => _engine;
 
-  void setWhiteboardKey(GlobalKey key) {
-    _whiteboardKey = key;
-  }
+  // void setWhiteboardKey(GlobalKey key) {
+  //   _whiteboardKey = key;
+  // }
 
   // ─── 초기화 ────────────────────────────────────────────────────────────────
 
@@ -291,6 +291,27 @@ class LessonNotifier extends StateNotifier<LessonState> {
             onJoinChannelSuccess: (connection, elapsed) {
               debugPrint('[Agora] 채널 입장 성공: ${connection.channelId}');
               state = state.copyWith(isInChannel: true);
+              if (isTutor) {
+                Future.delayed(const Duration(milliseconds: 500), () {
+                  _engine!.startScreenCapture(
+                    ScreenCaptureParameters2(
+                      captureVideo: true,
+                      captureAudio: false,
+                      videoParams: ScreenVideoParameters(
+                        dimensions: const VideoDimensions(width: 1280, height: 720),
+                        frameRate: 15,
+                        bitrate: 1000,
+                      ),
+                    ),
+                  );
+                });
+                Future.delayed(const Duration(seconds: 5), () {
+                  if (isTutor && !_recordingStarted) {
+                    _recordingStarted = true;
+                    _startRecording();
+                  }
+                });
+              }
             },
             // join 실패가 조용히 묻히지 않도록 에러를 로그로 노출(시간 안 가는 원인 진단용).
             onError: (err, msg) {
@@ -314,14 +335,14 @@ class LessonNotifier extends StateNotifier<LessonState> {
         await _engine!.enableAudio();
         await _engine!.muteLocalAudioStream(false);
         await _engine!.enableVideo();
-        await _engine!.enableLocalVideo(false);
+        await _engine!.enableLocalVideo(isTutor);
 
         if (isTutor) {
-          await _engine!.getMediaEngine().setExternalVideoSource(
-            enabled: true,
-            useTexture: false,
-            sourceType: ExternalVideoSourceType.videoFrame,
-          );
+          // await _engine!.getMediaEngine().setExternalVideoSource(
+          //   enabled: true,
+          //   useTexture: false,
+          //   sourceType: ExternalVideoSourceType.videoFrame,
+          // );
           // _customVideoTrackId = await _engine!.createCustomVideoTrack();
         }
 
@@ -333,7 +354,8 @@ class LessonNotifier extends StateNotifier<LessonState> {
             clientRoleType: ClientRoleType.clientRoleBroadcaster,
             channelProfile: ChannelProfileType.channelProfileCommunication,
             publishMicrophoneTrack: true,
-            publishCameraTrack: isTutor,
+            publishCameraTrack: false,
+            publishScreenCaptureVideo: isTutor,
             // publishCustomVideoTrack: isTutor,
             // customVideoTrackId: _customVideoTrackId ?? 0,
           ),
@@ -343,11 +365,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
       _repo.connectStomp(channelName, _onRemoteDrawEvent);
 
-      if (!kIsWeb && isTutor) {
-        debugPrint('[녹화] _startRecording() 호출 직전, isTutor=$isTutor, kIsWeb=$kIsWeb');
-        await _startRecording();
-        _startWhiteboardCapture();
-      }
+      // 녹화 시작과 화이트보드 캡처는 onJoinChannelSuccess 콜백에서 호출
 
       if (!mounted) return; // Agora 입장/녹화 시작 동안 이탈했으면 중단
       state = state.copyWith(isLoading: false);
@@ -932,32 +950,32 @@ class LessonNotifier extends StateNotifier<LessonState> {
     state = state.copyWith(isRecording: true);
   }
 
-  void _startWhiteboardCapture() {
-    _captureTimer = Timer.periodic(const Duration(milliseconds: 500), (t) async {
-      if (_engine == null || _whiteboardKey == null) return;
-      final boundary = _whiteboardKey!.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary == null) return;
-      try {
-        final image = await boundary.toImage(pixelRatio: 1.0);
-        final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-        if (byteData == null) return;
-        final bytes = Uint8List.fromList(byteData.buffer.asUint8List());
-        await _engine!.getMediaEngine().pushVideoFrame(
-          frame: ExternalVideoFrame(
-            type: VideoBufferType.videoBufferRawData,
-            format: VideoPixelFormat.videoPixelRgba,
-            buffer: bytes,
-            stride: image.width,
-            height: image.height,
-            timestamp: DateTime.now().millisecondsSinceEpoch,
-          ),
-        );
-      } catch (e) {
-        debugPrint('[화이트보드 캡처] 오류: $e');
-      }
-    });
-  }
+  // void _startWhiteboardCapture() {
+  //   _captureTimer = Timer.periodic(const Duration(milliseconds: 500), (t) async {
+  //     if (_engine == null || _whiteboardKey == null) return;
+  //     final boundary = _whiteboardKey!.currentContext?.findRenderObject()
+  //         as RenderRepaintBoundary?;
+  //     if (boundary == null) return;
+  //     try {
+  //       final image = await boundary.toImage(pixelRatio: 1.0);
+  //       final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+  //       if (byteData == null) return;
+  //       final bytes = Uint8List.fromList(byteData.buffer.asUint8List());
+  //       await _engine!.getMediaEngine().pushVideoFrame(
+  //         frame: ExternalVideoFrame(
+  //           type: VideoBufferType.videoBufferRawData,
+  //           format: VideoPixelFormat.videoPixelRgba,
+  //           buffer: bytes,
+  //           stride: image.width,
+  //           height: image.height,
+  //           timestamp: DateTime.now().millisecondsSinceEpoch,
+  //         ),
+  //       );
+  //     } catch (e) {
+  //       debugPrint('[화이트보드 캡처] 오류: $e');
+  //     }
+  //   });
+  // }
 
   Future<void> pauseRecording() async {
     final lessonId = state.lessonId;

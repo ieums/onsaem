@@ -94,7 +94,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(lessonProvider.notifier).setWhiteboardKey(_whiteboardKey);
+      // ref.read(lessonProvider.notifier).setWhiteboardKey(_whiteboardKey);
       _startLessonInit();
       // 웹에서는 isInChannel이 설정되지 않으므로 즉시 타이머 시작
       if (kIsWeb) _startTimer();
