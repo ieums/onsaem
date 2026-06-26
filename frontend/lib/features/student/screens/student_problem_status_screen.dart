@@ -9,9 +9,11 @@ import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/matching/repositories/matching_repository.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/models/student_tutor_profile.dart';
+import 'package:ieum/features/student/providers/payment_provider.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/screens/student_problem_detail_screen.dart';
+import 'package:ieum/features/student/utils/coin_shortage.dart';
 import 'package:ieum/features/student/widgets/student_problem_chips.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
 
@@ -27,8 +29,37 @@ class StudentProblemStatusScreen extends ConsumerStatefulWidget {
 
 class _StudentProblemStatusScreenState
     extends ConsumerState<StudentProblemStatusScreen> {
+  // 기본 30분 강의 비용(백엔드 LessonPolicy.BASE_COST_COIN과 동일).
+  static const _lessonCostCoins = 50;
+
   List<StudentTutorProfile> _applicants = [];
   bool _loadingApplicants = false;
+
+  /// 강사 선택(매칭 확정) 직전 잔액 체크 — 50코인 미만이면 충전 유도(강사 헛대기 방지).
+  Future<void> _onSelectTutor(String tutorId) async {
+    int balance;
+    try {
+      balance =
+          (await ref.read(coinBalanceProvider.future))?.availableBalance ?? 0;
+    } catch (_) {
+      balance = 0;
+    }
+    if (!mounted) return;
+    if (balance < _lessonCostCoins) {
+      final went = await promptRechargeAndReturn(context);
+      if (!went || !mounted) return;
+      ref.invalidate(coinBalanceProvider);
+      int after;
+      try {
+        after =
+            (await ref.read(coinBalanceProvider.future))?.availableBalance ?? 0;
+      } catch (_) {
+        after = 0;
+      }
+      if (!mounted || after < _lessonCostCoins) return; // 충전 안 했으면 선택 보류
+    }
+    ref.read(studentMatchingSessionProvider.notifier).selectTutor(tutorId);
+  }
 
   @override
   void initState() {
@@ -206,11 +237,7 @@ class _StudentProblemStatusScreenState
                           context.push(
                               '${RoutePaths.studentTutorProfile}/${tutor.id}');
                         },
-                        onSelect: () {
-                          ref
-                              .read(studentMatchingSessionProvider.notifier)
-                              .selectTutor(tutor.id);
-                        },
+                        onSelect: () => _onSelectTutor(tutor.id),
                       ),
                       const SizedBox(height: 12),
                     ],

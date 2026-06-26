@@ -1,8 +1,12 @@
 package com.ieum.backend.domain.review.service;
 
+import com.ieum.backend.domain.auth.entity.Tutor;
+import com.ieum.backend.domain.auth.repository.TutorRepository;
 import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.domain.lesson.entity.Lesson.LessonStatus;
 import com.ieum.backend.domain.lesson.repository.LessonRepository;
+import com.ieum.backend.domain.problem.entity.Problem;
+import com.ieum.backend.domain.problem.repository.ProblemRepository;
 import com.ieum.backend.domain.review.dto.request.CreateReviewRequest;
 import com.ieum.backend.domain.review.dto.request.UpdateReviewRequest;
 import com.ieum.backend.domain.review.dto.response.ReviewResponse;
@@ -27,6 +31,8 @@ public class ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final LessonRepository lessonRepository;   // 읽기 전용 참조
+    private final TutorRepository tutorRepository;      // 내 후기에 강사 이름 표시
+    private final ProblemRepository problemRepository;  // 내 후기에 과목 표시
 
     /**
      * 리뷰 작성 — 완료된 강의 + 본인 강의 + 강의당 1개.
@@ -99,11 +105,33 @@ public class ReviewService {
      * 내가(학생) 쓴 리뷰 목록 — 마이페이지 '내 리뷰 내역'.
      */
     public List<ReviewResponse> getMyReviews(Long studentId) {
-        return reviewRepository
-                .findByStudentIdAndStatusOrderByCreatedAtDesc(studentId, ReviewStatus.VISIBLE)
-                .stream()
-                .map(ReviewResponse::from)
-                .toList();
+        List<Review> reviews = reviewRepository
+                .findByStudentIdAndStatusOrderByCreatedAtDesc(studentId, ReviewStatus.VISIBLE);
+        if (reviews.isEmpty()) return List.of();
+
+        // 강사 이름 맵
+        List<Long> tutorIds = reviews.stream().map(Review::getTutorId).distinct().toList();
+        Map<Long, String> tutorNames = tutorRepository.findAllByIdIn(tutorIds).stream()
+                .collect(java.util.stream.Collectors.toMap(Tutor::getId, Tutor::getName));
+
+        // 과목: lesson → problemId → problem.subject
+        List<Long> lessonIds = reviews.stream().map(Review::getLessonId).distinct().toList();
+        Map<Long, Long> lessonToProblem = new java.util.HashMap<>();
+        lessonRepository.findAllById(lessonIds).forEach(l -> {
+            if (l.getProblemId() != null) lessonToProblem.put(l.getId(), l.getProblemId());
+        });
+        List<Long> problemIds = lessonToProblem.values().stream().distinct().toList();
+        Map<Long, String> problemSubjects = problemRepository.findAllByIdIn(problemIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        Problem::getId,
+                        p -> p.getSubject() != null ? p.getSubject().name() : null));
+
+        return reviews.stream().map(r -> {
+            String tutorName = tutorNames.get(r.getTutorId());
+            Long pid = lessonToProblem.get(r.getLessonId());
+            String subject = pid != null ? problemSubjects.get(pid) : null;
+            return ReviewResponse.from(r, tutorName, subject);
+        }).toList();
     }
 
     /**

@@ -9,6 +9,8 @@ class MyReview {
   const MyReview({
     required this.id,
     this.tutorId,
+    this.tutorName,
+    this.subject,
     this.lessonId,
     required this.rating,
     this.comment,
@@ -17,6 +19,8 @@ class MyReview {
 
   final int id;
   final int? tutorId;
+  final String? tutorName; // 후기 대상 강사 이름
+  final String? subject;   // 강의 과목 enum name (KOREAN 등)
   final int? lessonId;
   final int rating;
   final String? comment;
@@ -25,6 +29,8 @@ class MyReview {
   factory MyReview.fromJson(Map<String, dynamic> j) => MyReview(
         id: (j['id'] as num).toInt(),
         tutorId: (j['tutorId'] as num?)?.toInt(),
+        tutorName: j['tutorName'] as String?,
+        subject: j['subject'] as String?,
         lessonId: (j['lessonId'] as num?)?.toInt(),
         rating: (j['rating'] as num?)?.toInt() ?? 0,
         comment: j['comment'] as String?,

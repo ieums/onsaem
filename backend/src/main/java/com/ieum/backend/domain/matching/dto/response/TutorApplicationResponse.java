@@ -23,6 +23,7 @@ public class TutorApplicationResponse {
     private ApplicationStatus status;
     private LocalDateTime appliedAt;
     private String summary;
+    private String studentDescription;   // 학생이 입력한 설명 (강사 홈 카드와 동일 표시용)
     private Subject subject;
     private String primaryType;
     private String secondaryType;
@@ -40,6 +41,7 @@ public class TutorApplicationResponse {
                 .status(application.getStatus())
                 .appliedAt(application.getAppliedAt())
                 .summary(problem.getSummary())
+                .studentDescription(problem.getStudentDescription())
                 .subject(problem.getSubject())
                 .primaryType(problem.getPrimaryType())
                 .secondaryType(problem.getSecondaryType())
