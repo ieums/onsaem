@@ -30,6 +30,7 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
                    count(s) as settlementCount
             from Settlement s
             where s.tutorId = :tutorId
+              and s.status <> com.ieum.backend.domain.settlement.entity.enums.SettlementStatus.CANCELED
             """)
     SettlementAggregate aggregateByTutor(Long tutorId);
 

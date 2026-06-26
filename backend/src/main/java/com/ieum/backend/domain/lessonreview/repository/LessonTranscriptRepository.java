@@ -12,6 +12,9 @@ public interface LessonTranscriptRepository extends JpaRepository<LessonTranscri
     // lesson 1개당 트랜스크립트는 1개 (lesson_id UNIQUE)
     Optional<LessonTranscript> findByLessonId(Long lessonId);
 
+    // 복습 목록: 여러 강의의 전사 상태를 한 번에 조회
+    List<LessonTranscript> findByLessonIdIn(List<Long> lessonIds);
+
     /**
      * PDF 처리 대상 강의 ID 목록.
      * (4가지 조건 다 충족 시만 — 자세한 건 위 주석)

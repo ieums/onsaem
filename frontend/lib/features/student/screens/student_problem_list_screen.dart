@@ -5,6 +5,7 @@ import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/features/matching/repositories/matching_repository.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/screens/student_problem_status_screen.dart';
@@ -87,6 +88,10 @@ class StudentProblemListScreen extends ConsumerWidget {
                           onDelete: item.status == 'PENDING'
                               ? () => _confirmDelete(context, ref, item.problemId)
                               : null,
+                          // 만료된 질문은 '다시 요청'으로 재탐색 시작.
+                          onReRequest: item.status == 'EXPIRED'
+                              ? () => _reRequest(context, ref, item.problemId)
+                              : null,
                         );
                       },
                     );
@@ -137,6 +142,26 @@ class StudentProblemListScreen extends ConsumerWidget {
       }
     }
   }
+
+  /// 만료된 질문을 다시 탐색 대기로(POST /matching/{id}/start → 백엔드가 reopen).
+  Future<void> _reRequest(
+      BuildContext context, WidgetRef ref, int problemId) async {
+    try {
+      await MatchingRepository().startMatching(problemId);
+      ref.invalidate(studentProblemsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('다시 강사를 찾기 시작했어요. (24시간)')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('다시 요청에 실패했어요. 잠시 후 시도해 주세요.')),
+        );
+      }
+    }
+  }
 }
 
 class _ProblemCard extends StatelessWidget {
@@ -145,12 +170,14 @@ class _ProblemCard extends StatelessWidget {
     required this.item,
     required this.onTap,
     this.onDelete,
+    this.onReRequest,
   });
 
   final ShellTheme shell;
   final StudentProblemModel item;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
+  final VoidCallback? onReRequest;
 
   // 매칭 대기/탐색 중일 때만 지원 강사 수를 노출(현황 정보).
   bool get _showApplicants => item.status == 'PENDING' || item.searching;
@@ -227,6 +254,26 @@ class _ProblemCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (onReRequest != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onReRequest,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('다시 요청',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.studentInk,
+                    minimumSize: const Size.fromHeight(40),
+                    side: const BorderSide(color: AppColors.studentInk),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

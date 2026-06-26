@@ -5,6 +5,7 @@ import 'package:ieum/features/matching/repositories/matching_repository.dart';
 import 'package:ieum/features/student/models/applicant_model.dart';
 import 'package:ieum/features/student/models/student_lesson_pricing.dart';
 import 'package:ieum/features/student/models/student_tutor_profile.dart';
+import 'package:ieum/features/student/providers/student_notification_provider.dart';
 import 'package:ieum/features/student/repositories/student_matching_stomp_service.dart';
 
 enum StudentMatchingSessionStatus {
@@ -112,12 +113,15 @@ class StudentMatchingSessionNotifier
   StudentMatchingSessionNotifier({
     required MatchingRepository repo,
     required StudentMatchingStompService stomp,
+    required Ref ref,
   })  : _repo = repo,
         _stomp = stomp,
+        _ref = ref,
         super(null);
 
   final MatchingRepository _repo;
   final StudentMatchingStompService _stomp;
+  final Ref _ref;
 
   Future<void> startMatching({
     required int problemId,
@@ -170,12 +174,22 @@ class StudentMatchingSessionNotifier
       onTutorApplied: (_) async {
         final list = await _repo.getApplicants(problemId);
         if (state == null) return;
+        final hadApplicants = state!.applicants.isNotEmpty;
         state = state!.copyWith(
           applicants: list,
           status: list.isNotEmpty
               ? StudentMatchingSessionStatus.selectingTutor
               : StudentMatchingSessionStatus.matching,
         );
+        // 첫 강사 신청 시 알림함 + 배너 (강사가 신청했어요 → 선택하세요)
+        if (!hadApplicants && list.isNotEmpty) {
+          await _ref
+              .read(studentNotificationControllerProvider)
+              .deliverSubjectExpertAssigned(
+                dedupeKey: 'applied-$problemId',
+                subject: state!.subject,
+              );
+        }
       },
       onTutorCancelled: (tutorId) {
         if (state == null) return;
@@ -254,7 +268,7 @@ class StudentMatchingSessionNotifier
     }
   }
 
-  Future<void> extendSearch({int minutes = 30}) async {
+  Future<void> extendSearch({int minutes = 1440}) async {
     if (state == null) return;
     await _repo.extendSearch(state!.problemId, minutes: minutes);
     state = state!.copyWith(isSearchExpiringSoon: false);
@@ -287,5 +301,6 @@ final studentMatchingSessionProvider = StateNotifierProvider<
   (ref) => StudentMatchingSessionNotifier(
     repo: MatchingRepository(),
     stomp: StudentMatchingStompService(),
+    ref: ref,
   ),
 );

@@ -15,7 +15,8 @@ class LessonReviewResources {
   factory LessonReviewResources.fromJson(Map<String, dynamic> json) {
     return LessonReviewResources(
       pdfStatus: json['status'] as String,
-      pdfUrl: json['pdfUrl'] as String?,
+      // 백엔드 SummaryPdfResponse의 필드명은 downloadUrl (pdfUrl 아님).
+      pdfUrl: json['downloadUrl'] as String?,
       recordingUrl: json['recordingUrl'] as String?,
     );
   }

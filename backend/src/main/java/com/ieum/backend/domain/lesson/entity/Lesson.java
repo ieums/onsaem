@@ -69,6 +69,21 @@ public class Lesson {
         this.studentId = studentId;
     }
 
+    public Lesson(String channelName, Long tutorId, Long studentId, Long problemId) {
+        this.channelName = channelName;
+        this.tutorId = tutorId;
+        this.studentId = studentId;
+        this.problemId = problemId;
+    }
+
+    /**
+     * 강의에 연결된 문제를 기록. 복습 PDF 생성이 이 problem_id로 문제 이미지를 찾으므로,
+     * NULL이면 복습 자료가 만들어지지 않는다. (매칭/토큰 발급 시 채널명에서 유도)
+     */
+    public void assignProblem(Long problemId) {
+        this.problemId = problemId;
+    }
+
     /** 수업 시작: 상태를 ACTIVE로, startedAt 기록 */
     public void start() {
         this.status = LessonStatus.ACTIVE;

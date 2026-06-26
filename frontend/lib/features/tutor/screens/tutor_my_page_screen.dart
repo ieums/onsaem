@@ -1,13 +1,17 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/core/storage/token_storage.dart';
+import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/widgets/shell_popup_menu.dart';
 import 'package:ieum/core/utils/date_format_util.dart';
 import 'package:ieum/features/tutor/providers/tutor_availability_provider.dart';
+import 'package:ieum/features/tutor/providers/settlement_provider.dart';
 
 enum _ReviewSort { latest, oldest, ratingHigh, ratingLow }
 
@@ -20,6 +24,34 @@ class TutorMyPageScreen extends ConsumerStatefulWidget {
 
 class _TutorMyPageScreenState extends ConsumerState<TutorMyPageScreen> {
   ShellTheme get _shell => ShellTheme.of(context);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSettlementAccount());
+  }
+
+  /// 정산 계좌를 백엔드에서 로드(미등록이면 빈 상태 유지).
+  Future<void> _loadSettlementAccount() async {
+    try {
+      final acc = await ref.read(settlementRepositoryProvider).fetchAccount();
+      if (!mounted) return;
+      setState(() {
+        if (acc.bank != null && acc.bank!.isNotEmpty) _bankName = acc.bank!;
+        _accountNumber = acc.account ?? '';
+        _accountHolder = acc.holder ?? '';
+      });
+    } catch (_) {
+      // 미등록/네트워크 오류는 빈 상태로 둔다.
+    }
+  }
+
+  /// 로그아웃: 저장된 토큰을 비우고 세션을 초기화한 뒤 로그인 화면으로.
+  Future<void> _logout() async {
+    await tokenStorage.clear();
+    ref.read(currentUserProvider.notifier).state = null;
+    if (mounted) context.go(RoutePaths.login);
+  }
 
   static const _reviews = <({String student, double rating, String comment, String date})>[
     (
@@ -69,9 +101,10 @@ class _TutorMyPageScreenState extends ConsumerState<TutorMyPageScreen> {
   _ReviewSort _reviewSort = _ReviewSort.latest;
   bool _pushNotifications = true;
 
-  String _bankName = '국민은행';
-  String _accountNumber = '123456-01-123456';
-  String _accountHolder = '홍길동';
+  // 정산 계좌 — 백엔드(GET /tutors/me/settlement-account)에서 로드. 미등록이면 빈 값.
+  String _bankName = '';
+  String _accountNumber = '';
+  String _accountHolder = '';
 
   static const _bankOptions = [
     '국민은행',
@@ -169,7 +202,7 @@ class _TutorMyPageScreenState extends ConsumerState<TutorMyPageScreen> {
                         : '다크 모드',
                   ),
                   IconButton(
-                    onPressed: () => context.go(RoutePaths.login),
+                    onPressed: _logout,
                     icon: const Icon(Icons.logout_outlined, size: 24),
                     color: const Color(0xFFE53935),
                     tooltip: '로그아웃',
@@ -203,7 +236,7 @@ class _TutorMyPageScreenState extends ConsumerState<TutorMyPageScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => context.go(RoutePaths.login),
+                  onPressed: _logout,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Color(0xFFE53935),
                     side: BorderSide(color: AppColors.logoutRed),
@@ -760,16 +793,50 @@ class _TutorMyPageScreenState extends ConsumerState<TutorMyPageScreen> {
                           SizedBox(width: 10),
                           Expanded(
                             child: FilledButton(
-                              onPressed: () {
-                                setState(() {
-                                  _bankName = selectedBank;
-                                  _accountNumber = accountController.text.trim();
-                                  _accountHolder = holderController.text.trim();
-                                });
-                                Navigator.of(dialogContext).pop();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('정산 계좌가 저장되었습니다.')),
-                                );
+                              onPressed: () async {
+                                final bank = selectedBank;
+                                final account = accountController.text.trim();
+                                final holder = holderController.text.trim();
+                                final messenger =
+                                    ScaffoldMessenger.of(context);
+                                final navigator = Navigator.of(dialogContext);
+                                try {
+                                  final saved = await ref
+                                      .read(settlementRepositoryProvider)
+                                      .updateAccount(
+                                        bank: bank,
+                                        account: account,
+                                        holder: holder,
+                                      );
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _bankName = saved.bank ?? bank;
+                                    _accountNumber = saved.account ?? account;
+                                    _accountHolder = saved.holder ?? holder;
+                                  });
+                                  navigator.pop();
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                        content: Text('정산 계좌가 저장되었습니다.')),
+                                  );
+                                } on DioException catch (e) {
+                                  // 백엔드 형식 검증 메시지(계좌번호 8~20자리 등)를 그대로 노출.
+                                  final data = e.response?.data;
+                                  final msg = data is Map<String, dynamic>
+                                      ? data['message'] as String?
+                                      : null;
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                        content: Text(msg ??
+                                            '저장에 실패했어요. 잠시 후 다시 시도해 주세요.')),
+                                  );
+                                } catch (_) {
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            '저장에 실패했어요. 잠시 후 다시 시도해 주세요.')),
+                                  );
+                                }
                               },
                               style: FilledButton.styleFrom(
                                 backgroundColor: AppColors.primaryBlue,

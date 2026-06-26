@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/network/api_error.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
-import 'package:ieum/features/student/data/models/lesson_review_session.dart';
+import 'package:ieum/features/student/data/models/review_lesson_item.dart';
 import 'package:ieum/features/student/providers/lesson_review_provider.dart';
 import 'package:ieum/features/student/screens/student_review_detail_screen.dart';
 
@@ -25,21 +25,31 @@ class _StudentLessonsScreenState
     super.dispose();
   }
 
-  List<LessonReviewSession> _filter(List<LessonReviewSession> sessions) {
+  List<ReviewLessonItem> _filter(List<ReviewLessonItem> lessons) {
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return sessions;
-    return sessions
-        .where((s) => s.title.toLowerCase().contains(query))
+    if (query.isEmpty) return lessons;
+    return lessons
+        .where((l) => l.title.toLowerCase().contains(query))
         .toList();
   }
 
-  void _openDetail(LessonReviewSession session) {
+  void _openDetail(ReviewLessonItem lesson) {
+    // 준비중(전사 미완료)인 강의는 진입 불가 — 진입 시 세션 생성이 막혀 에러가 남.
+    if (!lesson.ready) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('복습 준비중이에요. 잠시 후 다시 확인해주세요.')),
+      );
+      return;
+    }
     final theme = Theme.of(context);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => Theme(
           data: theme,
-          child: StudentReviewDetailScreen(session: session),
+          child: StudentReviewDetailScreen(
+            lessonId: lesson.lessonId,
+            title: lesson.title,
+          ),
         ),
       ),
     );
@@ -48,7 +58,7 @@ class _StudentLessonsScreenState
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
-    final sessionsAsync = ref.watch(lessonReviewSessionsProvider);
+    final lessonsAsync = ref.watch(reviewLessonsProvider);
 
     return ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -74,7 +84,7 @@ class _StudentLessonsScreenState
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: sessionsAsync.when(
+              child: lessonsAsync.when(
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(
@@ -89,14 +99,14 @@ class _StudentLessonsScreenState
                       const SizedBox(height: 12),
                       TextButton(
                         onPressed: () =>
-                            ref.invalidate(lessonReviewSessionsProvider),
+                            ref.invalidate(reviewLessonsProvider),
                         child: const Text('다시 시도'),
                       ),
                     ],
                   ),
                 ),
-                data: (sessions) {
-                  final items = _filter(sessions);
+                data: (lessons) {
+                  final items = _filter(lessons);
                   if (items.isEmpty) {
                     return Center(
                       child: Text(
@@ -106,14 +116,18 @@ class _StudentLessonsScreenState
                       ),
                     );
                   }
-                  return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: 10),
-                    itemBuilder: (_, index) => _SessionCard(
-                      session: items[index],
-                      onTap: () => _openDetail(items[index]),
+                  return RefreshIndicator(
+                    onRefresh: () async =>
+                        ref.invalidate(reviewLessonsProvider),
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: 10),
+                      itemBuilder: (_, index) => _ReviewLessonCard(
+                        lesson: items[index],
+                        onTap: () => _openDetail(items[index]),
+                      ),
                     ),
                   );
                 },
@@ -158,78 +172,84 @@ class _StudentLessonsScreenState
   }
 }
 
-class _SessionCard extends StatelessWidget {
-  const _SessionCard({required this.session, required this.onTap});
+class _ReviewLessonCard extends StatelessWidget {
+  const _ReviewLessonCard({required this.lesson, required this.onTap});
 
-  final LessonReviewSession session;
+  final ReviewLessonItem lesson;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isActive = !session.status.isClosed;
+    final ready = lesson.ready;
 
-    final badgeColor = isActive
-        ? (isDark ? const Color(0xFF4A3828) : const Color(0xFFFFF4E8))
-        : (isDark ? const Color(0xFF1E2A3A) : const Color(0xFFEEF4FF));
-    final badgeTextColor = isActive
-        ? (isDark ? const Color(0xFFFFC48A) : const Color(0xFFE89A56))
-        : (isDark ? const Color(0xFF8AB4F8) : const Color(0xFF3D7EF5));
+    // ready=준비완료(녹색 계열), 준비중=회색 계열
+    final badgeColor = ready
+        ? (isDark ? const Color(0xFF2E3D1E) : const Color(0xFFF1FCE0))
+        : (isDark ? const Color(0xFF2A2E36) : const Color(0xFFEFEFEF));
+    final badgeTextColor = ready
+        ? (isDark ? const Color(0xFFB6E26A) : AppColors.studentInk)
+        : (isDark ? const Color(0xFFAAB0BA) : const Color(0xFF8A8F99));
 
-    return Material(
-      color: shell.cardBackground,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: shell.cardBorder),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      session.title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: shell.titleColor,
+    return Opacity(
+      opacity: ready ? 1.0 : 0.7,
+      child: Material(
+        color: shell.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: shell.cardBorder),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lesson.title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: shell.titleColor,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _formatDate(session.createdAt),
-                      style: TextStyle(
-                          fontSize: 13, color: shell.hintColor),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  isActive ? '복습중' : '완료',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: badgeTextColor,
+                      if (lesson.endedAt != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          _formatDate(lesson.endedAt!),
+                          style: TextStyle(
+                              fontSize: 13, color: shell.hintColor),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: badgeColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    ready ? '복습 시작' : '복습 준비중',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: badgeTextColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

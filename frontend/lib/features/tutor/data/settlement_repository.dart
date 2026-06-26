@@ -44,4 +44,25 @@ class SettlementRepository {
     );
     return BulkWithdrawResponse.fromJson(res.data as Map<String, dynamic>);
   }
+
+  /// 정산 계좌 조회 — 로그인 강사 본인(/me). (ApiResponse 래핑이라 data 언래핑)
+  Future<SettlementAccount> fetchAccount() async {
+    final res = await _dio.get('/tutors/me/settlement-account');
+    final data = res.data['data'] as Map<String, dynamic>;
+    return SettlementAccount.fromJson(data);
+  }
+
+  /// 정산 계좌 등록·수정 — 로그인 강사 본인(/me).
+  Future<SettlementAccount> updateAccount({
+    required String bank,
+    required String account,
+    required String holder,
+  }) async {
+    final res = await _dio.patch(
+      '/tutors/me/settlement-account',
+      data: {'bank': bank, 'account': account, 'holder': holder},
+    );
+    final data = res.data['data'] as Map<String, dynamic>;
+    return SettlementAccount.fromJson(data);
+  }
 }

@@ -4,8 +4,16 @@ import '../data/lesson_review_repository.dart';
 import '../data/models/lesson_review_message.dart';
 import '../data/models/lesson_review_resources.dart';
 import '../data/models/lesson_review_session.dart';
+import '../data/models/review_lesson_item.dart';
 
-// ─── 세션 목록 (StudentLessonsScreen용) ───────────────────────────
+// ─── 복습 목록 (StudentLessonsScreen용) ───────────────────────────
+// 완료된 강의 전부 — 전사 전이면 ready=false("복습 준비중"), 완료되면 진입 가능.
+final reviewLessonsProvider =
+    FutureProvider.autoDispose<List<ReviewLessonItem>>((ref) {
+  return ref.read(lessonReviewRepositoryProvider).listReviewLessons();
+});
+
+// ─── 세션 목록 (현재는 미사용, 호환용으로 유지) ───────────────────
 final lessonReviewSessionsProvider =
     FutureProvider.autoDispose<List<LessonReviewSession>>((ref) {
   return ref.read(lessonReviewRepositoryProvider).listSessions();

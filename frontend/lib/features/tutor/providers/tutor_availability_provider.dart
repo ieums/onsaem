@@ -3,7 +3,8 @@ import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/features/tutor/data/tutor_repository.dart';
 
 class TutorAvailabilityNotifier extends StateNotifier<bool> {
-  TutorAvailabilityNotifier(this._repo, this._tutorId) : super(true);
+  // 앱 시작은 항상 오프라인. 강사가 직접 온라인으로 켜야 질문 신청 가능.
+  TutorAvailabilityNotifier(this._repo, this._tutorId) : super(false);
 
   final TutorRepository _repo;
   final int? _tutorId;

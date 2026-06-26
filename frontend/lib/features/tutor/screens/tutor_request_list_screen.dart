@@ -50,6 +50,29 @@ class _TutorRequestListScreenState
     return '${diff.inDays}일 전';
   }
 
+  /// 재입장한 강사가 대기 중인 매칭 요청을 이어받아 확정한다.
+  /// 학생도 확정돼 있으면 백엔드가 MATCHED를 보내 강의실로 자동 이동된다(onMatched).
+  Future<void> _startLesson(TutorApplicationModel app) async {
+    try {
+      await ref
+          .read(tutorApplicationsProvider.notifier)
+          .confirmMatch(app.problemId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('수업 시작 요청을 보냈어요. 학생이 확인하면 바로 연결됩니다.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('수업 시작 실패: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _cancelApplication(TutorApplicationModel app) async {
     try {
       await ref
@@ -325,17 +348,22 @@ class _TutorRequestListScreenState
         const SizedBox(width: 8),
         Expanded(
           child: app.status == 'CONFIRMING'
-              ? SizedBox(
-                  height: 44,
-                  child: Center(
-                    child: Text(
-                      '확인 대기 중',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryBlue,
-                      ),
+              ? FilledButton(
+                  onPressed: () => _startLesson(app),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primaryBlue,
+                    foregroundColor: AppColors.onPrimaryFill(
+                      Theme.of(context).brightness,
                     ),
+                    elevation: 0,
+                    minimumSize: const Size.fromHeight(44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    '수업 시작하기',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 )
               : OutlinedButton(

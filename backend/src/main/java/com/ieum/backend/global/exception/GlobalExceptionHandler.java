@@ -14,11 +14,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusiness(BusinessException e) {
-        // 5xx(서버/외부연동 오류)는 원인까지 로깅, 4xx(클라이언트 잘못)는 메시지만
+        // 5xx(서버/외부연동 오류)는 원인까지 로깅, 4xx(클라이언트 잘못)는 메시지만(일시적으로 수정)
         if (e.getStatus().is5xxServerError()) {
             log.error("[BusinessException] {}", e.getMessage(), e);
         } else {
-            log.warn("[BusinessException] {} - {}", e.getStatus(), e.getMessage());
+            log.warn("[BusinessException] {} - {}", e.getStatus(), e.getMessage(),e);
         }
         return ResponseEntity.status(e.getStatus()).body(ApiResponse.fail(e.getMessage()));
     }

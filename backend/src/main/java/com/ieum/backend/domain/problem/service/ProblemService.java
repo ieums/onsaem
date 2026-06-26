@@ -196,7 +196,7 @@ public class ProblemService {
                 .orElseThrow(() -> BusinessException.notFound("강사를 찾을 수 없습니다."));
 
         List<Subject> subjects = tutor.getSubjects().stream()
-                .map(s -> { try { return Subject.valueOf(s); } catch (IllegalArgumentException ignored) { return null; } })
+                .map(Subject::fromAny)
                 .filter(s -> s != null && s != Subject.UNKNOWN)
                 .toList();
 

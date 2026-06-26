@@ -17,6 +17,7 @@ public class SearchingProblemResponse {
     private Long problemId;
     private Long studentId;
     private String summary;
+    private String studentDescription;   // 학생이 직접 입력한 설명
     private Subject subject;
     private String primaryType;
     private String secondaryType;
@@ -32,6 +33,7 @@ public class SearchingProblemResponse {
                 .problemId(problem.getId())
                 .studentId(problem.getStudentId())
                 .summary(problem.getSummary())
+                .studentDescription(problem.getStudentDescription())
                 .subject(problem.getSubject())
                 .primaryType(problem.getPrimaryType())
                 .secondaryType(problem.getSecondaryType())

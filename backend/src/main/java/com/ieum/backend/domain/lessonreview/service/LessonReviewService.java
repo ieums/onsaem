@@ -4,6 +4,7 @@ import com.ieum.backend.domain.aitutor.entity.AiTutorMessage;
 import com.ieum.backend.domain.aitutor.entity.AiTutorMessageRole;
 import com.ieum.backend.domain.aitutor.service.GeminiClient;
 import com.ieum.backend.domain.lessonreview.controller.CreateReviewSessionResponse;
+import com.ieum.backend.domain.lessonreview.controller.ReviewLessonItemResponse;
 import com.ieum.backend.domain.lessonreview.controller.ReviewMessageItemResponse;
 import com.ieum.backend.domain.lessonreview.controller.ReviewSessionListItemResponse;
 import com.ieum.backend.domain.lessonreview.controller.SendReviewMessageResponse;
@@ -21,6 +22,7 @@ import com.ieum.backend.domain.lessonreview.repository.LessonReviewSessionReposi
 import com.ieum.backend.domain.lessonreview.repository.LessonTranscriptRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -42,6 +46,7 @@ public class LessonReviewService {
     private final LessonTranscriptRepository lessonTranscriptRepository;
     private final LessonReviewPromptBuilder promptBuilder;
     private final LessonSummaryService lessonSummaryService;
+    private final LessonMediaStorage lessonMediaStorage;
     private final GeminiClient geminiClient;
 
     // ─────────────────────────────────────────
@@ -147,6 +152,44 @@ public class LessonReviewService {
                 .toList();
     }
 
+    /**
+     * 복습 목록 (A+B): 완료된 강의를 모두 내려준다.
+     * 전사 완료 전이면 ready=false("복습 준비중"), 완료되면 ready=true(진입 가능).
+     * 진입 시 세션을 만들면 되므로 여기서 세션을 미리 만들진 않는다.
+     */
+    public List<ReviewLessonItemResponse> listReviewLessons(Long studentId) {
+        List<LessonInfo> lessons = lessonQueryRepository.findCompletedLessonsByStudentId(studentId);
+        if (lessons.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> lessonIds = lessons.stream().map(LessonInfo::lessonId).toList();
+
+        Map<Long, LessonTranscriptStatus> transcriptStatus = lessonTranscriptRepository
+                .findByLessonIdIn(lessonIds).stream()
+                .collect(Collectors.toMap(LessonTranscript::getLessonId, LessonTranscript::getStatus));
+
+        Map<Long, Long> sessionByLesson = sessionRepository
+                .findByStudentIdOrderByUpdatedAtDesc(studentId).stream()
+                .collect(Collectors.toMap(
+                        LessonReviewSession::getLessonId,
+                        LessonReviewSession::getId,
+                        (a, b) -> a)); // 같은 강의에 세션 여러 개면 최신(updatedAt desc 정렬 첫 번째) 사용
+
+        return lessons.stream()
+                .map(lesson -> {
+                    boolean ready = transcriptStatus.get(lesson.lessonId()) == LessonTranscriptStatus.COMPLETED;
+                    return new ReviewLessonItemResponse(
+                            lesson.lessonId(),
+                            buildTitle(lesson),
+                            ready,
+                            ready ? "READY" : "PREPARING",
+                            sessionByLesson.get(lesson.lessonId()),
+                            lesson.endedAt());
+                })
+                .toList();
+    }
+
     // ─────────────────────────────────────────
     // 4. 메시지 히스토리
     // ─────────────────────────────────────────
@@ -175,7 +218,9 @@ public class LessonReviewService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, LessonReviewMessages.LESSON_NOT_FOUND));
 
-        String recordingUrl = lesson.recordingUrl();
+        // raw 경로 대신 '재생 URL'(local=인증 엔드포인트, prod=presigned)로 변환
+        String recordingUrl = (lesson.recordingUrl() == null) ? null
+                : lessonMediaStorage.recordingPlaybackUrl(lessonId, lesson.recordingUrl());
 
         LessonTranscript transcript = lessonTranscriptRepository.findByLessonId(lessonId).orElse(null);
         if (transcript == null) {
@@ -199,6 +244,20 @@ public class LessonReviewService {
         }
         return new SummaryPdfResponse("NOT_READY", null,
                 LessonReviewMessages.PDF_NOT_READY, recordingUrl);
+    }
+
+    // ─────────────────────────────────────────
+    // 6. 녹음 스트리밍 (소유권 체크) — local 전용 경로
+    // ─────────────────────────────────────────
+    @Transactional(readOnly = true)
+    public Resource getRecordingResource(Long studentId, Long lessonId) {
+        LessonInfo lesson = lessonQueryRepository.findByIdAndStudentId(lessonId, studentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, LessonReviewMessages.LESSON_NOT_FOUND));
+        if (lesson.recordingUrl() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "녹음이 없습니다.");
+        }
+        return lessonMediaStorage.openRecordingResource(lessonId, lesson.recordingUrl());
     }
 
     // ─────────────────────────────────────────

@@ -26,6 +26,15 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- 개발/실기기 테스트: 맥 LAN IP·운영 IP가 http(비암호화)라 ATS 예외 허용.
+	     운영 정식 배포 땐 HTTPS로 바꾸고 이 예외를 좁히는 게 좋음. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>같은 와이파이의 개발 서버에 연결하기 위해 로컬 네트워크 접근이 필요합니다.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>문제 사진을 촬영해 AI튜터에 첨부하기 위해 카메라 접근이 필요합니다.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

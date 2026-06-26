@@ -21,6 +21,8 @@ class MatchingStompService {
       config: StompConfig(
         url: ApiConstants.wsUrl,
         onConnect: (frame) {
+          debugPrint(
+              '[STOMP:Matching] 연결됨 → ${ApiConstants.wsUrl} (tutorId=$tutorId) 구독 시작');
           _stomp!.subscribe(
             destination: '/topic/tutor/$tutorId',
             callback: (frame) {
@@ -52,6 +54,7 @@ class MatchingStompService {
                 try {
                   final json =
                       jsonDecode(frame.body!) as Map<String, dynamic>;
+                  debugPrint('[STOMP:Matching] /topic/new-problem 수신: ${frame.body}');
                   if (json['type'] == 'NEW_PROBLEM') {
                     onNewProblem(json['problemId'] as int);
                   }

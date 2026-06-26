@@ -60,4 +60,36 @@ class MypageRepository {
     final data = res.data['data'] as Map<String, dynamic>?;
     return data?['profileImageUrl'] as String?;
   }
+
+  /// 강의 후기 작성 — POST /reviews. (강사는 lesson에서 서버가 판별)
+  Future<void> createReview({
+    required int lessonId,
+    required int rating,
+    String? comment,
+  }) async {
+    await _dio.post('/reviews', data: {
+      'lessonId': lessonId,
+      'rating': rating,
+      if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
+    });
+  }
+
+  /// 신고 접수 — POST /reports. reporterType은 서버가 JWT role로 자동 판별.
+  /// targetType: 'TUTOR' | 'STUDENT' | 'LESSON'
+  Future<void> createReport({
+    required String targetType,
+    required int targetId,
+    int? lessonId,
+    required List<String> reasons,
+    String? description,
+  }) async {
+    await _dio.post('/reports', data: {
+      'targetType': targetType,
+      'targetId': targetId,
+      if (lessonId != null) 'lessonId': lessonId,
+      'reasons': reasons,
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+    });
+  }
 }

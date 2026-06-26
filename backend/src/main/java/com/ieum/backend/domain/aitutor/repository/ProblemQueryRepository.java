@@ -23,7 +23,7 @@ public class ProblemQueryRepository {
     public Optional<ProblemContext> findContextByIdAndStudentId(Long problemId, Long studentId) {
         String sql = """
             SELECT subject, primary_type, secondary_type,
-                   difficulty, exam_type, extracted_text, summary, user_description
+                   difficulty, exam_type, extracted_text, summary, student_description
             FROM problems
             WHERE id = ? AND student_id = ?
         """;
@@ -42,7 +42,7 @@ public class ProblemQueryRepository {
                 rs.getString("difficulty"),
                 rs.getString("extracted_text"),
                 rs.getString("summary"),
-                rs.getString("user_description")        // ← 컬럼명만 변경
+                rs.getString("student_description")     // 실제 컬럼명(student_description)
         );
     }
 }
