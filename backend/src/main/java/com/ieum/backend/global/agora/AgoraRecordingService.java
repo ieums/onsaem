@@ -177,6 +177,8 @@ public class AgoraRecordingService {
         recordingConfig.put("channelType", 0);
         recordingConfig.put("videoStreamType", 0);
         recordingConfig.put("subscribeUidGroup", 0);
+        recordingConfig.put("autoSubscribeAudio", true);
+        recordingConfig.put("autoSubscribeVideo", true);
 
         // S3 저장 설정
         Map<String, Object> storageConfig = new HashMap<>();
