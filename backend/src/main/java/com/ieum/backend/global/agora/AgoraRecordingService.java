@@ -3,6 +3,7 @@ package com.ieum.backend.global.agora;
 import com.ieum.backend.domain.lesson.dto.RecordingStartResponseDto;
 import com.ieum.backend.domain.lesson.dto.RecordingStopResponseDto;
 import com.ieum.backend.domain.lesson.entity.Lesson;
+import com.ieum.backend.domain.lesson.repository.LessonRepository;
 import com.ieum.backend.global.config.AgoraConfig;
 import com.ieum.backend.global.exception.BusinessException;
 import org.slf4j.Logger;
@@ -11,7 +12,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -44,6 +47,9 @@ public class AgoraRecordingService {
 
     @Autowired(required = false)
     private S3Client s3Client;
+
+    @Autowired
+    private LessonRepository lessonRepository;
 
     @Value("${spring.cloud.aws.s3.bucket}")
     private String bucket;
@@ -95,7 +101,8 @@ public class AgoraRecordingService {
     }
 
     /**
-     * 녹화 중지: stop API 호출 후 Lesson 엔티티에 recordingUrl 저장
+     * 녹화 중지: Agora stop API만 호출하고 즉시 반환.
+     * S3 .m3u8 파일 탐색은 stopRecordingAsync()에서 비동기로 처리.
      * (트랜잭션은 호출자가 관리)
      */
     public RecordingStopResponseDto stopRecording(Lesson lesson) {
@@ -111,9 +118,30 @@ public class AgoraRecordingService {
         String recordingUrl = result[0];
         String uploadingStatus = result[1];
 
-        lesson.setRecordingUrl(recordingUrl);
+        if (!recordingUrl.isEmpty()) {
+            lesson.setRecordingUrl(recordingUrl);
+        }
 
         return new RecordingStopResponseDto(lesson.getId(), recordingUrl, uploadingStatus);
+    }
+
+    /**
+     * 비동기 S3 폴링: Agora 업로드 완료 후 .m3u8 파일 URL을 DB에 저장.
+     * LessonService.stopRecording()에서 호출 — 메인 트랜잭션과 독립 실행.
+     */
+    @Async
+    @Transactional
+    public void stopRecordingAsync(Long lessonId) {
+        log.info("[Agora][비동기] S3 폴링 시작 - lessonId={}", lessonId);
+        String recordingUrl = findM3u8FromS3(lessonId);
+        if (!recordingUrl.isEmpty()) {
+            lessonRepository.findById(lessonId).ifPresent(lesson -> {
+                lesson.setRecordingUrl(recordingUrl);
+            });
+            log.info("[Agora][비동기] recordingUrl 저장 완료 - lessonId={}, url={}", lessonId, recordingUrl);
+        } else {
+            log.warn("[Agora][비동기] S3 .m3u8 최종 미발견 - lessonId={}", lessonId);
+        }
     }
 
     // ──────────────────────── Private API 헬퍼 ────────────────────────
@@ -149,6 +177,7 @@ public class AgoraRecordingService {
         recordingConfig.put("channelType", 0);
         recordingConfig.put("videoStreamType", 0);
         recordingConfig.put("subscribeVideoUids", List.of(String.valueOf(tutorUid)));
+        recordingConfig.put("subscribeAudioUids", List.of(String.valueOf(tutorUid)));
 
         // S3 저장 설정
         Map<String, Object> storageConfig = new HashMap<>();
@@ -221,10 +250,8 @@ public class AgoraRecordingService {
             }
         }
 
-        // stop 응답에 파일 목록이 없으면 S3에서 직접 .m3u8 파일 탐색
         if (recordingUrl.isEmpty()) {
-            log.info("[Agora] stop 응답에 fileList 없음 — S3에서 .m3u8 파일 탐색, lessonId={}", lessonId);
-            recordingUrl = findM3u8FromS3(lessonId);
+            log.info("[Agora] stop 응답에 fileList 없음 — 비동기 S3 폴링으로 처리 예정, lessonId={}", lessonId);
         }
 
         log.info("[Agora] stop 응답 - uploadingStatus={}, recordingUrl={}", uploadingStatus, recordingUrl);

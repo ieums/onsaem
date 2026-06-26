@@ -63,7 +63,7 @@ public class SecurityConfig {
                                 "/uploads/**",
                                 "/error"
                         ).permitAll()
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 )
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
