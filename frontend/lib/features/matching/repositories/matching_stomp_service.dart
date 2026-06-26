@@ -55,7 +55,10 @@ class MatchingStompService {
                   final json =
                       jsonDecode(frame.body!) as Map<String, dynamic>;
                   debugPrint('[STOMP:Matching] /topic/new-problem 수신: ${frame.body}');
-                  if (json['type'] == 'NEW_PROBLEM') {
+                  // NEW_PROBLEM(새 문제) / PROBLEM_REMOVED(취소·종료) 둘 다 리스트 재조회로 반영.
+                  // (재조회 시 searching=true 조건이라 취소된 문제는 자동 제외됨)
+                  final type = json['type'];
+                  if (type == 'NEW_PROBLEM' || type == 'PROBLEM_REMOVED') {
                     onNewProblem(json['problemId'] as int);
                   }
                 } catch (_) {}

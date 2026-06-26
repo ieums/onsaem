@@ -71,12 +71,14 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
     );
     try {
       final list = await _repository.getSearchingProblems(_tutorId);
+      if (!mounted) return; // 비동기 도중 화면 이탈로 dispose되면 state 건드리지 않음
       state = state.copyWith(
         problems: AsyncData(
           list.where((p) => !p.alreadyApplied).toList(),
         ),
       );
     } catch (e, st) {
+      if (!mounted) return;
       state = state.copyWith(problems: AsyncError(e, st));
     }
   }
@@ -104,6 +106,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
   Future<void> _onNewProblem(int problemId) async {
     try {
       final list = await _repository.getSearchingProblems(_tutorId);
+      if (!mounted) return;
       state = state.copyWith(
         problems: AsyncData(
           list.where((p) => !p.alreadyApplied).toList(),
@@ -205,6 +208,7 @@ class TutorApplicationsNotifier
     state = state.copyWith(applications: const AsyncLoading());
     try {
       final list = await _repository.getTutorApplications(_tutorId);
+      if (!mounted) return; // dispose 후 state 접근 방지
       state = state.copyWith(applications: AsyncData(list));
       final matchingIds = list
           .where((a) => a.status == 'PENDING' || a.status == 'CONFIRMING')
@@ -226,6 +230,7 @@ class TutorApplicationsNotifier
         },
       );
     } catch (e, st) {
+      if (!mounted) return;
       state = state.copyWith(applications: AsyncError(e, st));
     }
   }

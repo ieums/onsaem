@@ -140,14 +140,15 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           );
         } else {
           final subject = session?.subject ?? '';
+          final subjectText = subject.isNotEmpty ? subjectLabel(subject) : '';
           context.go(
             RoutePaths.studentReviewWrite,
             extra: StudentReviewWriteArgs(
               lessonId: lessonId,
               tutorId: (next.tutorId?.toString()) ?? selectedTutor?.id ?? '',
               tutorName: selectedTutor?.name ?? '강사',
-              subject: subject,
-              tutorSubtitle: subject.isNotEmpty ? '$subject 강사' : '강사',
+              subject: subjectText,
+              tutorSubtitle: subjectText.isNotEmpty ? '$subjectText 강사' : '강사',
               avatarInitial: selectedTutor?.avatarInitial ?? '강',
             ),
           );

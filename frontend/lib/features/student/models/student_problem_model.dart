@@ -12,6 +12,8 @@ class ProblemCreateResult {
     this.subject,
     this.difficulty,
     this.examType,
+    this.primaryType,
+    this.secondaryType,
     this.imageUrls = const [],
     this.status,
     this.createdAt,
@@ -27,6 +29,8 @@ class ProblemCreateResult {
   final String? subject;
   final String? difficulty;
   final String? examType;
+  final String? primaryType;   // AI 분류 대분류 (성공 시 채워짐)
+  final String? secondaryType; // AI 분류 소분류 (성공 시 채워짐)
   final List<String> imageUrls;
   final String? status;
   final DateTime? createdAt;
@@ -48,6 +52,8 @@ class ProblemCreateResult {
       subject: json['subject'] as String?,
       difficulty: json['difficulty'] as String?,
       examType: json['examType'] as String?,
+      primaryType: json['primaryType'] as String?,
+      secondaryType: json['secondaryType'] as String?,
       imageUrls: List<String>.from(json['imageUrls'] as List? ?? const []),
       status: json['status'] as String?,
       createdAt: json['createdAt'] != null
@@ -148,7 +154,8 @@ class StudentProblemModel {
   }
 
   /// 등록 응답(ProblemCreateResult)을 분류 수정 화면용 모델로 변환.
-  /// 목록에 없는 필드(primary/secondaryType 등)는 비워 두고, 학생이 수정 화면에서 채운다.
+  /// AI 분류 성공 시 primary/secondaryType이 응답에 실려오므로 그대로 전달 →
+  /// 수정 화면에 대분류·소분류가 미리 선택돼 보인다.
   factory StudentProblemModel.fromCreateResult(ProblemCreateResult r) {
     return StudentProblemModel(
       problemId: r.id ?? 0,
@@ -156,6 +163,8 @@ class StudentProblemModel {
       subject: r.subject,
       difficulty: r.difficulty,
       examType: r.examType,
+      primaryType: r.primaryType,
+      secondaryType: r.secondaryType,
       status: r.status,
       searching: false,
       createdAt: r.createdAt ?? DateTime.now(),

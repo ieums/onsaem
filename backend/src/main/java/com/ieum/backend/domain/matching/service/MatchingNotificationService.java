@@ -90,6 +90,14 @@ public class MatchingNotificationService {
         );
     }
 
+    /** 문제가 취소/종료되어 더 이상 탐색 대상이 아님 → 모든 강사 리스트에서 즉시 제거. */
+    public void notifyProblemRemoved(Long problemId) {
+        messagingTemplate.convertAndSend(
+                "/topic/new-problem",
+                Map.of("type", "PROBLEM_REMOVED", "problemId", problemId)
+        );
+    }
+
     public void notifyMatchRequested(Long problemId, Long tutorId, Long studentId) {
         Map<String, Object> tutorPayload = new HashMap<>();
         tutorPayload.put("type", "MATCH_REQUESTED");
