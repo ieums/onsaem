@@ -304,6 +304,9 @@ class LessonNotifier extends StateNotifier<LessonState> {
                       ),
                     ),
                   );
+                  _engine!.updateChannelMediaOptions(
+                    const ChannelMediaOptions(publishScreenCaptureVideo: true),
+                  );
                 });
                 Future.delayed(const Duration(seconds: 5), () {
                   if (isTutor && !_recordingStarted) {

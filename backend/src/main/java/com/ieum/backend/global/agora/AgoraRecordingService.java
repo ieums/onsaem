@@ -88,7 +88,7 @@ public class AgoraRecordingService {
         }
 
         String resourceId = acquireResource(channelName);
-        String sid = startRecordingInternal(channelName, token, resourceId, lesson.getId());
+        String sid = startRecordingInternal(channelName, token, resourceId, lesson.getId(), lesson.getTutorId());
         lesson.setRecordingInfo(resourceId, sid);
 
         return new RecordingStartResponseDto(lesson.getId(), resourceId, sid, channelName);
@@ -138,7 +138,7 @@ public class AgoraRecordingService {
 
     /** 녹화 시작 — SID 반환 */
     private String startRecordingInternal(String channelName, String token,
-                                          String resourceId, Long lessonId) {
+                                          String resourceId, Long lessonId, Long tutorUid) {
         String url = BASE_URL + "/" + agoraConfig.getAppId()
                 + "/cloud_recording/resourceid/" + resourceId + "/mode/mix/start";
 
@@ -148,6 +148,7 @@ public class AgoraRecordingService {
         recordingConfig.put("streamTypes", 3);
         recordingConfig.put("channelType", 0);
         recordingConfig.put("videoStreamType", 0);
+        recordingConfig.put("subscribeVideoUids", List.of(String.valueOf(tutorUid)));
 
         // S3 저장 설정
         Map<String, Object> storageConfig = new HashMap<>();
