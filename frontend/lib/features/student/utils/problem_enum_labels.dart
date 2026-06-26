@@ -33,6 +33,7 @@ const Map<String, String> statusLabels = {
   'PENDING': '매칭 대기',
   'MATCHED': '매칭 완료',
   'RESOLVED': '풀이 완료',
+  'EXPIRED': '만료됨',
   'CANCELED': '취소됨',
 };
 

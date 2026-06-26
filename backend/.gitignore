@@ -37,8 +37,9 @@ out/
 ### VS Code ###
 .vscode/
 
-### Image ###
+### Image&Video ###
 uploads/
+media/
 
 ### yml ###
 application-local.yml

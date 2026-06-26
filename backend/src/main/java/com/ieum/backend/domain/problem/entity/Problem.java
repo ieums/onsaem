@@ -145,4 +145,16 @@ public class Problem {
     public void stopSearching() {
         this.searching = false;
     }
+
+    /** 탐색 마감까지 강사 못 구함 → 만료 처리(상태 EXPIRED + 탐색 종료). */
+    public void markExpired() {
+        this.status = ProblemStatus.EXPIRED;
+        this.searching = false;
+    }
+
+    /** 만료된 질문을 다시 탐색 대기로 되돌린다('다시 요청'). */
+    public void reopen() {
+        this.status = ProblemStatus.PENDING;
+        this.expiringSoonNotified = false;
+    }
 }

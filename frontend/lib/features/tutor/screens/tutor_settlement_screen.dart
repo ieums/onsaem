@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/utils/won_format_util.dart';
 import 'package:ieum/core/utils/date_format_util.dart';
@@ -393,13 +394,6 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
         ),
       );
     });
-  }
-
-  int get _withdrawableBalance {
-    return _realizedCalendarTransactions.fold<int>(
-      0,
-      (sum, tx) => sum + tx.amount,
-    );
   }
 
   int get _lastMonthDepositTotal {
@@ -1433,7 +1427,6 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
   }
 
   Widget _buildWithdrawCard(BuildContext context) {
-    final scheme = _scheme(context);
     final withdrawableCount = _records
         .where((r) => r.status == SettlementStatus.calculated)
         .length;
@@ -1616,10 +1609,12 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
 
     if (confirmed != true) return;
 
+    final tutorId = ref.read(currentUserProvider)?.id;
+    if (tutorId == null) return;
     try {
       final result = await ref
           .read(settlementRepositoryProvider)
-          .requestBulkWithdraw(settlementTutorId);
+          .requestBulkWithdraw(tutorId);
       ref.invalidate(settlementDataProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1694,33 +1689,9 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
                   ],
                 ),
               ),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '평균 수업 시간',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '45분',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: scheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              // '평균 수업 시간'은 백엔드 집계 데이터가 없어 하드코딩('45분')이었으므로 제거.
+              // 추후 lesson 길이 평균을 summary에 추가하면 여기에 실값으로 복원.
+              const Expanded(child: SizedBox()),
             ],
           ),
         ],
@@ -2221,10 +2192,12 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
   }
 
   Future<void> _onRequestWithdraw(int settlementId) async {
+    final tutorId = ref.read(currentUserProvider)?.id;
+    if (tutorId == null) return;
     try {
       await ref
           .read(settlementRepositoryProvider)
-          .requestWithdraw(settlementId, settlementTutorId);
+          .requestWithdraw(settlementId, tutorId);
       ref.invalidate(settlementDataProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

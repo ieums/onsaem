@@ -52,6 +52,7 @@ class ProblemStatusChip extends StatelessWidget {
       'PENDING' => const Color(0xFFE8A33D),
       'MATCHED' => const Color(0xFF2E9E6B),
       'RESOLVED' => const Color(0xFF6B7280),
+      'EXPIRED' => const Color(0xFF9CA3AF),
       'CANCELED' => AppColors.logoutRed,
       _ => const Color(0xFF6B7280),
     };

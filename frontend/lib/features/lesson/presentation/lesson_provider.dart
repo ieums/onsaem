@@ -24,6 +24,8 @@ class LessonState {
   final String? token;
   final String? appId;
   final int? lessonId;
+  final int? studentId;
+  final int? tutorId;
   final int? uid;
   final bool isTutor;
 
@@ -64,6 +66,8 @@ class LessonState {
     this.token,
     this.appId,
     this.lessonId,
+    this.studentId,
+    this.tutorId,
     this.uid,
     this.isTutor = false,
     this.isInChannel = false,
@@ -97,6 +101,8 @@ class LessonState {
     String? token,
     String? appId,
     int? lessonId,
+    int? studentId,
+    int? tutorId,
     int? uid,
     bool? isTutor,
     bool? isInChannel,
@@ -126,6 +132,8 @@ class LessonState {
   }) {
     return LessonState(
       channelName: channelName ?? this.channelName,
+      studentId: studentId ?? this.studentId,
+      tutorId: tutorId ?? this.tutorId,
       token: token ?? this.token,
       appId: appId ?? this.appId,
       lessonId: lessonId ?? this.lessonId,
@@ -207,6 +215,8 @@ class LessonNotifier extends StateNotifier<LessonState> {
         token: tokenResp.token,
         appId: tokenResp.appId,
         lessonId: tokenResp.lessonId,
+        studentId: tokenResp.studentId,
+        tutorId: tokenResp.tutorId,
       );
 
       if (!kIsWeb) {
@@ -229,7 +239,12 @@ class LessonNotifier extends StateNotifier<LessonState> {
         _engine!.registerEventHandler(
           RtcEngineEventHandler(
             onJoinChannelSuccess: (connection, elapsed) {
+              debugPrint('[Agora] 채널 입장 성공: ${connection.channelId}');
               state = state.copyWith(isInChannel: true);
+            },
+            // join 실패가 조용히 묻히지 않도록 에러를 로그로 노출(시간 안 가는 원인 진단용).
+            onError: (err, msg) {
+              debugPrint('[Agora] onError: $err / $msg');
             },
             onUserJoined: (connection, remoteUid, elapsed) {
               state = state.copyWith(remoteUid: remoteUid);

@@ -57,6 +57,21 @@ public class LessonQueryRepository {
         return jdbcTemplate.queryForList(sql, Long.class);
     }
 
+    /**
+     * 특정 학생의 '완료된' 강의 목록 (복습 목록용). 종료 시각 내림차순.
+     * 전사 완료 여부와 무관하게 종료된 강의를 모두 내려주고, 준비 상태는 서비스에서 합친다.
+     */
+    public List<LessonInfo> findCompletedLessonsByStudentId(Long studentId) {
+        String sql = """
+                SELECT id, tutor_id, student_id, problem_id, channel_name, status,
+                       recording_url, started_at, ended_at
+                FROM lessons
+                WHERE student_id = ? AND status = 'COMPLETED'
+                ORDER BY ended_at DESC, id DESC
+                """;
+        return jdbcTemplate.query(sql, this::mapRow, studentId);
+    }
+
     private LessonInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
         return new LessonInfo(
                 rs.getLong("id"),

@@ -1,5 +1,7 @@
 package com.ieum.backend.domain.settlement.service;
 
+import com.ieum.backend.domain.auth.entity.Tutor;
+import com.ieum.backend.domain.auth.repository.TutorRepository;
 import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.domain.lesson.repository.LessonRepository;
 import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
@@ -25,6 +27,7 @@ public class SettlementService {
 
     private final SettlementRepository settlementRepository;
     private final LessonRepository lessonRepository;   // 정산 대상 강사를 강의에서 권위있게 가져오기 위함
+    private final TutorRepository tutorRepository;      // 출금 전 정산 계좌 등록 확인용
 
     /**
      * 정산 계산 (강의 완료 시 호출).
@@ -122,6 +125,9 @@ public class SettlementService {
             throw BusinessException.forbidden("본인의 정산만 출금 요청 가능합니다.");
         }
 
+        // 정산 계좌 등록 필수
+        requireSettlementAccount(tutorId);
+
         // 상태 체크
         if (settlement.getStatus() != SettlementStatus.CALCULATED) {
             throw BusinessException.conflict("출금 요청 가능한 상태가 아닙니다. 현재 상태: " + settlement.getStatus());
@@ -147,6 +153,9 @@ public class SettlementService {
         if (calculated.isEmpty()) {
             throw BusinessException.badRequest("출금 가능한 정산이 없습니다.");
         }
+
+        // 정산 계좌 등록 필수
+        requireSettlementAccount(tutorId);
 
         int totalAmount = calculated.stream()
                 .mapToInt(Settlement::getTutorAmount)
@@ -196,5 +205,35 @@ public class SettlementService {
 
         settlement.markFailed();
         return SettlementResponse.from(settlement);
+    }
+
+    /**
+     * 정산 취소(롤백) — 강의 환불/취소 흐름에서 호출.
+     * 해당 강의의 정산을 CANCELED로 무효화한다(요약 집계에서 제외됨).
+     * 이미 송금 완료(TRANSFERRED)된 건은 엔티티 cancel()이 막는다.
+     * 정산이 없으면(아직 미정산) 조용히 무시 — 환불은 정상 진행돼야 하므로.
+     */
+    @Transactional
+    public void cancelByLesson(Long lessonId) {
+        settlementRepository.findByLessonId(lessonId)
+                .ifPresent(Settlement::cancel);
+    }
+
+    /** 정산 단건 취소(관리자/운영) */
+    @Transactional
+    public SettlementResponse cancelSettlement(Long settlementId) {
+        Settlement settlement = settlementRepository.findById(settlementId)
+                .orElseThrow(() -> BusinessException.notFound("정산 정보를 찾을 수 없습니다."));
+        settlement.cancel();
+        return SettlementResponse.from(settlement);
+    }
+
+    /** 출금 전 정산 계좌 등록 확인 */
+    private void requireSettlementAccount(Long tutorId) {
+        Tutor tutor = tutorRepository.findById(tutorId)
+                .orElseThrow(() -> BusinessException.notFound("강사를 찾을 수 없습니다."));
+        if (!tutor.hasSettlementAccount()) {
+            throw BusinessException.badRequest("정산 계좌를 먼저 등록해 주세요. (마이페이지 > 정산 계좌 관리)");
+        }
     }
 }

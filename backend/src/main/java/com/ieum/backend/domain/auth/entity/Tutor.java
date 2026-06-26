@@ -78,8 +78,32 @@ public class Tutor extends Account {
     @Column(name = "is_available", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
     private boolean available = true;
 
+    // ── 정산 입금 계좌 (마이페이지 > 정산 계좌 관리) ──
+    @Column(name = "settlement_bank", length = 30)
+    private String settlementBank;
+
+    @Column(name = "settlement_account", length = 50)
+    private String settlementAccount;
+
+    @Column(name = "settlement_holder", length = 50)
+    private String settlementHolder;
+
     public void updateAvailability(boolean available) {
         this.available = available;
+    }
+
+    /** 정산 계좌 등록·수정 */
+    public void updateSettlementAccount(String bank, String account, String holder) {
+        this.settlementBank = bank;
+        this.settlementAccount = account;
+        this.settlementHolder = holder;
+    }
+
+    /** 출금 가능 여부 — 은행/계좌번호/예금주가 모두 등록돼 있어야 한다. */
+    public boolean hasSettlementAccount() {
+        return settlementBank != null && !settlementBank.isBlank()
+                && settlementAccount != null && !settlementAccount.isBlank()
+                && settlementHolder != null && !settlementHolder.isBlank();
     }
 
     @Builder

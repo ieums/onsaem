@@ -12,21 +12,10 @@ import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.parser.Parser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 
 import java.io.ByteArrayOutputStream;
-import java.net.URI;
-import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
@@ -48,22 +37,10 @@ public class LessonSummaryService {
     private static final String SUMMARY_SYSTEM_PROMPT = ClasspathLoader.loadAsString("prompts/lesson-summary.md");
     private static final String HTML_TEMPLATE = ClasspathLoader.loadAsString("templates/lesson-summary.html");
 
-    @Value("${cloud.aws.s3.bucket:onsaem-bucket}")
-    private String bucket;
-
-    @Value("${cloud.aws.region.static:ap-northeast-2}")
-    private String region;
-
-    @Value("${spring.cloud.aws.credentials.access-key}")
-    private String accessKey;
-
-    @Value("${spring.cloud.aws.credentials.secret-key}")
-    private String secretKey;
-
     private final LessonQueryRepository lessonQueryRepository;
     private final LessonTranscriptRepository lessonTranscriptRepository;
     private final GeminiClient geminiClient;
-    private final S3Client s3Client;
+    private final LessonMediaStorage lessonMediaStorage; // 저장/다운로드 URL은 프로파일별(Local/S3) 구현
 
     /**
      * 한 강의의 PDF 학습 자료를 생성해 S3에 업로드하고 DB에 URL 저장.
@@ -109,12 +86,12 @@ public class LessonSummaryService {
             byte[] pdfBytes = htmlToPdf(html);
             log.info("[SummaryPDF] 강의 {} PDF 생성 완료 (size={} bytes)", lessonId, pdfBytes.length);
 
-            // 4) S3 업로드
-            String s3Url = uploadToS3(pdfBytes, lessonId);
-            log.info("[SummaryPDF] 강의 {} S3 업로드 완료: {}", lessonId, s3Url);
+            // 4) 저장(prod=S3 / local=uploads)
+            String storedUrl = lessonMediaStorage.storeSummaryPdf(pdfBytes, lessonId);
+            log.info("[SummaryPDF] 강의 {} 저장 완료: {}", lessonId, storedUrl);
 
             // 5) DB 상태/URL 저장
-            transcript.markPdfCompleted(s3Url);
+            transcript.markPdfCompleted(storedUrl);
 
         } catch (Exception e) {
             log.error("[SummaryPDF] 강의 {} PDF 생성 실패", lessonId, e);
@@ -124,22 +101,11 @@ public class LessonSummaryService {
     }
 
     /**
-     * 캐시된 S3 URL을 학생에게 줄 presigned URL(1시간 유효)로 변환.
-     * 학생이 다운로드 엔드포인트 호출 시 사용.
+     * 저장된 요약 PDF의 다운로드 URL(prod=presigned S3, local=정적 경로)을 반환.
+     * 학생 다운로드 엔드포인트에서 사용.
      */
-    public String generatePresignedUrl(String s3Url) {
-        String key = extractS3Key(s3Url);
-        try (S3Presigner presigner = S3Presigner.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(accessKey, secretKey)))
-                .build()) {
-            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                    .signatureDuration(Duration.ofHours(1))
-                    .getObjectRequest(b -> b.bucket(bucket).key(key))
-                    .build();
-            return presigner.presignGetObject(presignRequest).url().toString();
-        }
+    public String generatePresignedUrl(String storedUrl) {
+        return lessonMediaStorage.summaryPdfDownloadUrl(storedUrl);
     }
 
     // ─── 내부 헬퍼 ─────────────────────────────────────
@@ -210,25 +176,6 @@ public class LessonSummaryService {
             builder.run();
             return out.toByteArray();
         }
-    }
-
-    private String uploadToS3(byte[] pdfBytes, Long lessonId) {
-        String key = "lessons/summaries/" + lessonId + "/summary.pdf";
-        s3Client.putObject(
-                PutObjectRequest.builder()
-                        .bucket(bucket)
-                        .key(key)
-                        .contentType("application/pdf")
-                        .build(),
-                RequestBody.fromBytes(pdfBytes)
-        );
-        return "https://" + bucket + ".s3." + region + ".amazonaws.com/" + key;
-    }
-
-    private String extractS3Key(String s3Url) {
-        URI uri = URI.create(s3Url);
-        String path = uri.getPath();
-        return path.startsWith("/") ? path.substring(1) : path;
     }
 
 }

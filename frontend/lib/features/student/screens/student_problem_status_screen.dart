@@ -36,21 +36,30 @@ class _StudentProblemStatusScreenState
     final session = ref.read(studentMatchingSessionProvider);
     if (session != null && session.problemId == widget.problem.problemId) return;
 
-    if (widget.problem.searching) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final studentId = ref.read(currentUserProvider)?.id;
-        if (studentId == null) return;
+    // searching 여부와 무관하게 세션을 복원한다.
+    // (세션이 없으면 '선택하기'가 무반응이 되므로 — selectTutor가 state를 필요로 함)
+    _loadingApplicants = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final studentId = ref.read(currentUserProvider)?.id;
+      if (studentId == null) {
+        setState(() => _loadingApplicants = false);
+        return;
+      }
+      try {
         await ref.read(studentMatchingSessionProvider.notifier).resumeMatching(
               problemId: widget.problem.problemId,
               studentId: studentId,
               subject: widget.problem.subject ?? '',
               questionSummary: widget.problem.summary ?? '',
             );
-      });
-    } else {
-      _loadApplicants();
-    }
+      } catch (_) {
+        // 세션 복원 실패 시 신청 목록만이라도 보여줌(선택은 제한될 수 있음)
+        await _loadApplicants();
+      } finally {
+        if (mounted) setState(() => _loadingApplicants = false);
+      }
+    });
   }
 
   Future<void> _cancelMatching(BuildContext context) async {
@@ -60,7 +69,7 @@ class _StudentProblemStatusScreenState
         title: const Text('매칭 취소',
             style: TextStyle(fontWeight: FontWeight.w800)),
         content: const Text(
-            '매칭을 취소하시겠어요?\n신청한 강사들의 목록에서도 사라져요.'),
+            '매칭을 취소하면 이 질문이 삭제되고,\n신청한 강사 목록에서도 사라져요.\n되돌릴 수 없어요.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -84,46 +93,6 @@ class _StudentProblemStatusScreenState
     if (!context.mounted) return;
     ref.invalidate(studentProblemsProvider);
     Navigator.of(context).pop();
-  }
-
-  /// 질문 삭제(취소) — PENDING 질문을 지워 3개 제한 슬롯을 비운다.
-  Future<void> _deleteQuestion(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('질문 삭제'),
-        content: const Text('이 질문을 삭제할까요? 삭제하면 되돌릴 수 없어요.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('취소')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('삭제',
-                style: TextStyle(
-                    color: AppColors.buttonDanger,
-                    fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    try {
-      await ref
-          .read(problemRepositoryProvider)
-          .cancelProblem(widget.problem.problemId);
-      ref.invalidate(studentProblemsProvider);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('질문을 삭제했어요.')),
-      );
-      Navigator.of(context).pop();
-    } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('삭제에 실패했어요. 잠시 후 다시 시도해 주세요.')),
-      );
-    }
   }
 
   Future<void> _loadApplicants() async {
@@ -269,22 +238,6 @@ class _StudentProblemStatusScreenState
                       ),
                     ),
                   ),
-                  if (widget.problem.status == 'PENDING') ...[
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: TextButton.icon(
-                        onPressed: () => _deleteQuestion(context),
-                        icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                        label: const Text('질문 삭제',
-                            style: TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w700)),
-                        style: TextButton.styleFrom(
-                            foregroundColor: AppColors.buttonDanger),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

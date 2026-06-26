@@ -1,10 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/features/tutor/data/settlement_models.dart';
 import 'package:ieum/features/tutor/data/settlement_repository.dart';
-
-/// TODO: 인증 연동 시 로그인한 강사의 id로 교체.
-const int settlementTutorId = 1;
 
 final settlementRepositoryProvider = Provider<SettlementRepository>(
   (ref) => SettlementRepository(),
@@ -57,9 +55,13 @@ List<TutorSettlementCalendarTransaction> settlementRecordsToTransactions(
 
 final settlementDataProvider =
     FutureProvider.autoDispose<TutorSettlementData>((ref) async {
+  final tutorId = ref.watch(currentUserProvider)?.id;
+  if (tutorId == null) {
+    throw StateError('로그인이 필요합니다.');
+  }
   final repo = ref.watch(settlementRepositoryProvider);
-  final records = await repo.fetchByTutor(settlementTutorId);
-  final summary = await repo.fetchSummary(settlementTutorId);
+  final records = await repo.fetchByTutor(tutorId);
+  final summary = await repo.fetchSummary(tutorId);
   return TutorSettlementData(
     summary: summary,
     records: records,

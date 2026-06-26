@@ -17,8 +17,10 @@ import com.ieum.backend.global.agora.AgoraRecordingService;
 import com.ieum.backend.global.agora.RtcTokenBuilder2;
 import com.ieum.backend.global.config.AgoraConfig;
 import com.ieum.backend.global.exception.BusinessException;
+import com.ieum.backend.domain.lessonreview.service.LessonMediaStorage;
 import com.ieum.backend.global.s3.S3Service;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,6 +29,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class LessonService {
 
@@ -36,11 +39,29 @@ public class LessonService {
     private final AgoraRecordingService agoraRecordingService;
     private final CoinService coinService;
     private final SettlementService settlementService;
+    private final LessonMediaStorage lessonMediaStorage;
 
     @Transactional
     public Lesson createLesson(Long tutorId, Long studentId, String channelName) {
-        Lesson lesson = new Lesson(channelName, tutorId, studentId);
+        return createLesson(tutorId, studentId, channelName, null);
+    }
+
+    @Transactional
+    public Lesson createLesson(Long tutorId, Long studentId, String channelName, Long problemId) {
+        // problemId가 안 넘어오면 채널명("problem-{id}")에서 유도 — 복습 PDF가 problem_id를 요구함.
+        Long resolved = problemId != null ? problemId : parseProblemIdFromChannel(channelName);
+        Lesson lesson = new Lesson(channelName, tutorId, studentId, resolved);
         return lessonRepository.save(lesson);
+    }
+
+    /** "problem-4" → 4. 형식이 아니면 null. */
+    private Long parseProblemIdFromChannel(String channelName) {
+        if (channelName == null || !channelName.startsWith("problem-")) return null;
+        try {
+            return Long.parseLong(channelName.substring("problem-".length()));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
@@ -50,6 +71,12 @@ public class LessonService {
     public TokenResponseDto generateToken(TokenRequestDto req) {
         Lesson lesson = lessonRepository.findByChannelName(req.getChannelName())
                 .orElseGet(() -> lessonRepository.save(new Lesson(req.getChannelName())));
+        // 채널명("problem-{id}")으로 강의가 만들어졌는데 problem_id가 비어 있으면 채워준다.
+        // (복습 PDF가 problem_id로 문제 이미지를 찾으므로 — 누락 시 복습 자료가 안 생김)
+        if (lesson.getProblemId() == null) {
+            Long pid = parseProblemIdFromChannel(req.getChannelName());
+            if (pid != null) lesson.assignProblem(pid);
+        }
 
         RtcTokenBuilder2.Role role = "SUBSCRIBER".equalsIgnoreCase(req.getRole())
                 ? RtcTokenBuilder2.Role.ROLE_SUBSCRIBER
@@ -78,7 +105,8 @@ public class LessonService {
         }
 
         long expireAt = System.currentTimeMillis() / 1000 + expireSeconds;
-        return new TokenResponseDto(lesson.getId(), token, req.getChannelName(), agoraConfig.getAppId(), expireAt);
+        return new TokenResponseDto(lesson.getId(), token, req.getChannelName(),
+                agoraConfig.getAppId(), expireAt, lesson.getStudentId(), lesson.getTutorId());
     }
 
     /**
@@ -160,7 +188,23 @@ public class LessonService {
         boolean wasActive = lesson.getStatus() == LessonStatus.ACTIVE;
 
         lesson.complete(recordingUrl);  // recordingUrl null이면 기존 값 유지
-        s3Service.deleteTempImages(lessonId);
+
+        // 녹음 URL이 비어 있으면 저장소가 주는 기본 참조로 채운다.
+        // (로컬: marker → 전사 스케줄러가 인식 / prod: null → Agora가 세팅한 값 유지)
+        if (lesson.getRecordingUrl() == null || lesson.getRecordingUrl().isBlank()) {
+            String ref = lessonMediaStorage.defaultRecordingRef(lessonId);
+            if (ref != null) {
+                lesson.setRecordingUrl(ref);
+            }
+        }
+
+        // 임시 이미지 정리는 best-effort — S3 실패(로컬 키 없음 등)가 수업 완료/정산을 막으면 안 된다.
+        try {
+            s3Service.deleteTempImages(lessonId);
+        } catch (Exception e) {
+            log.warn("[completeLesson] 임시 이미지 정리 실패(무시하고 완료 진행). lessonId={}, cause={}",
+                    lessonId, e.getMessage());
+        }
 
         if (wasActive && lesson.isBillable()) {
             coinService.confirmDeduct(lesson.getStudentId(), lesson.getCoinCost(), lessonId);

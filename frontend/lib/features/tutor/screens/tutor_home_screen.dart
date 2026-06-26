@@ -38,11 +38,6 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
     return (visibleCount / _pageSize).ceil();
   }
 
-  void _rejectProblem(int problemId) {
-    setState(() => _rejectedProblemIds.add(problemId));
-    ref.read(matchingProvider.notifier).rejectProblem(problemId);
-  }
-
   Future<void> _navigateToDetail(SearchingProblemModel problem) async {
     final rejected =
         await context.push<int?>('/problem-detail', extra: problem);
@@ -77,8 +72,13 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
     return Scaffold(
       backgroundColor: shell.scaffoldBackground,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: RefreshIndicator(
+          // STOMP 실시간이 누락돼도 당겨서 새 질문을 받아올 수 있게(재로그인 불필요)
+          color: AppColors.primaryBlue,
+          onRefresh: () => ref.read(matchingProvider.notifier).refresh(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -157,6 +157,7 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
                 },
               ),
             ],
+          ),
           ),
         ),
       ),
@@ -359,30 +360,48 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TutorSubjectBadge(subject: problem.subjectLabel),
+                    // 과목 · 대분류 · 소분류 → 키워드 칩으로
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        TutorSubjectBadge(subject: problem.subjectLabel),
+                        if ((problem.primaryType ?? '').isNotEmpty)
+                          _keywordChip(problem.primaryType!, shell),
+                        if ((problem.secondaryType ?? '').isNotEmpty)
+                          _keywordChip(problem.secondaryType!, shell),
+                      ],
+                    ),
                     const SizedBox(height: 8),
+                    // 본문 = 문제 요약(summary)
                     Text(
-                      problem.primaryType ?? '-',
+                      (problem.summary?.trim().isNotEmpty ?? false)
+                          ? problem.summary!.trim()
+                          : '문제 요약 없음',
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: shell.titleColor,
+                        height: 1.3,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (problem.secondaryType != null &&
-                        problem.secondaryType!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                    // 부가 = 학생이 입력한 설명(description) — 있을 때만
+                    if ((problem.studentDescription ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 3),
                       Text(
-                        problem.secondaryType!,
-                        style:
-                            TextStyle(fontSize: 13, color: shell.hintColor),
+                        problem.studentDescription!.trim(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: shell.hintColor,
+                          height: 1.3,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       _timeAgo(problem.createdAt),
                       style: TextStyle(fontSize: 11, color: shell.hintColor),
@@ -407,49 +426,45 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
     return '$primary · $secondary';
   }
 
-  Widget _buildActionButtons(SearchingProblemModel problem) {
-    final shell = ShellTheme.of(context);
+  /// 대분류·소분류 키워드 칩 (과목 뱃지와 함께 Wrap에 나열).
+  Widget _keywordChip(String text, ShellTheme shell) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: shell.hintColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: shell.titleColor,
+        ),
+      ),
+    );
+  }
 
-    return Row(
-      children: [
-        Expanded(
-          child: FilledButton(
-            onPressed: () => _navigateToDetail(problem),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-              foregroundColor:
-                  AppColors.onPrimaryFill(Theme.of(context).brightness),
-              elevation: 0,
-              minimumSize: const Size.fromHeight(44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              '자세히',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-            ),
+  Widget _buildActionButtons(SearchingProblemModel problem) {
+    // 목록 카드에서는 '자세히'만. 신청은 상세화면에서 문제를 확인한 뒤 하도록 한다.
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: () => _navigateToDetail(problem),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primaryBlue,
+          foregroundColor: AppColors.onPrimaryFill(Theme.of(context).brightness),
+          elevation: 0,
+          minimumSize: const Size.fromHeight(44),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () => _rejectProblem(problem.problemId),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: shell.titleColor,
-              minimumSize: const Size.fromHeight(44),
-              side: BorderSide(color: shell.borderColor, width: 1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              '거절',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-          ),
+        child: const Text(
+          '자세히',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
-      ],
+      ),
     );
   }
 }

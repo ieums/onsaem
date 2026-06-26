@@ -30,10 +30,10 @@ public class MatchingScheduler {
         checkConfirmingTimeout();
     }
 
-    /** 1단계: 만료 1분 전 알림 */
+    /** 1단계: 만료 1시간 전 알림 (탐색 기본 기간이 1일이므로 1시간 전 안내) */
     private void checkExpiringSoon() {
         LocalDateTime now = LocalDateTime.now();
-        List<Problem> problems = problemRepository.findAllExpiringSoon(now, now.plusMinutes(1));
+        List<Problem> problems = problemRepository.findAllExpiringSoon(now, now.plusMinutes(60));
         for (Problem problem : problems) {
             notificationService.notifySearchExpiringSoon(problem.getStudentId(), problem.getId());
             problem.markExpiringSoonNotified();
@@ -45,7 +45,7 @@ public class MatchingScheduler {
         LocalDateTime now = LocalDateTime.now();
         List<Problem> problems = problemRepository.findAllExpired(now);
         for (Problem problem : problems) {
-            problem.stopSearching();
+            problem.markExpired();
             applicationRepository
                     .findByProblemIdAndStatusIn(problem.getId(), List.of(ApplicationStatus.PENDING))
                     .forEach(app -> app.expire());
