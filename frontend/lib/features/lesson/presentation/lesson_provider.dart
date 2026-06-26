@@ -308,12 +308,18 @@ class LessonNotifier extends StateNotifier<LessonState> {
                     const ChannelMediaOptions(publishScreenCaptureVideo: true),
                   );
                 });
-                Future.delayed(const Duration(seconds: 5), () {
+                Future.delayed(const Duration(seconds: 10), () {
                   if (isTutor && !_recordingStarted) {
                     _recordingStarted = true;
                     _startRecording();
                   }
                 });
+              }
+            },
+            onLocalVideoStats: (RtcConnection connection, LocalVideoStats stats) {
+              if (isTutor && !_recordingStarted && (stats.sentBitrate ?? 0) > 0) {
+                _recordingStarted = true;
+                _startRecording();
               }
             },
             // join 실패가 조용히 묻히지 않도록 에러를 로그로 노출(시간 안 가는 원인 진단용).
