@@ -77,14 +77,14 @@ public class AgoraRecordingService {
     public RecordingStartResponseDto startRecording(Lesson lesson) {
         String channelName = lesson.getChannelName();
 
-        // 녹화봇 토큰 생성 (uid=0, SUBSCRIBER 역할)
+        // 녹화봇 토큰 생성 (uid=12345, SUBSCRIBER 역할)
         String token;
         try {
             token = new RtcTokenBuilder2().buildTokenWithUid(
                     agoraConfig.getAppId(),
                     agoraConfig.getAppCertificate(),
                     channelName,
-                    0,
+                    12345,
                     RtcTokenBuilder2.Role.ROLE_SUBSCRIBER,
                     RECORDING_TOKEN_EXPIRE,
                     RECORDING_TOKEN_EXPIRE
@@ -152,7 +152,7 @@ public class AgoraRecordingService {
 
         Map<String, Object> body = Map.of(
                 "cname", channelName,
-                "uid", "0",
+                "uid", "12345",
                 "clientRequest", Map.of()
         );
 
@@ -178,6 +178,7 @@ public class AgoraRecordingService {
         recordingConfig.put("videoStreamType", 0);
         recordingConfig.put("subscribeVideoUids", List.of(String.valueOf(tutorUid)));
         recordingConfig.put("subscribeAudioUids", List.of(String.valueOf(tutorUid)));
+        recordingConfig.put("subscribeUidGroup", 0);
 
         // S3 저장 설정
         Map<String, Object> storageConfig = new HashMap<>();
@@ -204,10 +205,10 @@ public class AgoraRecordingService {
 
         Map<String, Object> body = new HashMap<>();
         body.put("cname", channelName);
-        body.put("uid", "0");
+        body.put("uid", "12345");
         body.put("clientRequest", clientRequest);
 
-        log.info("[Agora] startRecording 요청 body - cname={}, uid=0, recordingConfig={}, transcodingConfig={}",
+        log.info("[Agora] startRecording 요청 body - cname={}, uid=12345, recordingConfig={}, transcodingConfig={}",
                 channelName, recordingConfig, transcodingConfig);
 
         Map<String, Object> response = post(url, body);
@@ -228,7 +229,7 @@ public class AgoraRecordingService {
 
         Map<String, Object> body = Map.of(
                 "cname", channelName,
-                "uid", "0",
+                "uid", "12345",
                 "clientRequest", Map.of()
         );
 
@@ -320,7 +321,7 @@ public class AgoraRecordingService {
                 .onStatus(
                         status -> status.isError(),
                         (req, res) -> {
-                            byte[] bytes = res.getBody().readAllBytes();
+                            byte[] bytes = res.getBody() != null ? res.getBody().readAllBytes() : new byte[0];
                             String errorBody = bytes.length > 0 ? new String(bytes, StandardCharsets.UTF_8) : "(empty body)";
                             log.error("[Agora] API 오류 — url={} status={} body={}", req.getURI(), res.getStatusCode(), errorBody);
                             throw BusinessException.internalError(
