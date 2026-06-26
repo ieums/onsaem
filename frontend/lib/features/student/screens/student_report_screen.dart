@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ieum/core/network/api_error.dart';
+import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
@@ -89,6 +91,14 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
 
   Future<void> _submit() async {
     if (_selectedTypeIndex == null || _submitting) return;
+
+    final me = ref.read(currentUserProvider);
+    if (me == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인이 필요해요.')),
+      );
+      return;
+    }
     setState(() => _submitting = true);
 
     final targetType = _targetIsLesson
@@ -103,6 +113,8 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
 
     try {
       await MypageRepository().createReport(
+        reporterId: me.id,
+        reporterType: me.isTutor ? 'TUTOR' : 'STUDENT',
         targetType: targetType,
         targetId: targetId,
         lessonId: widget.args.lessonId,
@@ -118,11 +130,12 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
           const SnackBar(content: Text('신고가 접수되었습니다.')),
         );
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
+      // 서버가 주는 실제 사유(당사자 아님/대상 불일치/중복 등)를 그대로 노출 — 원인 파악용.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('신고 접수에 실패했어요. 잠시 후 다시 시도해 주세요.')),
+        SnackBar(content: Text(apiErrorMessage(e, fallback: '신고 접수에 실패했어요. 잠시 후 다시 시도해 주세요.'))),
       );
     }
   }

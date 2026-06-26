@@ -496,11 +496,13 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      // subjectLabels = {KOREAN:국어, MATH:수학, ENGLISH:영어, SOCIAL:사회, SCIENCE:과학}
-      // (미분류/UNKNOWN은 맵에 없어 자동 제외)
+      // subjectLabels = {KOREAN:국어, MATH:수학, ENGLISH:영어, SOCIAL:사회, SCIENCE:과학, UNKNOWN:미분류}
+      // '미분류'(UNKNOWN)는 과외 가능 과목으로 고를 수 없어야 하므로 제외한다.
       // 표시는 라벨('국어'), 저장은 enum 키('KOREAN') — 학생 질문/Problem.subject와 동일한 형태로
       // 맞춰야 매칭(Subject enum 비교)이 동작한다.
-      children: subjectLabels.entries.map((entry) {
+      children: subjectLabels.entries
+          .where((entry) => entry.key != 'UNKNOWN')
+          .map((entry) {
         final code = entry.key; // 'KOREAN'
         final label = entry.value; // '국어'
         final selected = _subjectKeywords.contains(code);

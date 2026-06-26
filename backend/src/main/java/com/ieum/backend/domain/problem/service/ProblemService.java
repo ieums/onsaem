@@ -240,5 +240,8 @@ public class ProblemService {
                 });
 
         problem.cancel();
+
+        // 모든 강사의 '새 질문 리스트'에서 즉시 사라지도록 브로드캐스트(미신청 강사 포함).
+        notificationService.notifyProblemRemoved(id);
     }
 }

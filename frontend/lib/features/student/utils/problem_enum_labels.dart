@@ -37,7 +37,15 @@ const Map<String, String> statusLabels = {
   'CANCELED': '취소됨',
 };
 
-String subjectLabel(String? name) => subjectLabels[name] ?? '미분류';
+/// 과목 표시 라벨. enum name('MATH')이면 한글로 변환하고,
+/// 이미 한글 표시명('수학')으로 들어와도 그대로 반환한다(이중 적용 안전).
+String subjectLabel(String? name) {
+  if (name == null || name.isEmpty) return '미분류';
+  final byName = subjectLabels[name];
+  if (byName != null) return byName;
+  if (subjectLabels.containsValue(name)) return name; // 이미 라벨
+  return '미분류';
+}
 String difficultyLabel(String? name) => difficultyLabels[name] ?? '-';
 String examTypeLabel(String? name) => examTypeLabels[name] ?? '미분류';
 String statusLabel(String? name) => statusLabels[name] ?? (name ?? '-');

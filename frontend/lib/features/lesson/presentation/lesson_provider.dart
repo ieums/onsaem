@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/simulator_detector.dart';
 import '../data/lesson_repository.dart';
 import '../domain/lesson_model.dart';
 
@@ -210,6 +211,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         uid: agoraUid.toString(),
         role: 'PUBLISHER',
       );
+      if (!mounted) return; // 비동기 도중 강의실 이탈로 dispose되면 중단
 
       state = state.copyWith(
         token: tokenResp.token,
@@ -220,17 +222,28 @@ class LessonNotifier extends StateNotifier<LessonState> {
       );
 
       if (!kIsWeb) {
-        final statuses = await [
-          Permission.camera,
-          Permission.microphone,
-        ].request();
-        if (statuses[Permission.camera] != PermissionStatus.granted ||
-            statuses[Permission.microphone] != PermissionStatus.granted) {
-          state = state.copyWith(
-            isLoading: false,
-            error: '카메라/마이크 권한이 필요합니다',
-          );
-          return;
+        // iOS 시뮬레이터엔 카메라/마이크 하드웨어가 없어 권한을 받을 수 없다.
+        // 수업은 오디오 전용이고 채널 입장(join)은 네트워크라 권한 없이도 되므로,
+        // 시뮬에선 권한 게이트를 통째로 건너뛰고 바로 입장한다(테스트 목적).
+        // 실기기는 기존대로 카메라+마이크 권한을 요구한다.
+        final isSim = await isIosSimulator();
+        if (!mounted) return;
+        if (!isSim) {
+          final statuses = await [
+            Permission.camera,
+            Permission.microphone,
+          ].request();
+          if (!mounted) return;
+          if (statuses[Permission.camera] != PermissionStatus.granted ||
+              statuses[Permission.microphone] != PermissionStatus.granted) {
+            state = state.copyWith(
+              isLoading: false,
+              error: '카메라/마이크 권한이 필요합니다',
+            );
+            return;
+          }
+        } else {
+          debugPrint('[Lesson] iOS 시뮬레이터 → 권한 게이트 스킵, 바로 입장');
         }
 
         _engine = createAgoraRtcEngine();
@@ -285,6 +298,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         await _startRecording();
       }
 
+      if (!mounted) return; // Agora 입장/녹화 시작 동안 이탈했으면 중단
       state = state.copyWith(isLoading: false);
 
       if (imageUrls.isNotEmpty) {
@@ -298,6 +312,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         state = state.copyWith(backgroundImages: images);
       }
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }

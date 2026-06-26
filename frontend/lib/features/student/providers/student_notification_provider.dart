@@ -6,6 +6,7 @@ import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/providers/app_lifecycle_provider.dart';
 import 'package:ieum/features/student/models/student_home_notification.dart';
 import 'package:ieum/features/student/models/student_notification_category.dart';
+import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/features/student/providers/student_shell_tab_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -241,7 +242,7 @@ class StudentNotificationController {
 
     const sessionMinutes = 30;
     final title = '$tutorName님과 과외가 연결됐어요';
-    final body = '$subject 수업이 시작됐습니다. 기본 수업 시간은 $sessionMinutes분이에요.';
+    final body = '${subjectLabel(subject)} 수업이 시작됐습니다. 기본 수업 시간은 $sessionMinutes분이에요.';
 
     _prependInbox(
       dedupeKey: dedupeKey,
@@ -258,7 +259,7 @@ class StudentNotificationController {
     if (!_isEnabled(StudentNotificationCategory.matching)) return;
 
     const title = '담당 과목 강사님이 배치됐어요!';
-    final body = '$subject 담당 강사를 확인하고 선택해 주세요.';
+    final body = '${subjectLabel(subject)} 담당 강사를 확인하고 선택해 주세요.';
 
     _prependInbox(
       dedupeKey: dedupeKey,
@@ -285,7 +286,7 @@ class StudentNotificationController {
     const extendMinutes = 30;
     final title = '수업 종료 5분 전이에요';
     final body =
-        '$tutorName 강사와의 $subject 수업을 $extendMinutes분 연장할 수 있어요.';
+        '$tutorName 강사와의 ${subjectLabel(subject)} 수업을 $extendMinutes분 연장할 수 있어요.';
 
     return _service.scheduleBanner(
       dedupeKey: dedupeKey,
@@ -305,7 +306,7 @@ class StudentNotificationController {
     const extendMinutes = 30;
     final title = '수업 종료 5분 전이에요';
     final body =
-        '$tutorName 강사와의 $subject 수업을 $extendMinutes분 연장할 수 있어요.';
+        '$tutorName 강사와의 ${subjectLabel(subject)} 수업을 $extendMinutes분 연장할 수 있어요.';
 
     _prependInbox(
       dedupeKey: dedupeKey,
