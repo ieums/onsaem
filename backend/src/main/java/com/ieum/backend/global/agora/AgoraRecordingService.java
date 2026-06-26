@@ -222,40 +222,54 @@ public class AgoraRecordingService {
         return new String[]{recordingUrl, uploadingStatus};
     }
 
-    /** query API로 녹화 파일 URL 조회 — stop 응답에 fileList가 없을 때 폴백으로 사용 */
+    /** query API로 녹화 파일 URL 조회 — stop 응답에 fileList가 없을 때 폴백으로 사용. 최대 10회 재시도(5초 간격). */
     @SuppressWarnings("unchecked")
     private String queryRecordingUrl(String resourceId, String sid) {
         String url = BASE_URL + "/" + agoraConfig.getAppId()
                 + "/cloud_recording/resourceid/" + resourceId
                 + "/sid/" + sid + "/mode/mix/query";
 
-        try {
-            Map<String, Object> response = get(url);
-            Map<String, Object> serverResponse = (Map<String, Object>) response.get("serverResponse");
-            if (serverResponse == null) {
-                log.warn("[Agora] query 응답에 serverResponse 없음");
-                return "";
-            }
-
-            Object fileListObj = serverResponse.get("fileList");
-            if (fileListObj instanceof List) {
-                List<Map<String, Object>> fileList = (List<Map<String, Object>>) fileListObj;
-                for (Map<String, Object> file : fileList) {
-                    String filename = (String) file.get("filename");
-                    if (filename != null && filename.endsWith(".m3u8")) {
-                        String resolvedUrl = "https://" + bucket + ".s3." + region
-                                + ".amazonaws.com/" + filename;
-                        log.info("[Agora] query API에서 .m3u8 파일 발견 - {}", resolvedUrl);
-                        return resolvedUrl;
+        for (int attempt = 1; attempt <= 10; attempt++) {
+            log.info("[Agora] query 재시도 {}/10", attempt);
+            try {
+                Map<String, Object> response = get(url);
+                Map<String, Object> serverResponse = (Map<String, Object>) response.get("serverResponse");
+                if (serverResponse == null) {
+                    log.warn("[Agora] query 응답에 serverResponse 없음 (시도 {}/10)", attempt);
+                } else {
+                    Object fileListObj = serverResponse.get("fileList");
+                    if (fileListObj instanceof List) {
+                        List<Map<String, Object>> fileList = (List<Map<String, Object>>) fileListObj;
+                        for (Map<String, Object> file : fileList) {
+                            String filename = (String) file.get("filename");
+                            if (filename != null && filename.endsWith(".m3u8")) {
+                                String resolvedUrl = "https://" + bucket + ".s3." + region
+                                        + ".amazonaws.com/" + filename;
+                                log.info("[Agora] query API에서 .m3u8 파일 발견 (시도 {}/10) - {}", attempt, resolvedUrl);
+                                return resolvedUrl;
+                            }
+                        }
+                        log.warn("[Agora] query fileList에 .m3u8 파일 없음 (시도 {}/10) - fileList={}", attempt, fileList);
+                    } else {
+                        log.warn("[Agora] query 응답에 fileList 없음 (시도 {}/10)", attempt);
                     }
                 }
-                log.warn("[Agora] query fileList에 .m3u8 파일 없음 - fileList={}", fileList);
-            } else {
-                log.warn("[Agora] query 응답에 fileList 없음");
+            } catch (Exception e) {
+                log.error("[Agora] query API 호출 실패 (시도 {}/10) - resourceId={}, sid={}, error={}", attempt, resourceId, sid, e.getMessage());
             }
-        } catch (Exception e) {
-            log.error("[Agora] query API 호출 실패 - resourceId={}, sid={}, error={}", resourceId, sid, e.getMessage());
+
+            if (attempt < 10) {
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    log.warn("[Agora] query 재시도 대기 중 인터럽트 발생");
+                    return "";
+                }
+            }
         }
+
+        log.error("[Agora] query API 10회 재시도 모두 실패 - resourceId={}, sid={}", resourceId, sid);
         return "";
     }
 

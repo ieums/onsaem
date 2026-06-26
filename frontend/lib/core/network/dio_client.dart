@@ -6,7 +6,7 @@ final dioClient = Dio(
   BaseOptions(
     baseUrl: ApiConstants.baseUrl,
     connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 60),
     headers: {'Content-Type': 'application/json'},
   ),
 )..interceptors.add(AuthInterceptor());
