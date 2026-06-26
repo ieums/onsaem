@@ -212,8 +212,51 @@ public class AgoraRecordingService {
             }
         }
 
+        // stop 응답에 파일 목록이 없으면 query API로 재조회
+        if (recordingUrl.isEmpty()) {
+            log.info("[Agora] stop 응답에 fileList 없음 — query API로 재조회");
+            recordingUrl = queryRecordingUrl(resourceId, sid);
+        }
+
         log.info("[Agora] stop 응답 - uploadingStatus={}, recordingUrl={}", uploadingStatus, recordingUrl);
         return new String[]{recordingUrl, uploadingStatus};
+    }
+
+    /** query API로 녹화 파일 URL 조회 — stop 응답에 fileList가 없을 때 폴백으로 사용 */
+    @SuppressWarnings("unchecked")
+    private String queryRecordingUrl(String resourceId, String sid) {
+        String url = BASE_URL + "/" + agoraConfig.getAppId()
+                + "/cloud_recording/resourceid/" + resourceId
+                + "/sid/" + sid + "/mode/mix/query";
+
+        try {
+            Map<String, Object> response = get(url);
+            Map<String, Object> serverResponse = (Map<String, Object>) response.get("serverResponse");
+            if (serverResponse == null) {
+                log.warn("[Agora] query 응답에 serverResponse 없음");
+                return "";
+            }
+
+            Object fileListObj = serverResponse.get("fileList");
+            if (fileListObj instanceof List) {
+                List<Map<String, Object>> fileList = (List<Map<String, Object>>) fileListObj;
+                for (Map<String, Object> file : fileList) {
+                    String filename = (String) file.get("filename");
+                    if (filename != null && filename.endsWith(".m3u8")) {
+                        String resolvedUrl = "https://" + bucket + ".s3." + region
+                                + ".amazonaws.com/" + filename;
+                        log.info("[Agora] query API에서 .m3u8 파일 발견 - {}", resolvedUrl);
+                        return resolvedUrl;
+                    }
+                }
+                log.warn("[Agora] query fileList에 .m3u8 파일 없음 - fileList={}", fileList);
+            } else {
+                log.warn("[Agora] query 응답에 fileList 없음");
+            }
+        } catch (Exception e) {
+            log.error("[Agora] query API 호출 실패 - resourceId={}, sid={}, error={}", resourceId, sid, e.getMessage());
+        }
+        return "";
     }
 
     // ──────────────────────── HTTP 공통 ────────────────────────
@@ -224,6 +267,23 @@ public class AgoraRecordingService {
                 .header("Authorization", "Basic " + basicAuth())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
+                .retrieve()
+                .onStatus(
+                        status -> status.isError(),
+                        (req, res) -> {
+                            String errorBody = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
+                            log.error("[Agora] API 오류 — url={} status={} body={}", req.getURI(), res.getStatusCode(), errorBody);
+                            throw BusinessException.internalError(
+                                    "Agora Recording API 오류: " + res.getStatusCode());
+                        }
+                )
+                .body(new ParameterizedTypeReference<>() {});
+    }
+
+    private Map<String, Object> get(String url) {
+        return restClient.get()
+                .uri(url)
+                .header("Authorization", "Basic " + basicAuth())
                 .retrieve()
                 .onStatus(
                         status -> status.isError(),
