@@ -109,6 +109,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
 
   void _startLessonInit() {
     final session = ref.read(currentUserProvider);
+    debugPrint('[LessonScreen] isTutor=${session?.isTutor}, sessionId=${session?.id}');
     ref.read(lessonProvider.notifier).initialize(
           widget.channelName,
           session?.id ?? 0,

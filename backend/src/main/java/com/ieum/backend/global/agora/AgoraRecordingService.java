@@ -91,6 +91,7 @@ public class AgoraRecordingService {
      * (트랜잭션은 호출자가 관리)
      */
     public RecordingStopResponseDto stopRecording(Lesson lesson) {
+        log.info("[Agora] stopRecording 호출됨 - lessonId={}, resourceId={}, sid={}", lesson.getId(), lesson.getResourceId(), lesson.getRecordingSid());
         String resourceId = lesson.getResourceId();
         String sid = lesson.getRecordingSid();
 
@@ -179,6 +180,7 @@ public class AgoraRecordingService {
     /** 녹화 중지 — [recordingUrl, uploadingStatus] 반환 */
     @SuppressWarnings("unchecked")
     private String[] stopRecordingInternal(String channelName, String resourceId, String sid) {
+        log.info("[Agora] stopRecordingInternal 호출됨 - channelName={}, resourceId={}, sid={}", channelName, resourceId, sid);
         String url = BASE_URL + "/" + agoraConfig.getAppId()
                 + "/cloud_recording/resourceid/" + resourceId
                 + "/sid/" + sid + "/mode/mix/stop";
@@ -210,6 +212,7 @@ public class AgoraRecordingService {
             }
         }
 
+        log.info("[Agora] stop 응답 - uploadingStatus={}, recordingUrl={}", uploadingStatus, recordingUrl);
         return new String[]{recordingUrl, uploadingStatus};
     }
 

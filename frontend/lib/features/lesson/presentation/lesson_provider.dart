@@ -344,6 +344,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
       _repo.connectStomp(channelName, _onRemoteDrawEvent);
 
       if (!kIsWeb && isTutor) {
+        debugPrint('[녹화] _startRecording() 호출 직전, isTutor=$isTutor, kIsWeb=$kIsWeb');
         await _startRecording();
         _startWhiteboardCapture();
       }
@@ -924,6 +925,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
   // ─── 녹화 관리 ─────────────────────────────────────────────────────────────
 
   Future<void> _startRecording() async {
+    debugPrint('[녹화] _startRecording() 호출됨, lessonId=${state.lessonId}');
     final lessonId = state.lessonId;
     if (lessonId == null) return;
     await _repo.startRecording(lessonId);
@@ -980,6 +982,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
   Future<void> completeLesson() async {
     final lessonId = state.lessonId;
     if (lessonId == null) return;
+    debugPrint('[수업완료] completeLesson() 호출됨, lessonId=$lessonId, isRecording=${state.isRecording}');
 
     try {
       _captureTimer?.cancel();
@@ -987,14 +990,16 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
       if (state.isRecording) {
         try {
+          debugPrint('[수업완료] stopRecording 호출 시도');
           final resp = await _repo.stopRecording(lessonId);
           recordingUrl = resp.recordingUrl ?? recordingUrl;
         } catch (e) {
-          debugPrint('녹화 중지 실패 (수업 완료는 계속 진행): $e');
+          debugPrint('[수업완료] stopRecording 실패: $e');
         }
         state = state.copyWith(isRecording: false, recordingUrl: recordingUrl);
       }
 
+      debugPrint('[수업완료] completeLesson API 호출, recordingUrl=$recordingUrl');
       await _repo.completeLesson(lessonId, recordingUrl: recordingUrl);
 
       final channelName = state.channelName;
