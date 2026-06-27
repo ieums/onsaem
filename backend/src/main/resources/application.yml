@@ -56,7 +56,8 @@ agora:
   customer-id: ${AGORA_CUSTOMER_ID:none}
   customer-secret: ${AGORA_CUSTOMER_SECRET:none}
   # Web Page Recording 녹화봇이 열 recorder.html 주소 (최종 url = {base}?channel={channelName})
-  recorder-url-base: ${AGORA_RECORDER_URL_BASE:http://3.35.10.251:8080/recorder.html}
+  # HTTPS 필수 — Agora Web SDK가 secure context를 요구 (RTC 오디오 구독용)
+  recorder-url-base: ${AGORA_RECORDER_URL_BASE:https://3-35-10-251.sslip.io/recorder.html}
 
 portone:
   api-secret: ${PORTONE_API_SECRET:}

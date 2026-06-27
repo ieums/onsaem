@@ -40,6 +40,7 @@
   <!-- 외부 의존성은 CDN (녹화봇 Chrome이 인터넷 접근 가능 전제) -->
   <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.2.js"></script>
 </head>
 <body>
   <div id="stage">
@@ -414,11 +415,74 @@
     client.activate();
   }
 
-  // window.onload 후 렌더 루프 + STOMP 연결
+  // ────────────────────────────────────────────────────────────────────────
+  // RTC 오디오 구독 (Agora Web SDK) — 강사+학생 음성을 받아 재생하면
+  // 녹화봇이 페이지 오디오를 함께 녹화한다. (화면 녹화와 독립 — 실패해도 화면은 진행)
+  // ────────────────────────────────────────────────────────────────────────
+  const RECORDER_RTC_UID = 1234567; // 강사(userId)/학생(userId+10000)과 안 겹치는 고정 uid
+
+  function setRtcState(s) {
+    // 녹화봇/운영자 디버깅용 마커 (화면엔 status 줄에만 덧붙임)
+    document.body.setAttribute('data-rtc-state', s);
+    setStatus('READY · ' + channel + ' · rtc:' + s);
+  }
+
+  async function joinRtcAudio() {
+    if (!channel) return;
+    if (typeof AgoraRTC === 'undefined') {
+      console.error('[RTC] AgoraRTC SDK 로드 실패');
+      setRtcState('sdk-missing');
+      return;
+    }
+    try {
+      // 1) 토큰 발급 (SecurityConfig permitAll — 인증 불필요)
+      const res = await fetch(window.location.origin + '/api/v1/lesson/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channelName: channel,
+          uid: String(RECORDER_RTC_UID),
+          role: 'SUBSCRIBER',
+        }),
+      });
+      if (!res.ok) throw new Error('token http ' + res.status);
+      const json = await res.json();
+      const data = json.data || json;        // ApiResponse 봉투: { data: {...} }
+      const token = data.token;
+      const appId = data.appId;
+      if (!appId || !token) throw new Error('token/appId 누락');
+
+      // 2) 채널 입장 (구독자) + 원격 오디오 자동 구독·재생
+      const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+      client.on('user-published', async (user, mediaType) => {
+        if (mediaType !== 'audio') return;   // 화면은 STOMP로 그리므로 오디오만
+        try {
+          await client.subscribe(user, 'audio');
+          user.audioTrack.play();            // 강사+학생 모두 재생 → 녹화 포함
+          console.log('[RTC] audio subscribed uid=' + user.uid);
+        } catch (e) {
+          console.error('[RTC] subscribe 실패 uid=' + user.uid, e);
+        }
+      });
+      client.on('user-unpublished', (user, mediaType) => {
+        if (mediaType === 'audio') console.log('[RTC] audio unpublished uid=' + user.uid);
+      });
+
+      await client.join(appId, channel, token, RECORDER_RTC_UID);
+      console.log('[RTC] joined channel=' + channel + ' uid=' + RECORDER_RTC_UID);
+      setRtcState('joined');
+    } catch (e) {
+      console.error('[RTC] join 실패', e);
+      setRtcState('error:' + (e && e.message ? e.message : 'unknown'));
+    }
+  }
+
+  // window.onload 후 렌더 루프 + STOMP 연결 + RTC 오디오 구독
   window.addEventListener('load', () => {
     requestAnimationFrame(render);
     connectStomp();
+    joinRtcAudio(); // 화면 녹화와 독립 실행 (음성 실패해도 화면은 녹화됨)
   });
-  </script>
+</script>
 </body>
 </html>
