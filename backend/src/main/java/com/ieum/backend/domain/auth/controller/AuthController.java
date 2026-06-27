@@ -1,15 +1,6 @@
 package com.ieum.backend.domain.auth.controller;
 
-import com.ieum.backend.domain.auth.dto.LoginRequest;
-import com.ieum.backend.domain.auth.dto.MeResponse;
-import com.ieum.backend.domain.auth.dto.OAuthLoginRequest;
-import com.ieum.backend.domain.auth.dto.PasswordForgotRequest;
-import com.ieum.backend.domain.auth.dto.PasswordResetRequest;
-import com.ieum.backend.domain.auth.dto.StudentSignupRequest;
-import com.ieum.backend.domain.auth.dto.TokenRefreshRequest;
-import com.ieum.backend.domain.auth.dto.TokenResponse;
-import com.ieum.backend.domain.auth.dto.TutorSignupRequest;
-import com.ieum.backend.domain.auth.dto.UpdateProfileRequest;
+import com.ieum.backend.domain.auth.dto.*;
 import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
 import com.ieum.backend.domain.auth.service.AuthService;
 import com.ieum.backend.domain.auth.service.PasswordResetService;
@@ -51,12 +42,20 @@ public class AuthController {
         return ApiResponse.ok("로그인되었습니다.", authService.loginTutor(request));
     }
 
-    @PostMapping("/oauth/{provider}")
-    public ApiResponse<TokenResponse> oauthLogin(
+    /** 소셜 로그인 1단계 — 기존 회원이면 토큰, 신규면 가입 필요 응답 */
+    @PostMapping("/oauth/{provider}/check")
+    public ApiResponse<OAuthCheckResponse> oauthCheck(
             @PathVariable String provider,
-            @Valid @RequestBody OAuthLoginRequest request) {
-        return ApiResponse.ok("로그인되었습니다.",
-                authService.oauthLogin(provider, request.role(), request.token()));
+            @Valid @RequestBody OAuthCheckRequest request) {
+        return ApiResponse.ok(authService.oauthCheck(provider, request.token()));
+    }
+
+    /** 소셜 로그인 2단계 — 신규 사용자 추가정보 가입 + 토큰 발급 */
+    @PostMapping("/oauth/{provider}/signup")
+    public ApiResponse<TokenResponse> oauthSignup(
+            @PathVariable String provider,
+            @Valid @RequestBody OAuthSignupRequest request) {
+        return ApiResponse.ok("회원가입이 완료되었습니다.", authService.oauthSignup(provider, request));
     }
 
     /** 비밀번호 재설정 코드 발송 — POST /api/v1/auth/password/forgot (LOCAL 계정만, 결과는 항상 200) */
