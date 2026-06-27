@@ -294,7 +294,7 @@ class _ImagePagerState extends State<_ImagePager> {
   Widget build(BuildContext context) {
     final urls = widget.urls;
     if (urls.length == 1) {
-      return SizedBox(height: _height, child: _buildImage(context, urls.first));
+      return SizedBox(height: _height, child: _buildImage(context, urls.first, 0));
     }
     return Column(
       children: [
@@ -306,7 +306,7 @@ class _ImagePagerState extends State<_ImagePager> {
                 controller: _controller,
                 itemCount: urls.length,
                 onPageChanged: (i) => setState(() => _page = i),
-                itemBuilder: (_, i) => _buildImage(context, urls[i]),
+                itemBuilder: (_, i) => _buildImage(context, urls[i], i),
               ),
               Positioned(
                 top: 8,
@@ -350,11 +350,16 @@ class _ImagePagerState extends State<_ImagePager> {
     );
   }
 
-  Widget _buildImage(BuildContext context, String url) {
+  Widget _buildImage(BuildContext context, String url, int index) {
     final resolved = ApiConstants.resolveImageUrl(url);
     return GestureDetector(
-      onTap: () =>
-          showStudentProblemImageViewerUrl(context, imageUrl: resolved),
+      onTap: () => showStudentProblemImageGalleryUrls(
+        context,
+        imageUrls: [
+          for (final u in widget.urls) ApiConstants.resolveImageUrl(u),
+        ],
+        initialIndex: index,
+      ),
       child: Stack(
         children: [
           Positioned.fill(

@@ -43,6 +43,8 @@ class AppNotificationService {
         enableVibration: true,
         visibility: NotificationVisibility.public,
         category: AndroidNotificationCategory.message,
+        // 배너 우측에 앱 로고 썸네일 표시(밋밋함 완화). #6 런처 아이콘 적용 시 로고로 바뀜.
+        largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
       ),
       iOS: DarwinNotificationDetails(
         presentAlert: !soundOnlyOnIos,

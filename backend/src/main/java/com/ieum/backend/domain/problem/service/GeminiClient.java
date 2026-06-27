@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,6 +43,13 @@ public class GeminiClient {
         // 1단계: OCR
         log.info("1단계 OCR 시작 — 이미지 {}장", images.size());
         OcrResult ocrResult = ocrClient.extract(images);
+
+        // (2) 한 문제 여러 장(SINGLE_MULTIPAGE): 순서대로 텍스트를 합쳐 "1개 문제"로 1회 분류.
+        if (ocrResult.getMode() == OcrResult.OcrMode.SINGLE_MULTIPAGE
+                && ocrResult.getPages() != null && !ocrResult.getPages().isEmpty()) {
+            return analyzeSingleMultipage(ocrResult, images.size());
+        }
+
         log.info("OCR 완료 — 감지된 문제 {}개", ocrResult.getDetectedTexts().size());
 
         // 2단계: 각 문제마다 분류
@@ -105,6 +114,91 @@ public class GeminiClient {
         AiAnalysisResult result = new AiAnalysisResult();
         result.setDetectedProblems(problems);
         return result;
+    }
+
+    /**
+     * (2) SINGLE_MULTIPAGE — 한 문제가 여러 장에 걸친 경우.
+     * suggestedOrder대로 장별 텍스트를 합쳐 하나의 본문으로 만들고 1회만 분류한다.
+     * 정렬된 imageOrder/pageTexts를 결과에 실어, ProblemService가 이미지·텍스트를 같은 순서로 저장하게 한다.
+     */
+    private AiAnalysisResult analyzeSingleMultipage(OcrResult ocr, int imageCount) {
+        // imageIndex → pageText 매핑
+        Map<Integer, String> textByIndex = new HashMap<>();
+        for (OcrResult.PageText p : ocr.getPages()) {
+            textByIndex.put(p.getImageIndex(), p.getPageText() == null ? "" : p.getPageText());
+        }
+
+        // 정렬 순서: suggestedOrder 우선, 유효하지 않으면 업로드 순서로 폴백
+        List<Integer> order = sanitizeOrder(ocr.getSuggestedOrder(), imageCount);
+        log.info("OCR 완료 — 한 문제 {}장(SINGLE_MULTIPAGE), 적용 순서 {}", imageCount, order);
+
+        // 순서대로 텍스트 재조합 + 정렬된 pageText 보관
+        List<String> orderedPageTexts = new ArrayList<>();
+        StringBuilder sb = new StringBuilder();
+        for (int idx : order) {
+            String t = textByIndex.getOrDefault(idx, "");
+            orderedPageTexts.add(t);
+            if (!t.isBlank()) {
+                if (sb.length() > 0) sb.append("\n\n");
+                sb.append(t.strip());
+            }
+        }
+        String combined = sb.toString();
+
+        String examCode = extractExamCode(combined);
+
+        boolean classificationFailed = false;
+        ClassificationResult c;
+        try {
+            c = classifier.classify(combined, examCode);
+        } catch (RuntimeException e) {
+            log.warn("분류 실패 — 기본값으로 등록 진행(SINGLE_MULTIPAGE): {}", e.getMessage());
+            c = fallbackClassification(combined);
+            classificationFailed = true;
+        }
+
+        ExamType finalExamType = c.getExamType();
+        if (examCode != null) {
+            ExamType estimated = estimateFromCode(examCode);
+            if (estimated != null && finalExamType != estimated) {
+                finalExamType = estimated;
+            }
+        }
+
+        DetectedProblem p = new DetectedProblem();
+        p.setExtractedText(combined);
+        p.setSummary(c.getSummary());
+        p.setSubject(c.getSubject());
+        p.setPrimaryType(c.getPrimaryType());
+        p.setSecondaryType(c.getSecondaryType());
+        p.setDifficulty(c.getDifficulty());
+        p.setTotalDifficultyScore(c.getTotalDifficultyScore());
+        p.setExamType(finalExamType);
+        p.setClassificationFailed(classificationFailed);
+
+        AiAnalysisResult result = new AiAnalysisResult();
+        result.setDetectedProblems(new ArrayList<>(List.of(p)));
+        result.setMode(OcrResult.OcrMode.SINGLE_MULTIPAGE);
+        result.setImageOrder(order);
+        result.setPageTexts(orderedPageTexts);
+        return result;
+    }
+
+    /**
+     * suggestedOrder 보정 — 0..imageCount-1이 정확히 한 번씩 들어가야 유효.
+     * 모델이 일부를 빠뜨리거나 범위를 벗어나면 업로드 순서로 안전 폴백한다.
+     */
+    private List<Integer> sanitizeOrder(List<Integer> suggested, int imageCount) {
+        List<Integer> fallback = new ArrayList<>();
+        for (int i = 0; i < imageCount; i++) fallback.add(i);
+
+        if (suggested == null || suggested.size() != imageCount) return fallback;
+        boolean[] seen = new boolean[imageCount];
+        for (Integer idx : suggested) {
+            if (idx == null || idx < 0 || idx >= imageCount || seen[idx]) return fallback;
+            seen[idx] = true;
+        }
+        return new ArrayList<>(suggested);
     }
 
     /**

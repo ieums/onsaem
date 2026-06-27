@@ -5,6 +5,7 @@ import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/data/models/ai_tutor_message.dart';
 import 'package:ieum/features/student/providers/ai_tutor_provider.dart';
+import 'package:ieum/features/student/providers/payment_provider.dart';
 import 'package:ieum/features/student/utils/coin_shortage.dart';
 
 class StudentAiTutorScreen extends ConsumerStatefulWidget {
@@ -47,12 +48,16 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
     _msgController.clear();
     await ref.read(aiTutorChatProvider.notifier).sendMessage(text);
     if (!mounted) return;
+    // 질문당 3코인(비구독자)이 즉시 차감됐으니 잔액 표시를 갱신.
+    ref.invalidate(coinBalanceProvider);
     // 비구독자 잔액 부족(질문당 3코인) → 충전 안내 후 재시도.
     final err = ref.read(aiTutorChatProvider).error;
     if (isCoinShortageMessage(err)) {
       final charged = await promptRechargeAndReturn(context);
       if (charged && mounted) {
         await ref.read(aiTutorChatProvider.notifier).sendMessage(text);
+        if (!mounted) return;
+        ref.invalidate(coinBalanceProvider);
       }
     }
   }

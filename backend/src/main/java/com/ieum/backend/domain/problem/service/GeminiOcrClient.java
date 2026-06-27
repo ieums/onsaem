@@ -63,11 +63,31 @@ public class GeminiOcrClient {
             첨부된 이미지에서 문제 텍스트만 추출하세요.
             분류, 난이도, 출처 판단은 절대 하지 마세요. 오직 텍스트 추출과 묶음 인식만 합니다.
             JSON만 출력하세요. 마크다운 코드블록(```) 절대 사용 금지.
-            
+
+            ─────────────────────────────────────────────
+            [먼저 mode를 판단하세요 — 매우 중요]
+            ─────────────────────────────────────────────
+            업로드된 이미지(들)가 어느 경우인지 먼저 정합니다.
+
+            • "SINGLE_MULTIPAGE" = 여러 장이 사실 "한 문제"인 경우
+              - 긴 지문(국어/영어 등)이 여러 장에 걸쳐 잘려 있고, 하나의 발문/선택지 세트를 공유
+              - 문제 번호가 하나뿐이거나, 번호 없이 지문이 이어짐
+              - 학생이 페이지를 순서대로 안 올렸을 수 있음 → suggestedOrder로 올바른 순서를 알려줌
+
+            • "MULTI_PROBLEM" = 그 외 전부 (기본값)
+              - 서로 다른 문제가 여러 개(번호 01, 02, 03…)
+              - 또는 한 장에 한 문제만 있는 단순한 경우
+
+            애매하면 "MULTI_PROBLEM"으로 둡니다. (단일 문제 단일 장도 MULTI_PROBLEM)
+
             ─────────────────────────────────────────────
             [응답 구조]
             ─────────────────────────────────────────────
+            mode에 따라 채우는 필드가 다릅니다.
+
+            (A) mode = "MULTI_PROBLEM" 일 때:
             {
+              "mode": "MULTI_PROBLEM",
               "detectedTexts": [
                 {
                   "extractedText": "지문 + 문제 발문 + 선택지 전체",
@@ -76,16 +96,30 @@ public class GeminiOcrClient {
                 }
               ]
             }
-            
+
+            (B) mode = "SINGLE_MULTIPAGE" 일 때:
+            {
+              "mode": "SINGLE_MULTIPAGE",
+              "pages": [
+                { "imageIndex": 0, "pageText": "0번째 이미지에서 추출한 텍스트" },
+                { "imageIndex": 1, "pageText": "1번째 이미지에서 추출한 텍스트" }
+              ],
+              "suggestedOrder": [1, 0]   // 올바른 읽기 순서(이미지 인덱스). 페이지가 한 장이면 [0]
+            }
+            - imageIndex는 위 [페이지 N / 총 M] 라벨의 N-1 (업로드 순서, 0부터).
+            - pageText는 그 장에 보이는 그대로. 의역/보충 금지.
+            - suggestedOrder는 지문 흐름(쪽 번호, 문장 연결, 문단 이어짐)으로 판단한 올바른 순서.
+              근거가 약하면 업로드 순서 그대로(0,1,2…) 두세요. 모든 imageIndex가 정확히 한 번씩 들어가야 함.
+
             ─────────────────────────────────────────────
-            [핵심 원칙]
+            [핵심 원칙] (mode = MULTI_PROBLEM)
             ─────────────────────────────────────────────
-            
+
             1. 1개 문제 = 1개 detectedText 객체
                - 묶음 번호 [01~03]이 있고 01, 02, 03번이 같은 지문을 공유하면
                  → 각 문제마다 별도 객체로 분리 (지문은 객체마다 반복 OK)
                - 한 문제의 내용이 페이지에 걸쳐 분할되면 → 합쳐서 1개 객체
-            
+
             2. 보이는 만큼만, 보이는 그대로
                - 이미지에 01, 02만 보이면 → 배열 길이 = 2
                - "03도 있겠지" 추측 금지
@@ -155,7 +189,9 @@ public class GeminiOcrClient {
             ─────────────────────────────────────────────
             [최종 체크]
             ─────────────────────────────────────────────
-            ☐ 보이는 문제 개수와 detectedTexts 배열 길이가 일치
+            ☐ mode를 SINGLE_MULTIPAGE / MULTI_PROBLEM 중 하나로 명시
+            ☐ MULTI_PROBLEM: 보이는 문제 개수와 detectedTexts 배열 길이가 일치
+            ☐ SINGLE_MULTIPAGE: pages가 업로드 장수와 일치, suggestedOrder에 모든 인덱스 1회씩
             ☐ [25xxx-xxxx] 코드가 이미지에 있으면 examCode에 옮김
             ☐ 영문/한글 동그라미를 옆 글자로 구분
             ☐ 발문·본문을 의역하지 않고 원문 그대로
@@ -294,8 +330,36 @@ public class GeminiOcrClient {
             JsonNode json = objectMapper.readTree(text);
 
             OcrResult result = new OcrResult();
-            List<DetectedText> list = new ArrayList<>();
 
+            // mode 판단 (없으면 기존 호환 위해 MULTI_PROBLEM)
+            String modeStr = json.path("mode").asText("MULTI_PROBLEM");
+            boolean singleMultipage = "SINGLE_MULTIPAGE".equalsIgnoreCase(modeStr)
+                    && json.path("pages").isArray() && json.path("pages").size() > 0;
+
+            if (singleMultipage) {
+                result.setMode(OcrResult.OcrMode.SINGLE_MULTIPAGE);
+                List<OcrResult.PageText> pages = new ArrayList<>();
+                for (JsonNode item : json.path("pages")) {
+                    OcrResult.PageText pt = new OcrResult.PageText();
+                    pt.setImageIndex(item.path("imageIndex").asInt(pages.size()));
+                    pt.setPageText(item.path("pageText").asText(""));
+                    pages.add(pt);
+                }
+                result.setPages(pages);
+
+                List<Integer> order = new ArrayList<>();
+                JsonNode orderNode = json.path("suggestedOrder");
+                if (orderNode.isArray()) {
+                    for (JsonNode n : orderNode) {
+                        if (n.isInt()) order.add(n.asInt());
+                    }
+                }
+                result.setSuggestedOrder(order);
+                return result;
+            }
+
+            result.setMode(OcrResult.OcrMode.MULTI_PROBLEM);
+            List<DetectedText> list = new ArrayList<>();
             JsonNode array = json.path("detectedTexts");
             if (array.isArray()) {
                 for (JsonNode item : array) {
@@ -304,7 +368,6 @@ public class GeminiOcrClient {
             } else {
                 list.add(mapToDetectedText(json));
             }
-
             result.setDetectedTexts(list);
             return result;
 

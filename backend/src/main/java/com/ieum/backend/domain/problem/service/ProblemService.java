@@ -6,6 +6,7 @@ import com.ieum.backend.domain.matching.entity.ApplicationStatus;
 import com.ieum.backend.domain.matching.repository.MatchingApplicationRepository;
 import com.ieum.backend.domain.matching.service.MatchingNotificationService;
 import com.ieum.backend.domain.problem.dto.internal.AiAnalysisResult;
+import com.ieum.backend.domain.problem.dto.internal.OcrResult;
 import com.ieum.backend.domain.problem.dto.request.ClassificationUpdateRequest;
 import com.ieum.backend.domain.problem.dto.request.ProblemCreateRequest;
 import com.ieum.backend.domain.problem.dto.request.ProblemSelectRequest;
@@ -44,6 +45,9 @@ public class ProblemService {
     /** 학생 1명이 동시에 등록(탐색 중)할 수 있는 질문 수 상한. */
     private static final int MAX_ACTIVE_PROBLEMS = 3;
 
+    /** 문제로 인정할 최소 텍스트 길이(글 없는/빈 이미지 차단용). */
+    private static final int MIN_PROBLEM_TEXT_LEN = 10;
+
     /**
      * 문제 등록 (이미지 1~N장)
      *
@@ -72,11 +76,20 @@ public class ProblemService {
                 throw BusinessException.badRequest("이미지에서 문제를 감지하지 못했습니다.");
             }
 
+            // (2) 한 문제 여러 장(SINGLE_MULTIPAGE) → suggestedOrder대로 이미지 재배치 후 단건 등록.
+            //     pageTexts를 함께 보관해 이후 드래그 재정렬 시 재OCR 없이 텍스트만 재조합한다.
+            if (aiResult.getMode() == OcrResult.OcrMode.SINGLE_MULTIPAGE) {
+                List<String> orderedUrls = reorderByIndex(imageUrls, aiResult.getImageOrder());
+                Problem problem = saveProblem(detected.get(0), orderedUrls, aiResult.getPageTexts(),
+                        request.getStudentId(), request.getSubject(), request.getStudentDescription());
+                return ProblemCreateResponse.from(problem, detected.get(0).isClassificationFailed());
+            }
+
             Integer selectedIndex = request.getSelectedProblemIndex();
 
             // (a) 1개만 감지 → 자동 등록
             if (detected.size() == 1) {
-                Problem problem = saveProblem(detected.get(0), imageUrls,
+                Problem problem = saveProblem(detected.get(0), imageUrls, List.of(),
                         request.getStudentId(), request.getSubject(), request.getStudentDescription());
                 return ProblemCreateResponse.from(problem, detected.get(0).isClassificationFailed());
             }
@@ -86,7 +99,7 @@ public class ProblemService {
                 if (selectedIndex < 0 || selectedIndex >= detected.size()) {
                     throw BusinessException.badRequest("올바르지 않은 문제 인덱스입니다: " + selectedIndex);
                 }
-                Problem problem = saveProblem(detected.get(selectedIndex), imageUrls,
+                Problem problem = saveProblem(detected.get(selectedIndex), imageUrls, List.of(),
                         request.getStudentId(), request.getSubject(), request.getStudentDescription());
                 return ProblemCreateResponse.from(problem, detected.get(selectedIndex).isClassificationFailed());
             }
@@ -118,24 +131,63 @@ public class ProblemService {
             throw BusinessException.badRequest("올바르지 않은 문제 인덱스입니다: " + idx);
         }
 
-        Problem problem = saveProblem(entry.detected().get(idx), entry.imageUrls(),
+        // 다중 감지(선택) 경로는 항상 MULTI_PROBLEM이므로 pageTexts 없음.
+        Problem problem = saveProblem(entry.detected().get(idx), entry.imageUrls(), List.of(),
                 request.getStudentId(), request.getSubject(), request.getStudentDescription());
         detectionCache.remove(request.getDetectionId());
         return ProblemCreateResponse.from(problem, entry.detected().get(idx).isClassificationFailed());
     }
 
     /**
+     * imageOrder(이미지 인덱스 순열)대로 imageUrls를 재배치. 순열이 비었거나 크기가 안 맞으면 원본 그대로.
+     */
+    private List<String> reorderByIndex(List<String> imageUrls, List<Integer> order) {
+        if (order == null || order.size() != imageUrls.size()) {
+            return imageUrls;
+        }
+        List<String> reordered = new java.util.ArrayList<>(order.size());
+        for (int idx : order) {
+            if (idx < 0 || idx >= imageUrls.size()) return imageUrls; // 방어
+            reordered.add(imageUrls.get(idx));
+        }
+        return reordered;
+    }
+
+    /**
      * Problem 저장 (공통 로직). 과목은 학생 선택값 우선(없으면 AI 판정).
+     * pageTexts는 SINGLE_MULTIPAGE에서만 채워지며(재정렬용 보관), 그 외엔 빈 리스트.
      */
     private Problem saveProblem(AiAnalysisResult.DetectedProblem dp, List<String> imageUrls,
+                                List<String> pageTexts,
                                 Long studentId, Subject chosenSubject, String studentDescription) {
         // 실제 등록 직전 재확인(선택 경로 포함, 동시 등록 경합 방어).
         assertUnderActiveLimit(studentId);
 
-        Subject subject = chosenSubject != null ? chosenSubject : dp.getSubject();
+        // (3) 글 없는/너무 짧은 이미지 차단 — OCR이 의미 있는 문제 글을 못 뽑았으면 등록 거부.
+        String text = dp.getExtractedText() == null ? "" : dp.getExtractedText().strip();
+        if (text.length() < MIN_PROBLEM_TEXT_LEN) {
+            throw BusinessException.badRequest(
+                    "이미지에서 문제 글을 충분히 찾지 못했어요. 문제가 잘 보이게 다시 올려주세요.");
+        }
+
+        // (4) 언어 휴리스틱 보정 — 본문이 영문 압도적이면 ENGLISH (국어 오인식 방지).
+        Subject aiSubject = languageAdjustedSubject(text, dp.getSubject());
+
+        // (5) 과목 결정 — 학생 선택을 존중하되 AI/휴리스틱과 불일치하면 수정화면으로 유도(완전 의존 X).
+        Subject subject;
+        if (chosenSubject != null) {
+            subject = chosenSubject;
+            if (aiSubject != null && aiSubject != Subject.UNKNOWN && aiSubject != chosenSubject) {
+                dp.setClassificationFailed(true); // needsClassification=true → 분류 수정화면
+            }
+        } else {
+            subject = aiSubject != null ? aiSubject : Subject.UNKNOWN;
+        }
+
         Problem problem = Problem.builder()
                 .studentId(studentId)
                 .imageUrls(imageUrls)
+                .pageTexts(pageTexts != null ? new java.util.ArrayList<>(pageTexts) : new java.util.ArrayList<>())
                 .extractedText(dp.getExtractedText())
                 .summary(dp.getSummary())
                 .subject(subject)
@@ -148,6 +200,23 @@ public class ProblemService {
                 .build();
 
         return problemRepository.save(problem);
+    }
+
+    /**
+     * (4) 언어 휴리스틱 — 본문이 영문 압도적이면 ENGLISH로 보정.
+     * 국어 지문에 영단어 몇 개 섞인 정도로는 안 바뀌게 라틴 비율을 높게(≈80%) 잡는다.
+     */
+    private Subject languageAdjustedSubject(String text, Subject aiSubject) {
+        int hangul = 0, latin = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c >= '가' && c <= '힣') hangul++;
+            else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) latin++;
+        }
+        if ((hangul + latin) >= 20 && latin >= hangul * 4) {
+            return Subject.ENGLISH;
+        }
+        return aiSubject;
     }
 
     /** 탐색 중(매칭 대기) 질문이 상한 이상이면 등록을 막는다. */
@@ -186,6 +255,38 @@ public class ProblemService {
         );
 
         return ProblemDetailResponse.from(problem);
+    }
+
+    /**
+     * (2) 여러 장 한 문제의 페이지 순서 재정렬 (드래그 결과 반영).
+     * order는 현재 인덱스의 순열(예: [2,0,1]). 보관된 pageTexts를 새 순서로 재조합 → extractedText 갱신(재OCR 없음).
+     */
+    @Transactional
+    public ProblemDetailResponse reorderPages(Long id, List<Integer> order) {
+        Problem problem = problemRepository.findById(id)
+                .orElseThrow(() -> BusinessException.notFound("문제를 찾을 수 없습니다. id=" + id));
+
+        if (!problem.isMultiPage()) {
+            throw BusinessException.badRequest("페이지 순서 변경은 여러 장으로 등록된 한 문제만 가능해요.");
+        }
+        validatePermutation(order, problem.getImageUrls().size());
+
+        problem.reorderPages(order);
+        return ProblemDetailResponse.from(problem);
+    }
+
+    /** order가 0..n-1을 정확히 한 번씩 담은 순열인지 검증. */
+    private void validatePermutation(List<Integer> order, int n) {
+        if (order == null || order.size() != n) {
+            throw BusinessException.badRequest("순서 정보가 올바르지 않아요.");
+        }
+        boolean[] seen = new boolean[n];
+        for (Integer idx : order) {
+            if (idx == null || idx < 0 || idx >= n || seen[idx]) {
+                throw BusinessException.badRequest("순서 정보가 올바르지 않아요.");
+            }
+            seen[idx] = true;
+        }
     }
 
     /**
@@ -243,5 +344,9 @@ public class ProblemService {
 
         // 모든 강사의 '새 질문 리스트'에서 즉시 사라지도록 브로드캐스트(미신청 강사 포함).
         notificationService.notifyProblemRemoved(id);
+
+        // (1)A 즉시 삭제 — 취소된 문제 이미지는 더 이상 안 쓰이므로 정리(best-effort).
+        // 취소 문제는 학생 목록(PENDING만)에도 안 보이므로 안전.
+        imageStorageService.deleteAll(problem.getImageUrls());
     }
 }

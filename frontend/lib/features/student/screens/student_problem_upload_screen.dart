@@ -496,32 +496,8 @@ class _StudentProblemUploadScreenState
         _openAiTutor(result.id!, result.summary);
         return;
       }
-      setState(() => _submitting = true);
-      // EditScreen에서 수정한 subject 반영을 위해 최신 목록 재조회
-      ref.invalidate(studentProblemsProvider);
-      List<StudentProblemModel> problems;
-      try {
-        problems = await ref.read(studentProblemsProvider.future);
-      } catch (_) {
-        problems = const [];
-      }
-      if (!mounted) return;
-      final updated = problems.firstWhere(
-        (p) => p.problemId == result.id,
-        orElse: () => StudentProblemModel.fromCreateResult(result),
-      );
-      final questionSummary = StudentQuestionTextUtil.summarize(
-        _descriptionController.text,
-      );
-      await ref.read(studentMatchingSessionProvider.notifier).startMatching(
-        problemId: result.id!,
-        studentId: studentId,
-        subject: updated.subject ?? _selectedSubject ?? 'UNKNOWN',
-        questionSummary: questionSummary,
-        problemImageBytes: _problemImages.firstOrNull,
-      );
-      if (!mounted) return;
-      context.go(RoutePaths.studentHome);
+      // 편집 후 로딩 오버레이를 다시 띄우지 않고 바로 홈으로. 매칭은 백그라운드로 시작.
+      _startMatchingThenHome(result, studentId);
       return;
     }
 
@@ -546,42 +522,51 @@ class _StudentProblemUploadScreenState
       _openAiTutor(result.id!, result.summary);
       return;
     }
-    setState(() => _submitting = true);
-    ref.invalidate(studentProblemsProvider);
-    List<StudentProblemModel> problems;
-    try {
-      problems = await ref.read(studentProblemsProvider.future);
-    } catch (_) {
-      problems = const [];
-    }
-    if (!mounted) return;
-    final updated = problems.firstWhere(
-      (p) => p.problemId == result.id,
-      orElse: () => StudentProblemModel.fromCreateResult(result),
-    );
-    final questionSummary = StudentQuestionTextUtil.summarize(
-      _descriptionController.text,
-    );
-    // 매칭 시작은 부가 단계 — 과목 미선택·실패·지연이어도 문제는 이미 등록됐으니
-    // 무한 로딩에 갇히지 않게 try/catch + 타임아웃. 과목은 AI 분류값을 우선 폴백.
-    try {
-      await ref
-          .read(studentMatchingSessionProvider.notifier)
-          .startMatching(
-            problemId: result.id!,
-            studentId: studentId,
-            subject: updated.subject ?? _selectedSubject ?? 'UNKNOWN',
-            questionSummary: questionSummary,
-            problemImageBytes: _problemImages.firstOrNull,
-          )
-          .timeout(const Duration(seconds: 12));
-    } catch (e) {
-      debugPrint('[upload] 매칭 시작 건너뜀(등록은 완료됨): $e');
-    }
+    // 편집 후 로딩 오버레이를 다시 띄우지 않고 바로 홈으로. 매칭은 백그라운드로 시작.
+    _startMatchingThenHome(result, studentId);
+  }
 
-    if (!mounted) return;
-    setState(() => _submitting = false);
-    context.go(RoutePaths.studentHome);
+  /// 편집 화면에서 돌아온 뒤: 로딩 오버레이를 다시 띄우지 않고 즉시 홈으로 이동하고,
+  /// 매칭 시작은 백그라운드로 돌린다(전역 matchingSessionProvider라 화면이 떠나도 유지됨,
+  /// shell이 ref.listen으로 매칭 다이얼로그를 띄움).
+  /// ref/컨트롤러 값은 네비게이션 전에 모두 캡처해 dispose 이후 접근을 피한다.
+  void _startMatchingThenHome(ProblemCreateResult result, int studentId) {
+    final notifier = ref.read(studentMatchingSessionProvider.notifier);
+    ref.invalidate(studentProblemsProvider);
+    final problemsFuture = ref.read(studentProblemsProvider.future);
+    final questionSummary =
+        StudentQuestionTextUtil.summarize(_descriptionController.text);
+    final fallbackSubject = _selectedSubject ?? 'UNKNOWN';
+    final imageBytes = _problemImages.firstOrNull;
+    final problemId = result.id!;
+
+    unawaited(() async {
+      // EditScreen에서 수정한 subject를 반영하려 목록 재조회(실패/지연이어도 폴백으로 진행).
+      String subject = fallbackSubject;
+      try {
+        final problems = await problemsFuture;
+        final updated = problems.firstWhere(
+          (p) => p.problemId == problemId,
+          orElse: () => StudentProblemModel.fromCreateResult(result),
+        );
+        subject = updated.subject ?? fallbackSubject;
+      } catch (_) {}
+      try {
+        await notifier
+            .startMatching(
+              problemId: problemId,
+              studentId: studentId,
+              subject: subject,
+              questionSummary: questionSummary,
+              problemImageBytes: imageBytes,
+            )
+            .timeout(const Duration(seconds: 12));
+      } catch (e) {
+        debugPrint('[upload] 매칭 시작 건너뜀(등록은 완료됨): $e');
+      }
+    }());
+
+    if (mounted) context.go(RoutePaths.studentHome);
   }
 
   /// AI 튜터 모드: 등록한 문제로 바로 AI 튜터 채팅 화면을 연다(업로드 화면 대체).

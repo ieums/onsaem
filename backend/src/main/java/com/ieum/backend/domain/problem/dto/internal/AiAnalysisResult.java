@@ -17,6 +17,21 @@ public class AiAnalysisResult {
 
     private List<DetectedProblem> detectedProblems = new ArrayList<>();
 
+    /** OCR이 판단한 업로드 형태(기본 MULTI_PROBLEM). SINGLE_MULTIPAGE면 아래 두 필드가 의미를 가진다. */
+    private OcrResult.OcrMode mode = OcrResult.OcrMode.MULTI_PROBLEM;
+
+    /**
+     * SINGLE_MULTIPAGE일 때, 올바른 읽기 순서(이미지 인덱스 순열).
+     * ProblemService가 이 순서대로 imageUrls를 재배치해 저장한다.
+     */
+    private List<Integer> imageOrder = new ArrayList<>();
+
+    /**
+     * SINGLE_MULTIPAGE일 때, imageOrder대로 정렬된 장별 텍스트.
+     * 재정렬(드래그) 시 재OCR 없이 이 텍스트들을 새 순서로 재조합한다.
+     */
+    private List<String> pageTexts = new ArrayList<>();
+
     /**
      * 이미지에서 감지된 개별 문제 1건
      */

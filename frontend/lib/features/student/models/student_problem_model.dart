@@ -5,6 +5,7 @@ class ProblemCreateResult {
   const ProblemCreateResult({
     required this.needsSelection,
     this.needsClassification = false,
+    this.multiPage = false,
     this.detectionId,
     this.id,
     this.studentId,
@@ -22,6 +23,7 @@ class ProblemCreateResult {
 
   final bool needsSelection;
   final bool needsClassification; // 분류 API 실패 → 분류 수정 화면으로 유도
+  final bool multiPage; // 여러 장 한 문제 → 수정 화면에서 페이지 순서 재정렬 노출
   final String? detectionId; // 선택 시 /problems/select에 전달 (재OCR 방지)
   final int? id;
   final int? studentId;
@@ -45,6 +47,7 @@ class ProblemCreateResult {
     return ProblemCreateResult(
       needsSelection: json['needsSelection'] as bool? ?? false,
       needsClassification: json['needsClassification'] as bool? ?? false,
+      multiPage: json['multiPage'] as bool? ?? false,
       detectionId: json['detectionId'] as String?,
       id: json['id'] as int?,
       studentId: json['studentId'] as int?,
@@ -117,6 +120,7 @@ class StudentProblemModel {
     required this.createdAt,
     this.imageUrls = const [],
     this.applicantCount = 0,
+    this.multiPage = false,
   });
 
   final int problemId;
@@ -132,6 +136,7 @@ class StudentProblemModel {
   final DateTime createdAt;
   final List<String> imageUrls;
   final int applicantCount;
+  final bool multiPage; // 여러 장 한 문제 → 페이지 순서 재정렬 가능
 
   factory StudentProblemModel.fromJson(Map<String, dynamic> json) {
     return StudentProblemModel(
@@ -150,6 +155,7 @@ class StudentProblemModel {
       createdAt: DateTime.parse(json['createdAt'] as String),
       imageUrls: List<String>.from(json['imageUrls'] as List? ?? const []),
       applicantCount: json['applicantCount'] as int? ?? 0,
+      multiPage: json['multiPage'] as bool? ?? false,
     );
   }
 
@@ -169,6 +175,7 @@ class StudentProblemModel {
       searching: false,
       createdAt: r.createdAt ?? DateTime.now(),
       imageUrls: r.imageUrls,
+      multiPage: r.multiPage,
     );
   }
 }

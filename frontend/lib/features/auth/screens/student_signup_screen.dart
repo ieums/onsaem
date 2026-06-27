@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/core/widgets/profile_image.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/auth/data/auth_controller.dart';
@@ -687,14 +688,10 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                 height: _profileSize,
                 fit: BoxFit.cover,
               )
-            : Center(
-                child: Icon(
-                  Icons.person,
-                  size: 48,
-                  color: _isShellThemed
-                      ? _textHint(context)
-                      : Colors.white,
-                ),
+            : DefaultProfileImage(
+                role: ProfileRole.student,
+                size: _profileSize,
+                iconColor: _isShellThemed ? _textHint(context) : Colors.white,
               ),
       ),
     );

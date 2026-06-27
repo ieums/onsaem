@@ -98,6 +98,20 @@ class ProblemRepository {
     });
   }
 
+  /// (2) 여러 장 한 문제의 페이지 순서 재정렬. order는 현재 인덱스의 순열(예: [2,0,1]).
+  /// 응답의 갱신된 imageUrls(새 순서)를 반환.
+  Future<List<String>> reorderPages({
+    required int problemId,
+    required List<int> order,
+  }) async {
+    final res = await _dio.patch(
+      '/problems/$problemId/page-order',
+      data: {'order': order},
+    );
+    final data = res.data['data'] as Map<String, dynamic>;
+    return List<String>.from(data['imageUrls'] as List? ?? const []);
+  }
+
   /// 내 문제 목록.
   Future<List<StudentProblemModel>> getStudentProblems(int studentId) async {
     final res = await _dio.get(

@@ -18,6 +18,7 @@ import '../../student/utils/coin_shortage.dart';
 import '../../student/utils/problem_enum_labels.dart';
 import '../../tutor/screens/tutor_lesson_complete_screen.dart';
 import '../../../core/theme/shell_theme_extension.dart';
+import '../domain/lesson_model.dart' show ExtendLessonResult;
 import 'lesson_provider.dart';
 import 'whiteboard_painter.dart';
 
@@ -48,6 +49,14 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   // ─── 타이머 ──────────────────────────────────────────────────────────────────
   Timer? _timer;
   int _elapsedSeconds = 0;
+
+  // ─── 연장(과금) ─────────────────────────────────────────────────────────────
+  // 백엔드 LessonPolicy와 동일: 기본 30분, 최대 60분, 10분당 20코인.
+  static const int _maxBilledMinutes = 60;
+  static const int _extendCoinPer10Min = 20;
+  int _billedMinutes = 30; // 현재 결제(허용)된 강의 시간(분). 연장 성공 시 증가.
+  bool _extendSheetOpen = false; // 연장 시트 중복 오픈 방지
+  bool _promptedAtBoundary = false; // 이번 경계(현재 _billedMinutes)에서 이미 안내했는지
 
   // ─── 강사 브로드캐스트 (Agora Web Page Recording 정합용) ──────────────────────
   // 강사일 때만, 화이트보드 영역 크기(VIEWPORT)와 전체 이미지 목록(IMAGE_SYNC)을
@@ -100,8 +109,134 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
       setState(() => _elapsedSeconds++);
+      _maybePromptExtend();
     });
+  }
+
+  /// 결제된 시간(기본 30분, 연장 시 증가)에 도달하면 학생에게 연장 안내를 자동으로 띄운다.
+  /// 경계마다 1회. 최대 시간(60분)에 도달하면 더 띄우지 않는다.
+  void _maybePromptExtend() {
+    final state = ref.read(lessonProvider);
+    if (state.isTutor) return; // 학생만 과금/연장
+    if (_extendSheetOpen || _promptedAtBoundary) return;
+    if (_billedMinutes >= _maxBilledMinutes) return;
+    if (_elapsedSeconds < _billedMinutes * 60) return;
+    _promptedAtBoundary = true;
+    _openExtendSheet();
+  }
+
+  int _extendCost(int minutes) => minutes ~/ 10 * _extendCoinPer10Min;
+
+  /// 연장 선택 시트(10/20/30분). 남은 최대시간 안에서만 노출.
+  Future<void> _openExtendSheet() async {
+    _extendSheetOpen = true;
+    final remaining = _maxBilledMinutes - _billedMinutes;
+    final options = const [10, 20, 30].where((m) => m <= remaining).toList();
+    final shell = ShellTheme.of(context);
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: shell.cardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('수업 시간이 끝나가요',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: shell.titleColor)),
+              const SizedBox(height: 6),
+              Text('더 진행하려면 시간을 연장해 주세요. (10분당 $_extendCoinPer10Min코인)',
+                  style: TextStyle(fontSize: 13, color: shell.hintColor)),
+              const SizedBox(height: 16),
+              for (final m in options)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: SizedBox(
+                    height: 52,
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, m),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primaryBlue,
+                        side: const BorderSide(color: AppColors.primaryBlue),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('$m분 연장',
+                              style: const TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.w700)),
+                          Text('${_extendCost(m)}코인',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: shell.titleColor)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx, null),
+                  child: Text('나중에',
+                      style: TextStyle(color: shell.hintColor)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    _extendSheetOpen = false;
+    if (picked != null && mounted) {
+      await _doExtend(picked);
+    }
+  }
+
+  /// 연장 실행. 성공 시 결제시간 갱신, 코인 부족이면 충전 화면으로 연결 후 재시도.
+  Future<void> _doExtend(int minutes) async {
+    ExtendLessonResult result;
+    try {
+      result = await ref.read(lessonProvider.notifier).extendLesson(minutes);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('연장에 실패했어요. 잠시 후 다시 시도해 주세요.')),
+      );
+      return;
+    }
+    if (!mounted) return;
+
+    if (result.extended) {
+      setState(() {
+        _billedMinutes += minutes;
+        _promptedAtBoundary = false; // 다음 경계에서 다시 안내
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('수업을 $minutes분 연장했어요.')),
+      );
+      return;
+    }
+
+    // 코인 부족 → 충전 화면 연결(기존 충전 플로우). 충전 후 같은 연장 재시도.
+    final charged = await promptRechargeAndReturn(context);
+    if (charged && mounted) {
+      await _doExtend(minutes);
+    }
   }
 
   String _formatTimer(int s) {

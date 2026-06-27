@@ -12,6 +12,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/utils/simulator_detector.dart';
+import '../../student/providers/payment_provider.dart';
 import '../data/lesson_repository.dart';
 import '../domain/lesson_model.dart';
 
@@ -184,11 +185,12 @@ const _sentinel = Object();
 
 class LessonNotifier extends StateNotifier<LessonState> {
   final LessonRepository _repo;
+  final Ref _ref; // 코인 hold/차감 후 잔액 표시 갱신용
   RtcEngine? _engine;
   String? _currentStrokeId;
   final Map<String, DrawingStroke> _deletedStrokes = {};
 
-  LessonNotifier(this._repo) : super(const LessonState());
+  LessonNotifier(this._repo, this._ref) : super(const LessonState());
 
   RtcEngine? get engine => _engine;
 
@@ -248,6 +250,8 @@ class LessonNotifier extends StateNotifier<LessonState> {
           return;
         }
         if (!mounted) return;
+        // 50코인 hold 됨 → 가용 잔액(availableBalance) 표시 즉시 갱신.
+        _ref.invalidate(coinBalanceProvider);
       }
 
       if (!kIsWeb) {
@@ -981,6 +985,29 @@ class LessonNotifier extends StateNotifier<LessonState> {
     state = state.copyWith(isRecording: true);
   }
 
+  // ─── 강의 연장 ─────────────────────────────────────────────────────────────
+
+  /// 강의 연장(학생). 10/20/30분 추가 hold.
+  /// - 성공: 코인 추가 hold → 잔액 표시 갱신, extended=true 반환
+  /// - 잔액 부족: hold 없이 extended=false + shortfallCoin 반환(UI가 충전 유도 후 재시도)
+  /// 허용 단위 외/네트워크 오류는 예외를 던진다(호출부가 메시지 노출).
+  Future<ExtendLessonResult> extendLesson(int minutes) async {
+    final lessonId = state.lessonId;
+    final studentId = state.studentId;
+    if (lessonId == null || studentId == null) {
+      throw StateError('강의 정보가 없어 연장할 수 없어요.');
+    }
+    final result = await _repo.extendLesson(
+      lessonId: lessonId,
+      studentId: studentId,
+      minutes: minutes,
+    );
+    if (result.extended) {
+      _ref.invalidate(coinBalanceProvider); // 추가 hold 반영
+    }
+    return result;
+  }
+
   // ─── 수업 완료 ─────────────────────────────────────────────────────────────
 
   Future<void> completeLesson() async {
@@ -1004,6 +1031,8 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
       debugPrint('[수업완료] completeLesson API 호출, recordingUrl=$recordingUrl');
       await _repo.completeLesson(lessonId, recordingUrl: recordingUrl);
+      // 완료 후 잔액 갱신(확정차감은 24h 뒤지만, hold 반영분/상태를 최신화).
+      _ref.invalidate(coinBalanceProvider);
 
       final channelName = state.channelName;
       if (channelName != null) {
@@ -1040,5 +1069,5 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
 final lessonProvider =
     StateNotifierProvider.autoDispose<LessonNotifier, LessonState>(
-  (ref) => LessonNotifier(LessonRepository()),
+  (ref) => LessonNotifier(LessonRepository(), ref),
 );

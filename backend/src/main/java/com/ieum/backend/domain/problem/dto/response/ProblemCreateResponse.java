@@ -44,6 +44,9 @@ public class ProblemCreateResponse {
     /** 분류 API 실패로 기본값 등록됨 → 프론트가 분류 수정 화면으로 유도. */
     private Boolean needsClassification;
 
+    /** (2) 여러 장 한 문제로 등록됨 → 수정 화면에서 페이지 순서 재정렬 노출. */
+    private Boolean multiPage;
+
     /**
      * 등록 완료된 Problem → 응답 변환
      */
@@ -55,6 +58,7 @@ public class ProblemCreateResponse {
         return ProblemCreateResponse.builder()
                 .needsSelection(false)
                 .needsClassification(needsClassification)
+                .multiPage(problem.isMultiPage())
                 .id(problem.getId())
                 .studentId(problem.getStudentId())
                 .imageUrls(problem.getImageUrls())

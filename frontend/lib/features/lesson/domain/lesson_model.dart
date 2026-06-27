@@ -82,6 +82,33 @@ class ImageUploadResponse {
       ImageUploadResponse(imageUrl: json['imageUrl'] as String);
 }
 
+/// 강의 연장 응답.
+/// - extended=true  : 연장 성공, endsAt 갱신됨
+/// - extended=false : 코인 부족 → shortfallCoin만큼 충전 후 재시도
+class ExtendLessonResult {
+  final bool extended;
+  final int requiredCoin; // 이번 연장에 필요한 코인
+  final int shortfallCoin; // 부족한 코인 (성공 시 0)
+  final DateTime? endsAt; // 연장 성공 시 새 종료예정시각
+
+  ExtendLessonResult({
+    required this.extended,
+    required this.requiredCoin,
+    required this.shortfallCoin,
+    this.endsAt,
+  });
+
+  factory ExtendLessonResult.fromJson(Map<String, dynamic> json) =>
+      ExtendLessonResult(
+        extended: json['extended'] as bool? ?? false,
+        requiredCoin: json['requiredCoin'] as int? ?? 0,
+        shortfallCoin: json['shortfallCoin'] as int? ?? 0,
+        endsAt: json['endsAt'] != null
+            ? DateTime.tryParse(json['endsAt'] as String)
+            : null,
+      );
+}
+
 // ─── 화이트보드 모델 ───────────────────────────────────────────────────────────
 
 enum DrawType {
