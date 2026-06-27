@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/network/dio_client.dart';
 import 'models/ai_tutor_session.dart';
 import 'models/ai_tutor_message.dart';
+import 'models/ai_tutor_problem.dart';
 
 class AiTutorRepository {
   final Dio _dio;
@@ -41,6 +42,10 @@ class AiTutorRepository {
       data: {'content': content},
     );
     return AiTutorMessage.fromJson(res.data as Map<String, dynamic>);
+  }
+    Future<AiTutorProblem> getProblem(int problemId) async {
+    final res = await _dio.get('/problems/$problemId');
+    return AiTutorProblem.fromJson(res.data['data'] as Map<String, dynamic>);
   }
     // 세션 종료 (CLOSED)
   Future<void> closeSession(int sessionId) async {

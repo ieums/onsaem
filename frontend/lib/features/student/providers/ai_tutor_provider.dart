@@ -3,9 +3,11 @@ import 'package:ieum/core/network/api_error.dart';
 import '../data/ai_tutor_repository.dart';
 import '../data/models/ai_tutor_message.dart';
 import '../data/models/ai_tutor_session.dart';
+import '../data/models/ai_tutor_problem.dart';
 
 class AiTutorChatState {
   final AiTutorSession? session;
+  final AiTutorProblem? problem;
   final List<AiTutorMessage> messages;
   final bool isInitializing;
   final bool isSending;
@@ -13,6 +15,7 @@ class AiTutorChatState {
 
   const AiTutorChatState({
     this.session,
+    this.problem,
     this.messages = const [],
     this.isInitializing = false,
     this.isSending = false,
@@ -21,6 +24,7 @@ class AiTutorChatState {
 
   AiTutorChatState copyWith({
     AiTutorSession? session,
+    AiTutorProblem? problem,
     List<AiTutorMessage>? messages,
     bool? isInitializing,
     bool? isSending,
@@ -28,6 +32,7 @@ class AiTutorChatState {
   }) {
     return AiTutorChatState(
       session: session ?? this.session,
+      problem: problem ?? this.problem,
       messages: messages ?? this.messages,
       isInitializing: isInitializing ?? this.isInitializing,
       isSending: isSending ?? this.isSending,
@@ -41,10 +46,16 @@ class AiTutorChatNotifier extends StateNotifier<AiTutorChatState> {
 
   AiTutorChatNotifier(this._repo) : super(const AiTutorChatState());
 
-  // 진입 시: 이 problemId로 기존 세션 있으면 재사용, 없으면 생성 → 메시지 로드
+  // 진입 시: 문제 정보 조회 + 이 problemId 세션 재사용/생성 → 메시지 로드
   Future<void> init(int problemId) async {
     state = state.copyWith(isInitializing: true, error: null);
     try {
+      // 상단 배너용 문제 정보 — 실패해도 채팅은 계속 진행(best-effort)
+      AiTutorProblem? problem;
+      try {
+        problem = await _repo.getProblem(problemId);
+      } catch (_) {}
+
       final sessions = await _repo.listSessions();
       final existing = sessions
           .where((s) => s.problemId == problemId && !s.status.isClosed)
@@ -58,6 +69,7 @@ class AiTutorChatNotifier extends StateNotifier<AiTutorChatState> {
 
       state = state.copyWith(
         session: session,
+        problem: problem,
         messages: messages,
         isInitializing: false,
       );
@@ -101,7 +113,8 @@ class AiTutorChatNotifier extends StateNotifier<AiTutorChatState> {
       );
     }
   }
-    // 세션 종료 → 성공하면 true
+
+  // 세션 종료 → 성공하면 true
   Future<bool> close() async {
     final sessionId = state.session?.sessionId;
     if (sessionId == null) return false;

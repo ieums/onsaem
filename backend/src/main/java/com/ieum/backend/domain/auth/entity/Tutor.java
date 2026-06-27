@@ -18,6 +18,7 @@ import jakarta.persistence.CollectionTable;
 import jakarta.persistence.JoinColumn;
 import java.util.ArrayList;
 import java.util.List;
+import com.ieum.backend.domain.auth.policy.TutorGradePolicy;
 
 /**
  * 강사 계정. 인증 공통 필드(Account) + 강사 도메인 필드.
@@ -111,7 +112,31 @@ public class Tutor extends Account {
         return settlementBank != null && !settlementBank.isBlank()
                 && settlementAccount != null && !settlementAccount.isBlank()
                 && settlementHolder != null && !settlementHolder.isBlank();
+
     }
+
+    /** 수업 완료 1건 반영 → 실적 누적 + 등급 재평가 */
+    public void recordLessonCompleted() {
+        this.lessonCount++;
+        refreshGrade();
+    }
+
+    /** 리뷰 평균·개수 갱신 → 등급 재평가 */
+    public void applyRating(BigDecimal ratingAvg, int reviewCount) {
+        this.ratingAvg = ratingAvg;
+        this.reviewCount = reviewCount;
+        refreshGrade();
+    }
+
+    /** 경력+실적 기준 등급 재산정 — 강등 없이 상향만. */
+    private void refreshGrade() {
+        TutorGrade target =
+                TutorGradePolicy.evaluate(experienceYears, lessonCount, ratingAvg);
+        if (target.ordinal() > grade.ordinal()) {
+            this.grade = target;
+        }
+    }
+
 
     @Builder
     private Tutor(String name, String email, String password,
@@ -126,7 +151,7 @@ public class Tutor extends Account {
         this.experienceYears = experienceYears;
         this.educationStatus = educationStatus;
         this.subjects = subjects != null ? subjects : new ArrayList<>();
-        this.grade = TutorGrade.ROOKIE;
+        this.grade = TutorGradePolicy.initialGrade(experienceYears);
         this.verificationStatus = VerificationStatus.PENDING;
         this.reviewCount = 0;
         this.lessonCount = 0;

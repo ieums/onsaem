@@ -85,15 +85,49 @@ class AuthRepository {
     );
     return AuthTokens.fromJson(res.data['data'] as Map<String, dynamic>);
   }
-    // ─── 소셜 로그인 ──────────────────────────────
-  Future<AuthTokens> oauthLogin({
+    // ─── 소셜 로그인 1단계 (check) ────────────────
+  Future<OAuthCheckResult> oauthCheck({
     required String provider, // "google" | "kakao" | "naver"
-    required UserRole role,
     required String token,
   }) async {
     final res = await _dio.post(
-      '/auth/oauth/$provider',
-      data: {'role': role.apiValue, 'token': token},
+      '/auth/oauth/$provider/check',
+      data: {'token': token},
+    );
+    return OAuthCheckResult.fromJson(res.data['data'] as Map<String, dynamic>);
+  }
+
+  // ─── 소셜 로그인 2단계 (signup) ───────────────
+  Future<AuthTokens> oauthSignup({
+    required String provider,
+    required UserRole role,
+    required String token,
+    required String birthDate, // "yyyy-MM-dd"
+    required String phone,
+    String? email, // 소셜이 이메일 미제공 시 폼 입력값
+    // 강사 전용 (role=tutor)
+    String? educationStatus,
+    List<String>? subjects,
+    int? experienceYears,
+    String? bio,
+    String? school,
+    String? major,
+  }) async {
+    final res = await _dio.post(
+      '/auth/oauth/$provider/signup',
+      data: {
+        'role': role.apiValue,
+        'token': token,
+        'birthDate': birthDate,
+        'phone': phone,
+        if (email != null) 'email': email,
+        if (educationStatus != null) 'educationStatus': educationStatus,
+        if (subjects != null) 'subjects': subjects,
+        if (experienceYears != null) 'experienceYears': experienceYears,
+        if (bio != null) 'bio': bio,
+        if (school != null) 'school': school,
+        if (major != null) 'major': major,
+      },
     );
     return AuthTokens.fromJson(res.data['data'] as Map<String, dynamic>);
   }

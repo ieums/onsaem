@@ -15,6 +15,7 @@ public record OAuthSignupRequest(
         @NotBlank String token,
         @NotNull @Past LocalDate birthDate,
         @NotBlank @Size(max = 20) String phone,
+        @Email @Size(max = 255) String email,   // 소셜이 이메일 미제공 시 폼에서 입력(선택)
         // ── 강사 전용 (role=tutor) ──
         @Size(max = 1000) String bio,
         @Size(max = 100) String school,

@@ -12,14 +12,17 @@ import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/auth/data/auth_controller.dart';
 import 'package:ieum/features/auth/utils/password_rules.dart';
 import 'package:ieum/core/network/api_error.dart';
+import 'package:ieum/features/auth/data/auth_models.dart';
 
 class StudentSignupScreen extends ConsumerStatefulWidget {
   const StudentSignupScreen({
     super.key,
     this.isEditMode = false,
+    this.social,
   });
 
   final bool isEditMode;
+  final SocialSignupArgs? social;
 
   @override
   ConsumerState<StudentSignupScreen> createState() => _StudentSignupScreenState();
@@ -35,7 +38,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   static const _profileSize = 96.0;
   static const _profileAddButtonSize = 24.0;
 
-  static const _domainOptions = ['직접입력', 'gmail.com', 'naver.com'];
+  static const _domainOptions = ['직접입력', '@gmail.com', '@naver.com'];
   static const _presetDomainsForWidth = ['gmail.com', 'naver.com'];
   static const _domainTextStyle = TextStyle(
     fontSize: 14,
@@ -63,6 +66,11 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   bool _isSubmitting = false; 
 
   bool get _isShellThemed => widget.isEditMode;
+  bool get _isSocial => widget.social != null;
+  bool get _needsSocialEmail =>
+      widget.social != null &&
+      (widget.social!.profile.email == null ||
+          widget.social!.profile.email!.trim().isEmpty);
 
   ThemeData? get _shellTheme {
     if (!_isShellThemed) return null;
@@ -282,7 +290,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   bool get _hasProfileImage =>
       _profileImageBytes != null && _profileImageBytes!.isNotEmpty;
 
-  Future<void> _pickProfileImage() async {
+    Future<void> _pickProfileImage() async {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.image,
@@ -301,7 +309,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     }
   }
 
-    Future<void> _submit() async {
+  Future<void> _submit() async {
     // ── 프로필 수정 모드: 기존 동작 그대로 ──
     if (widget.isEditMode) {
       if (context.canPop()) {
@@ -315,8 +323,13 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
       return;
     }
 
+    // ── 소셜 가입 모드 ──
+    if (widget.social != null) {
+      await _submitSocial();
+      return;
+    }
+
     // ── 신규 회원가입 ──
-        // ── 신규 회원가입 ──
     final name = _nameController.text.trim();
     final emailLocal = _emailLocalController.text.trim();
     final email = _selectedDomain == '직접입력'
@@ -375,6 +388,48 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     }
   }
 
+  Future<void> _submitSocial() async {
+    final social = widget.social!;
+    final year = _yearController.text.trim();
+    final month = _monthController.text.trim();
+    final day = _dayController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (phone.isEmpty) {
+      _showSnack('휴대폰 번호를 입력해주세요.');
+      return;
+    }
+    String? email;
+    if (_needsSocialEmail) {
+      email = _emailLocalController.text.trim();
+      if (email.isEmpty || !email.contains('@')) {
+        _showSnack('이메일을 입력해주세요.');
+        return;
+      }
+    }
+    final birthDate = '$year-${month.padLeft(2, '0')}-${day.padLeft(2, '0')}';
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(authControllerProvider).oauthSignup(
+            provider: social.provider,
+            role: UserRole.student,
+            token: social.token,
+            birthDate: birthDate,
+            phone: phone,
+            email: email,
+          );
+      if (!mounted) return;
+      context.go(RoutePaths.studentHome);
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack(apiErrorMessage(e, fallback: '회원가입에 실패했어요.'));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+  
+
   void _showSnack(String text) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(text)),
@@ -430,14 +485,16 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                 children: [
                   _buildProfilePhotoSection(context),
                   const SizedBox(height: 24),
-                  _buildLabel(context, '이름'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    context,
-                    controller: _nameController,
-                    hint: '이름을 입력하세요',
-                  ),
-                  const SizedBox(height: 20),
+                    if (!_isSocial) ...[
+                    _buildLabel(context, '이름'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      context,
+                      controller: _nameController,
+                      hint: '이름을 입력하세요',
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   _buildLabel(context, '생년월일'),
                   const SizedBox(height: 8),
                   Row(
@@ -486,30 +543,43 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _buildLabel(context, '이메일'),
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          context,
-                          controller: _emailLocalController,
-                          hint: _selectedDomain == '직접입력'
-                              ? '이메일 주소를 입력하세요'
-                              : '이메일',
-                          keyboardType: TextInputType.emailAddress,
+                  if (!_isSocial) ...[
+                    _buildLabel(context, '이메일'),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            context,
+                            controller: _emailLocalController,
+                            hint: _selectedDomain == '직접입력'
+                                ? '이메일 주소를 입력하세요'
+                                : '이메일',
+                            keyboardType: TextInputType.emailAddress,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: _domainBoxWidth,
-                        key: _domainTriggerKey,
-                        child: _buildDomainTrigger(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: _domainBoxWidth,
+                          key: _domainTriggerKey,
+                          child: _buildDomainTrigger(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                  if (_needsSocialEmail) ...[
+                    _buildLabel(context, '이메일'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      context,
+                      controller: _emailLocalController,
+                      hint: '이메일을 입력하세요',
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   _buildLabel(context, '휴대폰'),
                   const SizedBox(height: 8),
                   _buildTextField(
@@ -522,7 +592,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                       _PhoneNumberFormatter(),
                     ],
                   ),
-                  if (!widget.isEditMode) ...[
+                  if (!widget.isEditMode && !_isSocial) ...[
                     const SizedBox(height: 20),
                     _buildLabel(context, '비밀번호'),
                     const SizedBox(height: 8),
