@@ -87,6 +87,18 @@ public class Tutor extends Account {
         this.available = available;
     }
 
+    /** 강사 전용 프로필 수정 — null이 아닌 값만 갱신. */
+    public void updateTutorProfile(String bio, String school, String major,
+                                   List<String> subjects, EducationStatus educationStatus,
+                                   Integer experienceYears) {
+        if (bio != null) this.bio = bio;
+        if (school != null) this.school = school;
+        if (major != null) this.major = major;
+        if (subjects != null) { this.subjects.clear(); this.subjects.addAll(subjects); }
+        if (educationStatus != null) this.educationStatus = educationStatus;
+        if (experienceYears != null) this.experienceYears = experienceYears;
+    }
+
     /** 정산 계좌 등록·수정 */
     public void updateSettlementAccount(String bank, String account, String holder) {
         this.settlementBank = bank;

@@ -93,34 +93,40 @@ class _StudentProblemStatusScreenState
     });
   }
 
-  Future<void> _cancelMatching(BuildContext context) async {
+  Future<void> _deleteQuestion(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('매칭 취소',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: const Text(
-            '매칭을 취소하면 이 질문이 삭제되고,\n신청한 강사 목록에서도 사라져요.\n되돌릴 수 없어요.'),
+        title: const Text('질문 삭제'),
+        content: const Text('이 질문을 삭제할까요? 삭제하면 되돌릴 수 없어요.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('돌아가기'),
+            child: const Text('닫기'),
           ),
-          FilledButton(
+          TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.buttonDanger,
-            ),
-            child: const Text('취소하기',
-                style: TextStyle(color: Colors.white)),
+            child: const Text('삭제',
+                style: TextStyle(
+                    color: AppColors.buttonDanger,
+                    fontWeight: FontWeight.w700)),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
-    await ref
-        .read(studentMatchingSessionProvider.notifier)
-        .cancelMatching();
+    final session = ref.read(studentMatchingSessionProvider);
+    final hasActiveSession =
+        session != null && session.problemId == widget.problem.problemId;
+    if (hasActiveSession) {
+      await ref
+          .read(studentMatchingSessionProvider.notifier)
+          .cancelMatching();
+    } else {
+      try {
+        await MatchingRepository().cancelProblem(widget.problem.problemId);
+      } catch (_) {}
+    }
     if (!context.mounted) return;
     ref.invalidate(studentProblemsProvider);
     Navigator.of(context).pop();
@@ -246,7 +252,7 @@ class _StudentProblemStatusScreenState
                     width: double.infinity,
                     height: 48,
                     child: OutlinedButton(
-                      onPressed: () => _cancelMatching(context),
+                      onPressed: () => _deleteQuestion(context),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.buttonDanger,
                         side: BorderSide(
@@ -257,7 +263,7 @@ class _StudentProblemStatusScreenState
                         ),
                       ),
                       child: const Text(
-                        '매칭 취소',
+                        '질문 삭제',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,

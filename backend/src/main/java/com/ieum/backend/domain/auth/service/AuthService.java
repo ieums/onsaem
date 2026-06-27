@@ -7,6 +7,7 @@ import com.ieum.backend.domain.auth.dto.StudentSignupRequest;
 import com.ieum.backend.domain.auth.dto.TokenResponse;
 import com.ieum.backend.domain.auth.dto.TutorSignupRequest;
 import com.ieum.backend.domain.auth.entity.*;
+import com.ieum.backend.domain.auth.entity.EducationStatus;
 import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
 import com.ieum.backend.domain.auth.oauth.OAuthClientResolver;
 import com.ieum.backend.domain.auth.oauth.OAuthUserInfo;
@@ -111,7 +112,7 @@ public class AuthService {
             case TUTOR -> {
                 Tutor tutor = tutorRepository.findById(principal.id())
                         .orElseThrow(() -> BusinessException.notFound("회원을 찾을 수 없습니다."));
-                yield MeResponse.of(tutor, Role.TUTOR);
+                yield MeResponse.ofTutor(tutor);
             }
         };
     }
@@ -132,7 +133,15 @@ public class AuthService {
                         .orElseThrow(() -> BusinessException.notFound("회원을 찾을 수 없습니다."));
                 tutor.updateProfile(request.name(), request.phone(),
                         request.birthDate(), request.profileImageUrl());
-                yield MeResponse.of(tutor, Role.TUTOR);
+                if (request.bio() != null || request.school() != null || request.major() != null
+                        || request.subjects() != null || request.educationStatus() != null
+                        || request.experienceYears() != null) {
+                    EducationStatus es = request.educationStatus() != null
+                            ? EducationStatus.valueOf(request.educationStatus()) : null;
+                    tutor.updateTutorProfile(request.bio(), request.school(), request.major(),
+                            request.subjects(), es, request.experienceYears());
+                }
+                yield MeResponse.ofTutor(tutor);
             }
         };
     }
@@ -155,7 +164,7 @@ public class AuthService {
                 Tutor tutor = tutorRepository.findById(principal.id())
                         .orElseThrow(() -> BusinessException.notFound("회원을 찾을 수 없습니다."));
                 tutor.updateProfile(null, null, null, url);
-                yield MeResponse.of(tutor, Role.TUTOR);
+                yield MeResponse.ofTutor(tutor);
             }
         };
     }

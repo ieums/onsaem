@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/utils/simulator_detector.dart';
@@ -214,6 +218,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
       );
       if (!mounted) return; // 비동기 도중 강의실 이탈로 dispose되면 중단
 
+      if (!mounted) return;
       state = state.copyWith(
         token: tokenResp.token,
         appId: tokenResp.appId,
@@ -278,6 +283,14 @@ class LessonNotifier extends StateNotifier<LessonState> {
             onJoinChannelSuccess: (connection, elapsed) {
               debugPrint('[Agora] 채널 입장 성공: ${connection.channelId}');
               state = state.copyWith(isInChannel: true);
+              // 화이트보드 화면은 Agora Web Page Recording(recorder.html)이 녹화한다.
+              // 강사일 때만, recorder가 STOMP 연결되고 그림 준비될 시간을 준 뒤(~5초)
+              // 녹화를 시작한다. (Agora도 web 녹화 시작에 수 초 소요)
+              if (isTutor) {
+                Future.delayed(const Duration(seconds: 5), () {
+                  _startRecording();
+                });
+              }
             },
             // join 실패가 조용히 묻히지 않도록 에러를 로그로 노출(시간 안 가는 원인 진단용).
             onError: (err, msg) {
@@ -301,38 +314,67 @@ class LessonNotifier extends StateNotifier<LessonState> {
         await _engine!.enableAudio();
         await _engine!.muteLocalAudioStream(false);
         await _engine!.enableVideo();
-        await _engine!.enableLocalVideo(false);
+        await _engine!.enableLocalVideo(isTutor);
 
         await _engine!.joinChannel(
           token: tokenResp.token,
           channelId: channelName,
           uid: agoraUid,
-          options: const ChannelMediaOptions(
+          options: ChannelMediaOptions(
             clientRoleType: ClientRoleType.clientRoleBroadcaster,
             channelProfile: ChannelProfileType.channelProfileCommunication,
             publishMicrophoneTrack: true,
             publishCameraTrack: false,
           ),
         );
+        if (!mounted) return;
       }
 
       _repo.connectStomp(channelName, _onRemoteDrawEvent);
 
-      if (!kIsWeb && isTutor) {
-        await _startRecording();
-      }
+      // 화이트보드 비디오/녹화는 Agora Web Page Recording(recorder.html)이 담당.
 
-      if (!mounted) return; // Agora 입장/녹화 시작 동안 이탈했으면 중단
+      if (!mounted) return; // Agora 입장 동안 이탈했으면 중단
       state = state.copyWith(isLoading: false);
 
       if (imageUrls.isNotEmpty) {
-        final images = imageUrls
-            .map((url) => ImageItem(
-                  url: url,
-                  width: _kDefaultImageWidth,
-                  height: _kDefaultImageHeight,
-                ))
-            .toList();
+        final images = <ImageItem>[];
+        for (var i = 0; i < imageUrls.length; i++) {
+          final resolvedUrl = ApiConstants.resolveImageUrl(imageUrls[i]);
+          double imgWidth = 400.0;
+          double imgHeight = 400.0;
+          try {
+            final completer = Completer<ui.Image>();
+            final stream =
+                NetworkImage(resolvedUrl).resolve(const ImageConfiguration());
+            late ImageStreamListener listener;
+            listener = ImageStreamListener(
+              (info, _) {
+                completer.complete(info.image);
+                stream.removeListener(listener);
+              },
+              onError: (_, _) {
+                completer.completeError('load failed');
+                stream.removeListener(listener);
+              },
+            );
+            stream.addListener(listener);
+            final loaded = await completer.future;
+            final origW = loaded.width.toDouble();
+            final origH = loaded.height.toDouble();
+            if (origW > 0) {
+              imgWidth = 400.0;
+              imgHeight = 400.0 * origH / origW;
+            }
+          } catch (_) {}
+          images.add(ImageItem(
+            url: resolvedUrl,
+            x: i * 440.0 + 30.0,
+            y: 30.0,
+            width: imgWidth,
+            height: imgHeight,
+          ));
+        }
         state = state.copyWith(backgroundImages: images);
       }
     } catch (e) {
@@ -341,28 +383,28 @@ class LessonNotifier extends StateNotifier<LessonState> {
     }
   }
 
-  // ─── 카메라 토글 ────────────────────────────────────────────────────────────
+  // ─── 카메라 토글 (후일 디벨롭용) ─────────────────────────────────────────────
 
-  Future<void> toggleCamera() async {
-    if (_engine == null) return;
-    final next = !state.localCameraEnabled;
-    await _engine!.enableLocalVideo(next);
-    await _engine!.updateChannelMediaOptions(
-      ChannelMediaOptions(publishCameraTrack: next),
-    );
-    if (next) await _engine!.startPreview();
-    state = state.copyWith(localCameraEnabled: next);
-    final channelName = state.channelName;
-    if (channelName != null) {
-      _repo.sendDraw(
-        channelName,
-        DrawEvent(
-          senderId: _repo.sessionId,
-          type: next ? DrawType.cameraOn : DrawType.cameraOff,
-        ),
-      );
-    }
-  }
+  // Future<void> toggleCamera() async {
+  //   if (_engine == null) return;
+  //   final next = !state.localCameraEnabled;
+  //   await _engine!.enableLocalVideo(next);
+  //   await _engine!.updateChannelMediaOptions(
+  //     ChannelMediaOptions(publishCameraTrack: next),
+  //   );
+  //   if (next) await _engine!.startPreview();
+  //   state = state.copyWith(localCameraEnabled: next);
+  //   final channelName = state.channelName;
+  //   if (channelName != null) {
+  //     _repo.sendDraw(
+  //       channelName,
+  //       DrawEvent(
+  //         senderId: _repo.sessionId,
+  //         type: next ? DrawType.cameraOn : DrawType.cameraOff,
+  //       ),
+  //     );
+  //   }
+  // }
 
   // ─── 마이크 토글 ────────────────────────────────────────────────────────────
 
@@ -397,6 +439,48 @@ class LessonNotifier extends StateNotifier<LessonState> {
         scale: scale,
         offsetX: offset.dx,
         offsetY: offset.dy,
+      ),
+    );
+  }
+
+  // ─── 뷰포트 크기 전송 (Agora Web Page Recording 좌표 정합용) ─────────────────
+
+  /// 강사 화이트보드 영역의 실제 크기(논리픽셀)를 전송.
+  /// recorder.html이 이 값으로 1280×720 프레임에 fit 스케일을 적용한다.
+  void sendViewport(double w, double h) {
+    final channelName = state.channelName;
+    if (channelName == null) return;
+    _repo.sendDraw(
+      channelName,
+      DrawEvent(
+        senderId: _repo.sessionId,
+        type: DrawType.viewport,
+        width: w,
+        height: h,
+      ),
+    );
+  }
+
+  /// 현재 이미지 목록 전체를 스냅샷으로 전송 (recorder가 board.images를 replace).
+  /// 초기 이미지 누락 + index 어긋남을 한 번에 해결. 강사만 주기 호출한다.
+  void sendImageSync() {
+    final channelName = state.channelName;
+    if (channelName == null) return;
+    final items = state.backgroundImages
+        .map((img) => ImageSyncItem(
+              url: img.url,
+              x: img.x,
+              y: img.y,
+              width: img.width,
+              height: img.height,
+            ))
+        .toList();
+    _repo.sendDraw(
+      channelName,
+      DrawEvent(
+        senderId: _repo.sessionId,
+        type: DrawType.imageSync,
+        images: items,
       ),
     );
   }
@@ -636,6 +720,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
         if (event.cameraRatio != null) {
           state = state.copyWith(remoteCameraRatio: event.cameraRatio!.clamp(0.1, 0.5));
         }
+      case DrawType.viewport:
+      case DrawType.imageSync:
+        // 강사→recorder 전용. 학생 앱에서는 무시한다.
+        break;
       case DrawType.lessonEnd:
         _applyRemoteComplete();
     }
@@ -867,7 +955,9 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
   // ─── 녹화 관리 ─────────────────────────────────────────────────────────────
 
+  // Web Page Recording 모드 녹화 시작 — 강사 채널 입장 후 호출.
   Future<void> _startRecording() async {
+    debugPrint('[녹화] _startRecording() 호출됨, lessonId=${state.lessonId}');
     final lessonId = state.lessonId;
     if (lessonId == null) return;
     await _repo.startRecording(lessonId);
@@ -896,20 +986,23 @@ class LessonNotifier extends StateNotifier<LessonState> {
   Future<void> completeLesson() async {
     final lessonId = state.lessonId;
     if (lessonId == null) return;
+    debugPrint('[수업완료] completeLesson() 호출됨, lessonId=$lessonId, isRecording=${state.isRecording}');
 
     try {
       String? recordingUrl = state.recordingUrl;
 
       if (state.isRecording) {
         try {
+          debugPrint('[수업완료] stopRecording 호출 시도');
           final resp = await _repo.stopRecording(lessonId);
           recordingUrl = resp.recordingUrl ?? recordingUrl;
         } catch (e) {
-          debugPrint('녹화 중지 실패 (수업 완료는 계속 진행): $e');
+          debugPrint('[수업완료] stopRecording 실패: $e');
         }
         state = state.copyWith(isRecording: false, recordingUrl: recordingUrl);
       }
 
+      debugPrint('[수업완료] completeLesson API 호출, recordingUrl=$recordingUrl');
       await _repo.completeLesson(lessonId, recordingUrl: recordingUrl);
 
       final channelName = state.channelName;

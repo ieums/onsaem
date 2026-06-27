@@ -48,6 +48,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/**",
                                 "/api/v1/health",
                                 "/api/v1/problems/**",
+                                "/api/v1/tutors/**",
                                 "/api/v1/lesson/token",
                                 "/api/v1/lesson/*/images",
                                 "/api/v1/lesson/*/start",
@@ -60,7 +61,8 @@ public class SecurityConfig {
                                 "/ws-raw",
                                 "/api/v1/matching/**",
                                 "/uploads/**",
-                                "/error"
+                                "/error",
+                                "/recorder.html"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

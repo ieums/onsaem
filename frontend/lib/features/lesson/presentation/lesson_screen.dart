@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/route_paths.dart';
 import '../../../core/providers/current_user_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -24,12 +25,16 @@ class LessonScreen extends ConsumerStatefulWidget {
   final String channelName;
   final List<String> imageUrls;
   final String? subject;
+  final String? tutorProfileImageUrl;
+  final String? studentProfileImageUrl;
 
   const LessonScreen({
     super.key,
     required this.channelName,
     this.imageUrls = const [],
     this.subject,
+    this.tutorProfileImageUrl,
+    this.studentProfileImageUrl,
   });
 
   @override
@@ -38,10 +43,59 @@ class LessonScreen extends ConsumerStatefulWidget {
 
 class _LessonScreenState extends ConsumerState<LessonScreen> {
   final _imagePicker = ImagePicker();
+  final GlobalKey _whiteboardKey = GlobalKey();
 
   // ─── 타이머 ──────────────────────────────────────────────────────────────────
   Timer? _timer;
   int _elapsedSeconds = 0;
+
+  // ─── 강사 브로드캐스트 (Agora Web Page Recording 정합용) ──────────────────────
+  // 강사일 때만, 화이트보드 영역 크기(VIEWPORT)와 전체 이미지 목록(IMAGE_SYNC)을
+  // 주기 전송한다. recorder가 늦게 접속해도 받을 수 있도록 새 구독자 감지 대신
+  // 3초 주기 반복 전송을 사용. IMAGE_SYNC는 스냅샷이라 매번 replace → 중복/누락 없음.
+  Timer? _viewportTimer;
+
+  void _sendViewport() {
+    // 위젯이 dispose된 뒤 타이머가 한 번 더 도는 경우 방어
+    if (!mounted) return;
+    try {
+      final ctx = _whiteboardKey.currentContext;
+      if (ctx == null) return; // 아직 렌더 안 됨 → 이번 주기 skip
+      final obj = ctx.findRenderObject();
+      // findRenderObject()가 RenderBox가 아닐 수도 있으므로 is로 안전 체크
+      // (as RenderBox? 는 비-RenderBox일 때 throw → 크래시 원인)
+      if (obj is! RenderBox) return;
+      if (!obj.hasSize) return; // 레이아웃 전 → skip
+      final size = obj.size;
+      if (size.width <= 0 ||
+          size.height <= 0 ||
+          !size.width.isFinite ||
+          !size.height.isFinite) {
+        return; // 유효하지 않은 크기 → skip
+      }
+      ref.read(lessonProvider.notifier).sendViewport(size.width, size.height);
+    } catch (e) {
+      // 어떤 이유로든 실패하면 크래시 대신 이번 주기만 건너뛴다
+      debugPrint('[뷰포트 전송] skip: $e');
+    }
+  }
+
+  void _startViewportBroadcast() {
+    _viewportTimer?.cancel();
+    void send() {
+      if (!mounted) return;
+      _sendViewport();
+      // 이미지 스냅샷은 뷰포트 크기와 무관하게 항상 전송 (렌더 전이어도 OK)
+      try {
+        ref.read(lessonProvider.notifier).sendImageSync();
+      } catch (e) {
+        debugPrint('[이미지 동기화] skip: $e');
+      }
+    }
+
+    send(); // 처음 1회 즉시 시도
+    _viewportTimer = Timer.periodic(const Duration(seconds: 3), (_) => send());
+  }
 
   void _startTimer() {
     _timer?.cancel();
@@ -91,17 +145,22 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
       _startLessonInit();
       // 웹에서는 isInChannel이 설정되지 않으므로 즉시 타이머 시작
       if (kIsWeb) _startTimer();
+      // 강사면 화이트보드 크기를 주기 전송 (recorder 좌표 정합)
+      final session = ref.read(currentUserProvider);
+      if (session?.isTutor ?? false) _startViewportBroadcast();
     });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _viewportTimer?.cancel();
     super.dispose();
   }
 
   void _startLessonInit() {
     final session = ref.read(currentUserProvider);
+    debugPrint('[LessonScreen] isTutor=${session?.isTutor}, sessionId=${session?.id}');
     ref.read(lessonProvider.notifier).initialize(
           widget.channelName,
           session?.id ?? 0,
@@ -369,11 +428,13 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
 
     return ClipPath(
       clipper: const _WhiteboardClipper(),
-      child: Container(
-        color: AppColors.whiteboardBackground,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onScaleStart: (d) {
+      child: RepaintBoundary(
+        key: _whiteboardKey,
+        child: Container(
+          color: AppColors.whiteboardBackground,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onScaleStart: (d) {
             final s = ref.read(lessonProvider);
             if (s.selectedImageIndex != null) {
               if (_isDrawingGesture) notifier.cancelCurrentStroke();
@@ -498,7 +559,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                           child: Image.network(
                             img.url,
                             fit: BoxFit.fill,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                            errorBuilder: (ctx, err, trace) => const SizedBox.shrink(),
                           ),
                         ),
                       ),
@@ -518,10 +579,10 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
-  // ─── 우측 플로팅 툴바 ────────────────────────────────────────────────────────
 
   static const _penColors = [
     Colors.black,
@@ -612,12 +673,12 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _Avatar(
-            label: state.isTutor ? 'T' : 'S',
+            imageUrl: widget.tutorProfileImageUrl,
             color: AppColors.primaryBlue,
           ),
           const SizedBox(width: 6),
           _Avatar(
-            label: state.isTutor ? 'S' : 'T',
+            imageUrl: widget.studentProfileImageUrl,
             color: AppColors.roleStudentAccent,
           ),
           const SizedBox(width: 20),
@@ -627,17 +688,17 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             shell: shell,
             onTap: () => notifier.toggleMic(),
           ),
-          if (state.isTutor) ...[
-            const SizedBox(width: 8),
-            _ControlBtn(
-              icon: state.localCameraEnabled
-                  ? Icons.videocam_outlined
-                  : Icons.videocam_off_outlined,
-              active: state.localCameraEnabled,
-              shell: shell,
-              onTap: () => notifier.toggleCamera(),
-            ),
-          ],
+          // if (state.isTutor) ...[
+          //   const SizedBox(width: 8),
+          //   _ControlBtn(
+          //     icon: state.localCameraEnabled
+          //         ? Icons.videocam_outlined
+          //         : Icons.videocam_off_outlined,
+          //     active: state.localCameraEnabled,
+          //     shell: shell,
+          //     onTap: () => notifier.toggleCamera(),
+          //   ),
+          // ],
         ],
       ),
     );
@@ -672,6 +733,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                 canvas: VideoCanvas(
                   uid: remoteUid,
                   renderMode: RenderModeType.renderModeHidden,
+                  sourceType: VideoSourceType.videoSourceCamera,
                 ),
                 connection: RtcConnection(channelId: channelName),
               ),
@@ -833,24 +895,35 @@ class _ColorDot extends StatelessWidget {
 // ─── 아바타 ────────────────────────────────────────────────────────────────────
 
 class _Avatar extends StatelessWidget {
-  final String label;
+  final String? imageUrl;
   final Color color;
 
-  const _Avatar({required this.label, required this.color});
+  const _Avatar({required this.color, this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: 18,
-      backgroundColor: color,
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
+    const size = 36.0;
+    final url = imageUrl;
+    if (url != null) {
+      return ClipOval(
+        child: Image.network(
+          ApiConstants.resolveImageUrl(url),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (ctx, err, stack) => _placeholder(size),
         ),
-      ),
+      );
+    }
+    return _placeholder(size);
+  }
+
+  Widget _placeholder(double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: const Icon(Icons.person_rounded, size: 20, color: Colors.white),
     );
   }
 }

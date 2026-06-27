@@ -3,13 +3,23 @@ package com.ieum.backend.global.agora;
 import com.ieum.backend.domain.lesson.dto.RecordingStartResponseDto;
 import com.ieum.backend.domain.lesson.dto.RecordingStopResponseDto;
 import com.ieum.backend.domain.lesson.entity.Lesson;
+import com.ieum.backend.domain.lesson.repository.LessonRepository;
 import com.ieum.backend.global.config.AgoraConfig;
 import com.ieum.backend.global.exception.BusinessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -18,21 +28,27 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Agora Cloud Recording REST API 클라이언트
+ * Agora Cloud Recording REST API 클라이언트 — Web Page Recording(web 모드)
  *
- * 흐름: acquire → start → (수업 진행) → stop
+ * 흐름: acquire(scene=1) → start(mode/web) → (수업 진행) → stop(mode/web)
  * 인증: Basic Auth (customerId:customerSecret)
- * 녹화 설정: 오디오 전용 (streamTypes=0), 강사 카메라 제외
+ * 녹화 방식: 녹화봇이 recorder.html을 Chrome으로 열어 화이트보드 화면을 그대로 녹화
  * 저장 경로: S3 lessons/recordings/{lessonId}/
  */
 @Service
 public class AgoraRecordingService {
 
+    private static final Logger log = LoggerFactory.getLogger(AgoraRecordingService.class);
     private static final String BASE_URL = "https://api.agora.io/v1/apps";
-    private static final int RECORDING_TOKEN_EXPIRE = 7200; // 2시간
 
     private final AgoraConfig agoraConfig;
     private final RestClient restClient;
+
+    @Autowired(required = false)
+    private S3Client s3Client;
+
+    @Autowired
+    private LessonRepository lessonRepository;
 
     @Value("${spring.cloud.aws.s3.bucket}")
     private String bucket;
@@ -60,34 +76,21 @@ public class AgoraRecordingService {
     public RecordingStartResponseDto startRecording(Lesson lesson) {
         String channelName = lesson.getChannelName();
 
-        // 녹화봇 토큰 생성 (uid=0, SUBSCRIBER 역할)
-        String token;
-        try {
-            token = new RtcTokenBuilder2().buildTokenWithUid(
-                    agoraConfig.getAppId(),
-                    agoraConfig.getAppCertificate(),
-                    channelName,
-                    0,
-                    RtcTokenBuilder2.Role.ROLE_SUBSCRIBER,
-                    RECORDING_TOKEN_EXPIRE,
-                    RECORDING_TOKEN_EXPIRE
-            );
-        } catch (Exception e) {
-            throw BusinessException.internalError("녹화 토큰 생성에 실패했습니다.");
-        }
-
+        // web 모드는 RTC 채널을 구독하지 않으므로 녹화봇 RTC 토큰이 필요 없다.
         String resourceId = acquireResource(channelName);
-        String sid = startRecordingInternal(channelName, token, resourceId, lesson.getId());
+        String sid = startRecordingInternal(channelName, resourceId, lesson.getId());
         lesson.setRecordingInfo(resourceId, sid);
 
         return new RecordingStartResponseDto(lesson.getId(), resourceId, sid, channelName);
     }
 
     /**
-     * 녹화 중지: stop API 호출 후 Lesson 엔티티에 recordingUrl 저장
+     * 녹화 중지: Agora stop API만 호출하고 즉시 반환.
+     * S3 .m3u8 파일 탐색은 stopRecordingAsync()에서 비동기로 처리.
      * (트랜잭션은 호출자가 관리)
      */
     public RecordingStopResponseDto stopRecording(Lesson lesson) {
+        log.info("[Agora] stopRecording 호출됨 - lessonId={}, resourceId={}, sid={}", lesson.getId(), lesson.getResourceId(), lesson.getRecordingSid());
         String resourceId = lesson.getResourceId();
         String sid = lesson.getRecordingSid();
 
@@ -95,13 +98,34 @@ public class AgoraRecordingService {
             throw BusinessException.badRequest("진행 중인 녹화가 없습니다.");
         }
 
-        String[] result = stopRecordingInternal(lesson.getChannelName(), resourceId, sid);
+        String[] result = stopRecordingInternal(lesson.getChannelName(), resourceId, sid, lesson.getId());
         String recordingUrl = result[0];
         String uploadingStatus = result[1];
 
-        lesson.setRecordingUrl(recordingUrl);
+        if (!recordingUrl.isEmpty()) {
+            lesson.setRecordingUrl(recordingUrl);
+        }
 
         return new RecordingStopResponseDto(lesson.getId(), recordingUrl, uploadingStatus);
+    }
+
+    /**
+     * 비동기 S3 폴링: Agora 업로드 완료 후 .m3u8 파일 URL을 DB에 저장.
+     * LessonService.stopRecording()에서 호출 — 메인 트랜잭션과 독립 실행.
+     */
+    @Async
+    @Transactional
+    public void stopRecordingAsync(Long lessonId) {
+        log.info("[Agora][비동기] S3 폴링 시작 - lessonId={}", lessonId);
+        String recordingUrl = findRecordingFromS3(lessonId);
+        if (!recordingUrl.isEmpty()) {
+            lessonRepository.findById(lessonId).ifPresent(lesson -> {
+                lesson.setRecordingUrl(recordingUrl);
+            });
+            log.info("[Agora][비동기] recordingUrl 저장 완료 - lessonId={}, url={}", lessonId, recordingUrl);
+        } else {
+            log.warn("[Agora][비동기] S3 .m3u8 최종 미발견 - lessonId={}", lessonId);
+        }
     }
 
     // ──────────────────────── Private API 헬퍼 ────────────────────────
@@ -110,10 +134,11 @@ public class AgoraRecordingService {
     private String acquireResource(String channelName) {
         String url = BASE_URL + "/" + agoraConfig.getAppId() + "/cloud_recording/acquire";
 
+        // web 모드(페이지 녹화)는 acquire 시 scene=1 필수
         Map<String, Object> body = Map.of(
                 "cname", channelName,
-                "uid", "0",
-                "clientRequest", Map.of()
+                "uid", "12345",
+                "clientRequest", Map.of("scene", 1)
         );
 
         Map<String, Object> response = post(url, body);
@@ -124,21 +149,35 @@ public class AgoraRecordingService {
         return resourceId;
     }
 
-    /** 녹화 시작 — SID 반환 */
-    private String startRecordingInternal(String channelName, String token,
-                                          String resourceId, Long lessonId) {
+    /** 녹화 시작 (web 모드) — SID 반환 */
+    private String startRecordingInternal(String channelName, String resourceId, Long lessonId) {
         String url = BASE_URL + "/" + agoraConfig.getAppId()
-                + "/cloud_recording/resourceid/" + resourceId + "/mode/mix/start";
+                + "/cloud_recording/resourceid/" + resourceId + "/mode/web/start";
 
-        // 오디오 전용 녹화 설정 (강사 카메라 영상 제외)
-        Map<String, Object> recordingConfig = new HashMap<>();
-        recordingConfig.put("maxIdleTime", 30);
-        recordingConfig.put("streamTypes", 0);                          // 0=오디오 전용
-        recordingConfig.put("channelType", 0);
-        recordingConfig.put("subscribeAudioUids", List.of("#allstream#"));
-        recordingConfig.put("unsubscribeVideoUids", List.of("#allstream#"));
+        // 녹화봇이 열 recorder.html 주소 (페이지가 채널의 화이트보드를 실시간 렌더)
+        String recorderUrl = agoraConfig.getRecorderUrlBase() + "?channel=" + channelName;
 
-        // S3 저장 설정
+        // 웹 페이지 녹화 서비스 설정
+        Map<String, Object> serviceParam = new HashMap<>();
+        serviceParam.put("url", recorderUrl);
+        serviceParam.put("audioProfile", 0);
+        serviceParam.put("videoWidth", 1280);
+        serviceParam.put("videoHeight", 720);
+        serviceParam.put("maxRecordingHour", 1);
+
+        Map<String, Object> extensionService = new HashMap<>();
+        extensionService.put("serviceName", "web_recorder_service");
+        extensionService.put("errorHandlePolicy", "error_abort");
+        extensionService.put("serviceParam", serviceParam);
+
+        Map<String, Object> extensionServiceConfig = new HashMap<>();
+        extensionServiceConfig.put("errorHandlePolicy", "error_abort");
+        extensionServiceConfig.put("extensionServices", List.of(extensionService));
+
+        Map<String, Object> recordingFileConfig = new HashMap<>();
+        recordingFileConfig.put("avFileType", List.of("hls", "mp4"));
+
+        // S3 저장 설정 (mix 모드와 동일 — 저장 경로 유지)
         Map<String, Object> storageConfig = new HashMap<>();
         storageConfig.put("vendor", 1);                                 // 1=Amazon S3
         storageConfig.put("region", 10);                                // 10=ap-northeast-2 (Seoul)
@@ -149,14 +188,16 @@ public class AgoraRecordingService {
                 List.of("lessons", "recordings", String.valueOf(lessonId)));
 
         Map<String, Object> clientRequest = new HashMap<>();
-        clientRequest.put("token", token);
-        clientRequest.put("recordingConfig", recordingConfig);
+        clientRequest.put("extensionServiceConfig", extensionServiceConfig);
+        clientRequest.put("recordingFileConfig", recordingFileConfig);
         clientRequest.put("storageConfig", storageConfig);
 
         Map<String, Object> body = new HashMap<>();
         body.put("cname", channelName);
-        body.put("uid", "0");
+        body.put("uid", "12345");
         body.put("clientRequest", clientRequest);
+
+        log.info("[Agora] startRecording(web) 요청 - cname={}, recorderUrl={}", channelName, recorderUrl);
 
         Map<String, Object> response = post(url, body);
         String sid = (String) response.get("sid");
@@ -168,14 +209,15 @@ public class AgoraRecordingService {
 
     /** 녹화 중지 — [recordingUrl, uploadingStatus] 반환 */
     @SuppressWarnings("unchecked")
-    private String[] stopRecordingInternal(String channelName, String resourceId, String sid) {
+    private String[] stopRecordingInternal(String channelName, String resourceId, String sid, Long lessonId) {
+        log.info("[Agora] stopRecordingInternal 호출됨 - channelName={}, resourceId={}, sid={}", channelName, resourceId, sid);
         String url = BASE_URL + "/" + agoraConfig.getAppId()
                 + "/cloud_recording/resourceid/" + resourceId
-                + "/sid/" + sid + "/mode/mix/stop";
+                + "/sid/" + sid + "/mode/web/stop";
 
         Map<String, Object> body = Map.of(
                 "cname", channelName,
-                "uid", "0",
+                "uid", "12345",
                 "clientRequest", Map.of()
         );
 
@@ -200,7 +242,102 @@ public class AgoraRecordingService {
             }
         }
 
+        if (recordingUrl.isEmpty()) {
+            log.info("[Agora] stop 응답에 fileList 없음 — 비동기 S3 폴링으로 처리 예정, lessonId={}", lessonId);
+        }
+
+        log.info("[Agora] stop 응답 - uploadingStatus={}, recordingUrl={}", uploadingStatus, recordingUrl);
         return new String[]{recordingUrl, uploadingStatus};
+    }
+
+    /** S3 ListObjectsV2로 lessons/recordings/{lessonId}/ 경로에서 녹화 파일을 찾아 URL 반환.
+     *  web page recording은 ts/m3u8 조각이 먼저 올라오고 mp4(최종 합본)가 나중에 올라온다.
+     *  우선순위: mp4 > (mp4를 기다리다 타임아웃 시) m3u8 폴백.
+     *  - mp4를 찾으면 즉시 확정.
+     *  - m3u8만 있으면 바로 끝내지 않고, 처음 발견 시점부터 추가 M3U8_WAIT_LIMIT회까지
+     *    mp4를 더 기다린 뒤 그래도 없으면 m3u8로 폴백.
+     *  - 전체 최대 60회, 10초 간격 (≈ 최대 10분). */
+    private String findRecordingFromS3(Long lessonId) {
+        if (s3Client == null) {
+            log.warn("[Agora] S3Client 미주입 상태 (prod 프로파일 아님) — S3 탐색 생략");
+            return "";
+        }
+        String prefix = "lessons/recordings/" + lessonId + "/";
+        int maxAttempts = 60;
+        int m3u8WaitLimit = 15;       // m3u8 처음 발견 후 mp4를 추가로 기다릴 최대 횟수 (≈2.5분)
+        int m3u8WaitCount = 0;        // m3u8만 있는 상태로 mp4를 기다린 횟수
+        String m3u8Fallback = null;   // mp4 끝내 없을 때 쓸 폴백
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                ListObjectsV2Response listResponse = s3Client.listObjectsV2(
+                        ListObjectsV2Request.builder()
+                                .bucket(bucket)
+                                .prefix(prefix)
+                                .build()
+                );
+                String mp4Key = null;
+                String m3u8Key = null;
+                for (S3Object object : listResponse.contents()) {
+                    String key = object.key();
+                    if (key.endsWith(".mp4") && mp4Key == null) mp4Key = key;
+                    else if (key.endsWith(".m3u8") && m3u8Key == null) m3u8Key = key;
+                }
+
+                // ① mp4 발견 → 즉시 확정 (최선)
+                if (mp4Key != null) {
+                    String resolvedUrl = toS3Url(mp4Key);
+                    log.info("[Agora] mp4 발견 → 확정 (시도 {}/{}) - {}", attempt, maxAttempts, resolvedUrl);
+                    return resolvedUrl;
+                }
+
+                // ② m3u8만 있음 → mp4를 더 기다린다 (한도 초과 시 폴백)
+                if (m3u8Key != null) {
+                    m3u8Fallback = m3u8Key;
+                    m3u8WaitCount++;
+                    if (m3u8WaitCount >= m3u8WaitLimit) {
+                        String resolvedUrl = toS3Url(m3u8Fallback);
+                        log.warn("[Agora] mp4 끝내 없음 → m3u8 폴백 (시도 {}/{}) - {}", attempt, maxAttempts, resolvedUrl);
+                        return resolvedUrl;
+                    }
+                    log.info("[Agora] m3u8만 있음, mp4 대기 중 (m3u8대기 {}/{}, 시도 {}/{})",
+                            m3u8WaitCount, m3u8WaitLimit, attempt, maxAttempts);
+                } else {
+                    // ③ 아무것도 없음
+                    log.info("[Agora] S3 녹화 파일 없음 (시도 {}/{}) - prefix={}", attempt, maxAttempts, prefix);
+                }
+
+                if (attempt < maxAttempts) {
+                    Thread.sleep(10000);
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                log.warn("[Agora] S3 폴링 인터럽트 - lessonId={}", lessonId);
+                break;
+            } catch (Exception e) {
+                log.error("[Agora] S3 ListObjects 실패 (시도 {}/{}) - prefix={}, error={}", attempt, maxAttempts, prefix, e.getMessage());
+                if (attempt < maxAttempts) {
+                    try { Thread.sleep(10000); } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 전체 폴링 소진 — mp4는 못 찾았지만 m3u8을 본 적 있으면 폴백
+        if (m3u8Fallback != null) {
+            String resolvedUrl = toS3Url(m3u8Fallback);
+            log.warn("[Agora] 폴링 소진, mp4 없음 → m3u8 폴백 - {}", resolvedUrl);
+            return resolvedUrl;
+        }
+        log.warn("[Agora] S3 녹화 파일 최종 미발견 - lessonId={}", lessonId);
+        return "";
+    }
+
+    /** S3 key → 공개 URL */
+    private String toS3Url(String key) {
+        return "https://" + bucket + ".s3." + region + ".amazonaws.com/" + key;
     }
 
     // ──────────────────────── HTTP 공통 ────────────────────────
@@ -215,6 +352,9 @@ public class AgoraRecordingService {
                 .onStatus(
                         status -> status.isError(),
                         (req, res) -> {
+                            byte[] bytes = res.getBody() != null ? res.getBody().readAllBytes() : new byte[0];
+                            String errorBody = bytes.length > 0 ? new String(bytes, StandardCharsets.UTF_8) : "(empty body)";
+                            log.error("[Agora] API 오류 — url={} status={} body={}", req.getURI(), res.getStatusCode(), errorBody);
                             throw BusinessException.internalError(
                                     "Agora Recording API 오류: " + res.getStatusCode());
                         }

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
-import 'package:ieum/features/student/data/student_tutor_dummy_data.dart';
-import 'package:ieum/features/student/models/student_lesson_pricing.dart';
-import 'package:ieum/features/student/models/student_tutor_profile.dart';
+import 'package:ieum/features/student/data/tutor_profile_repository.dart';
+import 'package:ieum/features/student/models/tutor_profile_detail.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
 import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
@@ -24,166 +24,163 @@ class StudentTutorProfileScreen extends ConsumerStatefulWidget {
       _StudentTutorProfileScreenState();
 }
 
-class _StudentTutorProfileScreenState extends ConsumerState<StudentTutorProfileScreen> {
+class _StudentTutorProfileScreenState
+    extends ConsumerState<StudentTutorProfileScreen> {
   int _tabIndex = 0;
-
-  StudentTutorProfile? _resolveProfile(StudentMatchingSession? session) {
-    if (session != null) {
-      final found = session.candidates
-          .where((c) => c.id == widget.tutorId)
-          .firstOrNull;
-      if (found != null) return found;
-    }
-    return StudentTutorDummyData.byId(widget.tutorId);
-  }
-
-  bool get _canSelect {
-    final session = ref.watch(studentMatchingSessionProvider);
-    if (session == null ||
-        session.status != StudentMatchingSessionStatus.selectingTutor) {
-      return false;
-    }
-    return session.applicants.any((a) => a.tutorId.toString() == widget.tutorId);
-  }
 
   void _selectTutor() {
     ref.read(studentMatchingSessionProvider.notifier).selectTutor(widget.tutorId);
     context.pop();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final session = ref.watch(studentMatchingSessionProvider);
-    final tutor = _resolveProfile(session);
-    final isDark = ref.watch(shellDarkModeProvider);
-    final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
-    final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+  ThemeData _buildTheme(bool isDark) {
+    final base = isDark ? AppTheme.shellDark : AppTheme.shellLight;
+    return base.copyWith(
+      colorScheme: base.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : Colors.white,
     );
+  }
 
-    if (tutor == null) {
+  @override
+  Widget build(BuildContext context) {
+    final isDark = ref.watch(shellDarkModeProvider);
+    final theme = _buildTheme(isDark);
+    final tutorIdInt = int.tryParse(widget.tutorId);
+
+    final session = ref.watch(studentMatchingSessionProvider);
+    final applicant = session?.applicants
+        .where((a) => a.tutorId.toString() == widget.tutorId)
+        .firstOrNull;
+    final isOnline = applicant?.isOnline ?? false;
+    final canSelect = session != null &&
+        session.status == StudentMatchingSessionStatus.selectingTutor &&
+        applicant != null;
+
+    if (tutorIdInt == null) {
       return Theme(
         data: theme,
         child: Scaffold(
           appBar: StudentFlowAppBar(title: '강사 프로필'),
-          body: const Center(child: Text('강사 정보를 찾을 수 없습니다.')),
+          body: const Center(child: Text('잘못된 강사 ID입니다.')),
         ),
       );
     }
 
-    final lessonPrice = session?.lessonPrice ??
-        StudentLessonPricing.priceForDifficulty(StudentLessonPricing.medium);
+    final profileAsync = ref.watch(tutorProfileProvider(tutorIdInt));
 
     return Theme(
       data: theme,
       child: Builder(
         builder: (context) {
           final shell = ShellTheme.of(context);
-          final pageBg = Theme.of(context).scaffoldBackgroundColor;
-
-          return Scaffold(
-            appBar: StudentFlowAppBar(title: '강사 프로필'),
-            body: Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                    children: [
-                      _ProfileSummaryCard(tutor: tutor),
-                      const SizedBox(height: 16),
-                      _SegmentTabs(
-                        tabIndex: _tabIndex,
-                        reviewCount: tutor.reviewCount,
-                        onChanged: (index) => setState(() => _tabIndex = index),
-                      ),
-                      const SizedBox(height: 16),
-                      if (_tabIndex == 0)
-                        _IntroContent(tutor: tutor)
-                      else
-                        _ReviewsContent(tutor: tutor),
-                    ],
-                  ),
+          return profileAsync.when(
+            loading: () => Scaffold(
+              appBar: StudentFlowAppBar(title: '강사 프로필'),
+              body: const Center(
+                child: CircularProgressIndicator(color: AppColors.studentInk),
+              ),
+            ),
+            error: (_, _) => Scaffold(
+              appBar: StudentFlowAppBar(title: '강사 프로필'),
+              body: Center(
+                child: Text(
+                  '강사 정보를 불러오지 못했어요.',
+                  style: TextStyle(color: shell.hintColor, fontSize: 14),
                 ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: shell.cardBorder,
-                    ),
-                    ColoredBox(
-                      color: pageBg,
-                      child: SafeArea(
-                        top: false,
-                        minimum: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '예상 크레딧',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      height: 1.2,
-                                      color: shell.hintColor,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    StudentLessonPricing.formattedPrice(
-                                      lessonPrice,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      height: 1.2,
-                                      fontWeight: FontWeight.w800,
-                                      color: shell.titleColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 2,
-                              child: StudentPrimaryGradientButton(
-                                label: _canSelect ? '선택하기' : '매칭 요청하기',
-                                enabled: _canSelect,
-                                onPressed: _canSelect ? _selectTutor : null,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
+            ),
+            data: (profile) => _buildContent(
+              context: context,
+              shell: shell,
+              theme: theme,
+              profile: profile,
+              isOnline: isOnline,
+              canSelect: canSelect,
             ),
           );
         },
       ),
     );
   }
-}
 
-class _ProfileSummaryCard extends StatelessWidget {
-  const _ProfileSummaryCard({required this.tutor});
+  Widget _buildContent({
+    required BuildContext context,
+    required ShellTheme shell,
+    required ThemeData theme,
+    required TutorProfileDetail profile,
+    required bool isOnline,
+    required bool canSelect,
+  }) {
+    final pageBg = theme.scaffoldBackgroundColor;
 
-  final StudentTutorProfile tutor;
+    return Scaffold(
+      appBar: StudentFlowAppBar(title: '강사 프로필'),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              children: [
+                _buildProfileHeader(shell, profile, isOnline),
+                const SizedBox(height: 14),
+                _buildMetrics(shell, profile),
+                const SizedBox(height: 16),
+                _buildSegmentTabs(shell, profile.reviewCount),
+                const SizedBox(height: 16),
+                if (_tabIndex == 0)
+                  _buildIntroTab(shell, profile)
+                else
+                  _buildReviewsTab(shell, profile),
+              ],
+            ),
+          ),
+          Divider(height: 1, thickness: 1, color: shell.cardBorder),
+          ColoredBox(
+            color: pageBg,
+            child: SafeArea(
+              top: false,
+              minimum: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: FilledButton(
+                  onPressed: canSelect ? _selectTutor : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.studentPoint,
+                    foregroundColor: AppColors.studentInk,
+                    disabledBackgroundColor:
+                        AppColors.studentPoint.withValues(alpha: 0.35),
+                    disabledForegroundColor:
+                        AppColors.studentInk.withValues(alpha: 0.45),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    '선택하기',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellTheme.of(context);
+  Widget _buildProfileHeader(
+    ShellTheme shell,
+    TutorProfileDetail profile,
+    bool isOnline,
+  ) {
+    final schoolText = [
+      if (profile.school?.isNotEmpty ?? false) profile.school!,
+      if (profile.major?.isNotEmpty ?? false) profile.major!,
+    ].join(' ');
+    final hasSchool = schoolText.isNotEmpty;
 
     return Container(
       width: double.infinity,
@@ -193,78 +190,42 @@ class _ProfileSummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: shell.cardBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          _buildAvatar(shell, profile),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      tutor.name,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: shell.titleColor,
+                    Flexible(
+                      child: Text(
+                        profile.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: shell.titleColor,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      tutor.educationLine,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.4,
-                        color: shell.subtitleColor,
-                      ),
-                    ),
+                    const SizedBox(width: 8),
+                    _OnlineStatusBadge(isOnline: isOnline),
                   ],
                 ),
-              ),
-              if (tutor.isOnline)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppColors.studentPoint.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(99),
-                    border: Border.all(
-                      color: AppColors.studentPoint.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: const Text(
-                    '접속중',
+                if (hasSchool) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    schoolText,
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.studentInk,
+                      fontSize: 14,
+                      color: shell.subtitleColor,
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _MetricChip(
-                  icon: Icons.star_rounded,
-                  iconColor: AppColors.reviewHighlight,
-                  label: '평점',
-                  value: tutor.rating.toStringAsFixed(1),
-                ),
-                const SizedBox(width: 8),
-                _MetricChip(
-                  label: '수업',
-                  value: '${tutor.lessonCount}회',
-                ),
-                const SizedBox(width: 8),
-                _MetricChip(
-                  label: '응답',
-                  value: '${tutor.avgResponseMinutes}분',
-                ),
+                ],
               ],
             ),
           ),
@@ -272,94 +233,68 @@ class _ProfileSummaryCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class _MetricChip extends StatelessWidget {
-  const _MetricChip({
-    required this.label,
-    required this.value,
-    this.icon,
-    this.iconColor,
-  });
-
-  final String label;
-  final String value;
-  final IconData? icon;
-  final Color? iconColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellTheme.of(context);
-
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        decoration: BoxDecoration(
-          color: shell.detailBackground,
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildAvatar(ShellTheme shell, TutorProfileDetail profile) {
+    const size = 64.0;
+    final url = profile.profileImageUrl;
+    if (url != null) {
+      return ClipOval(
+        child: Image.network(
+          ApiConstants.resolveImageUrl(url),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _iconAvatar(shell, size),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 16, color: iconColor),
-                  const SizedBox(width: 2),
-                ],
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    height: 1.2,
-                    fontWeight: FontWeight.w800,
-                    color: shell.titleColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11,
-                height: 1.2,
-                color: shell.hintColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+      );
+    }
+    return _iconAvatar(shell, size);
+  }
+
+  Widget _iconAvatar(ShellTheme shell, double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: shell.cardBorder.withValues(alpha: 0.3),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Icon(Icons.person_rounded, size: 35, color: shell.hintColor),
       ),
     );
   }
-}
 
-class _SegmentTabs extends StatelessWidget {
-  const _SegmentTabs({
-    required this.tabIndex,
-    required this.reviewCount,
-    required this.onChanged,
-  });
+  Widget _buildMetrics(ShellTheme shell, TutorProfileDetail profile) {
+    final ratingText = profile.ratingAvg != null
+        ? profile.ratingAvg!.toStringAsFixed(1)
+        : '-';
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          StudentTutorMetricChip(
+            icon: Icons.star_rounded,
+            iconColor: AppColors.reviewHighlight,
+            label: '평점',
+            value: ratingText,
+          ),
+          const SizedBox(width: 8),
+          StudentTutorMetricChip(
+            label: '수업',
+            value: '${profile.lessonCount}회',
+          ),
+          const SizedBox(width: 8),
+          StudentTutorMetricChip(
+            label: '리뷰',
+            value: '${profile.reviewCount}개',
+          ),
+        ],
+      ),
+    );
+  }
 
-  final int tabIndex;
-  final int reviewCount;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellTheme.of(context);
-
+  Widget _buildSegmentTabs(ShellTheme shell, int reviewCount) {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -370,15 +305,132 @@ class _SegmentTabs extends StatelessWidget {
         children: [
           _SegmentTab(
             label: '소개',
-            selected: tabIndex == 0,
-            onTap: () => onChanged(0),
+            selected: _tabIndex == 0,
+            onTap: () => setState(() => _tabIndex = 0),
           ),
           _SegmentTab(
             label: '리뷰 $reviewCount',
-            selected: tabIndex == 1,
-            onTap: () => onChanged(1),
+            selected: _tabIndex == 1,
+            onTap: () => setState(() => _tabIndex = 1),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildIntroTab(ShellTheme shell, TutorProfileDetail profile) {
+    final hasBio = profile.bio?.trim().isNotEmpty ?? false;
+    final hasSubjects = profile.subjects.isNotEmpty;
+
+    if (!hasBio && !hasSubjects) {
+      return _emptyCard(shell, '소개 정보가 없어요.');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (hasBio)
+          _ContentCard(
+            title: '소개',
+            child: Text(
+              profile.bio!.trim(),
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.55,
+                color: shell.subtitleColor,
+              ),
+            ),
+          ),
+        if (hasBio && hasSubjects) const SizedBox(height: 12),
+        if (hasSubjects)
+          _ContentCard(
+            title: '담당 과목',
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final subject in profile.subjects)
+                  TutorSubjectBadge(subject: _localizeSubject(subject)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildReviewsTab(ShellTheme shell, TutorProfileDetail profile) {
+    if (profile.reviews.isEmpty) {
+      return _emptyCard(shell, '아직 리뷰가 없어요.');
+    }
+    return Column(
+      children: [
+        for (final review in profile.reviews) ...[
+          _ReviewCard(shell: shell, review: review),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+
+  String _localizeSubject(String subject) {
+    const map = {
+      'MATH': '수학',
+      'KOREAN': '국어',
+      'ENGLISH': '영어',
+      'SCIENCE': '과학',
+      'SOCIAL': '사회',
+    };
+    return map[subject] ?? subject;
+  }
+
+  Widget _emptyCard(ShellTheme shell, String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
+      decoration: BoxDecoration(
+        color: shell.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: shell.cardBorder),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 14, color: shell.hintColor),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// Private helper widgets
+// ────────────────────────────────────────────────────────────
+
+class _OnlineStatusBadge extends StatelessWidget {
+  const _OnlineStatusBadge({required this.isOnline});
+  final bool isOnline;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isOnline
+            ? AppColors.studentPoint.withValues(alpha: 0.25)
+            : Colors.grey.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(
+          color: isOnline
+              ? AppColors.studentInk.withValues(alpha: 0.5)
+              : Colors.grey.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Text(
+        isOnline ? '온라인' : '오프라인',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: isOnline ? AppColors.studentInk : Colors.grey,
+        ),
       ),
     );
   }
@@ -398,7 +450,6 @@ class _SegmentTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
-
     return Expanded(
       child: Material(
         color: selected ? shell.cardBackground : Colors.transparent,
@@ -424,156 +475,8 @@ class _SegmentTab extends StatelessWidget {
   }
 }
 
-class _IntroContent extends StatelessWidget {
-  const _IntroContent({required this.tutor});
-
-  final StudentTutorProfile tutor;
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellTheme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _ContentCard(
-          title: '한줄소개',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                tutor.introLine,
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 1.5,
-                  fontWeight: FontWeight.w700,
-                  color: shell.titleColor,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                tutor.introBody,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.55,
-                  color: shell.subtitleColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _ContentCard(
-          title: '과외 스타일',
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final style in tutor.styles)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.studentPoint.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    style,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.studentInk,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _ContentCard(
-          title: '담당 과목',
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final subject in tutor.subjects)
-                TutorSubjectBadge(subject: subject),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ReviewsContent extends StatelessWidget {
-  const _ReviewsContent({required this.tutor});
-
-  final StudentTutorProfile tutor;
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellTheme.of(context);
-
-    return Column(
-      children: [
-        for (final review in tutor.reviews) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: shell.cardBackground,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: shell.cardBorder),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      review.studentLabel,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: shell.titleColor,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      review.dateLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: shell.hintColor,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                StudentTutorRatingStars(rating: review.rating, size: 16),
-                const SizedBox(height: 10),
-                Text(
-                  review.body,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: shell.subtitleColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
-      ],
-    );
-  }
-}
-
 class _ContentCard extends StatelessWidget {
-  const _ContentCard({
-    required this.title,
-    required this.child,
-  });
+  const _ContentCard({required this.title, required this.child});
 
   final String title;
   final Widget child;
@@ -581,7 +484,6 @@ class _ContentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -603,6 +505,74 @@ class _ContentCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewCard extends StatelessWidget {
+  const _ReviewCard({required this.shell, required this.review});
+
+  final ShellTheme shell;
+  final TutorReviewItem review;
+
+  String _formatDate(DateTime dt) {
+    return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: shell.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: shell.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                review.studentName ?? '학생',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: shell.titleColor,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _formatDate(review.createdAt),
+                style: TextStyle(fontSize: 12, color: shell.hintColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (var i = 0; i < 5; i++)
+                Icon(
+                  i < review.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                  size: 15,
+                  color: AppColors.reviewHighlight,
+                ),
+            ],
+          ),
+          if (review.comment?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 10),
+            Text(
+              review.comment!,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: shell.subtitleColor,
+              ),
+            ),
+          ],
         ],
       ),
     );

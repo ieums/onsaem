@@ -28,7 +28,7 @@ public class MatchingNotificationService {
         );
     }
 
-    public void notifyMatched(Long problemId, Long tutorId, Long studentId, Long lessonId, String channelName, List<String> imageUrls, String subject) {
+    public void notifyMatched(Long problemId, Long tutorId, Long studentId, Long lessonId, String channelName, List<String> imageUrls, String subject, String tutorProfileImageUrl, String studentProfileImageUrl) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("type", "MATCHED");
         payload.put("tutorId", tutorId);
@@ -38,6 +38,8 @@ public class MatchingNotificationService {
         payload.put("channelName", channelName);
         payload.put("imageUrls", imageUrls);
         payload.put("subject", subject);
+        payload.put("tutorProfileImageUrl", tutorProfileImageUrl);
+        payload.put("studentProfileImageUrl", studentProfileImageUrl);
         messagingTemplate.convertAndSend("/topic/matching/" + problemId, payload);
     }
 

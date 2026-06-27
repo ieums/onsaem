@@ -192,10 +192,7 @@ class StudentTutorCompactCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              GestureDetector(
-                onTap: onViewProfile,
-                child: _buildAvatar(shell),
-              ),
+              _buildAvatar(shell),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -244,6 +241,18 @@ class StudentTutorCompactCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12,
                             color: shell.hintColor,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: onViewProfile,
+                          child: const Text(
+                            '프로필 >',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.studentInk,
+                            ),
                           ),
                         ),
                       ],
