@@ -100,7 +100,8 @@ enum DrawType {
   micOn,
   micOff,
   cameraRatio,
-  viewport;
+  viewport,
+  imageSync;
 
   String get value {
     switch (this) {
@@ -136,6 +137,8 @@ enum DrawType {
         return 'CAMERA_RATIO';
       case DrawType.viewport:
         return 'VIEWPORT';
+      case DrawType.imageSync:
+        return 'IMAGE_SYNC';
     }
   }
 
@@ -173,10 +176,45 @@ enum DrawType {
         return DrawType.cameraRatio;
       case 'VIEWPORT':
         return DrawType.viewport;
+      case 'IMAGE_SYNC':
+        return DrawType.imageSync;
       default:
         return DrawType.draw;
     }
   }
+}
+
+/// IMAGE_SYNC 이벤트에 담기는 이미지 1개 (전체 스냅샷 동기화용)
+class ImageSyncItem {
+  final String url;
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+
+  const ImageSyncItem({
+    required this.url,
+    required this.x,
+    required this.y,
+    required this.width,
+    required this.height,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'url': url,
+        'x': x,
+        'y': y,
+        'width': width,
+        'height': height,
+      };
+
+  factory ImageSyncItem.fromJson(Map<String, dynamic> json) => ImageSyncItem(
+        url: json['url'] as String? ?? '',
+        x: (json['x'] as num?)?.toDouble() ?? 0.0,
+        y: (json['y'] as num?)?.toDouble() ?? 0.0,
+        width: (json['width'] as num?)?.toDouble() ?? 0.0,
+        height: (json['height'] as num?)?.toDouble() ?? 0.0,
+      );
 }
 
 class DrawEvent {
@@ -196,6 +234,7 @@ class DrawEvent {
   final double? height;      // 이미지 높이
   final int? index;          // imageMove 시 어떤 이미지인지
   final double? cameraRatio; // 카메라 패널 높이 비율 동기화
+  final List<ImageSyncItem>? images; // IMAGE_SYNC — 전체 이미지 목록 스냅샷
 
   DrawEvent({
     required this.senderId,
@@ -214,6 +253,7 @@ class DrawEvent {
     this.height,
     this.index,
     this.cameraRatio,
+    this.images,
   });
 
   Map<String, dynamic> toJson() => {
@@ -233,6 +273,7 @@ class DrawEvent {
         if (height != null) 'height': height,
         if (index != null) 'index': index,
         if (cameraRatio != null) 'cameraRatio': cameraRatio,
+        if (images != null) 'images': images!.map((e) => e.toJson()).toList(),
       };
 
   factory DrawEvent.fromJson(Map<String, dynamic> json) => DrawEvent(
@@ -252,6 +293,9 @@ class DrawEvent {
         height: (json['height'] as num?)?.toDouble(),
         index: (json['index'] as num?)?.toInt(),
         cameraRatio: (json['cameraRatio'] as num?)?.toDouble(),
+        images: (json['images'] as List?)
+            ?.map((e) => ImageSyncItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 }
 

@@ -49,35 +49,47 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   Timer? _timer;
   int _elapsedSeconds = 0;
 
-  // ─── 뷰포트 브로드캐스트 (Agora Web Page Recording 좌표 정합용) ───────────────
-  // 강사일 때만, 화이트보드 영역 크기를 주기적으로 전송한다. recorder가 늦게
-  // 접속해도 받을 수 있도록 새 구독자 감지 대신 3초 주기 반복 전송을 사용.
+  // ─── 강사 브로드캐스트 (Agora Web Page Recording 정합용) ──────────────────────
+  // 강사일 때만, 화이트보드 영역 크기(VIEWPORT)와 전체 이미지 목록(IMAGE_SYNC)을
+  // 주기 전송한다. recorder가 늦게 접속해도 받을 수 있도록 새 구독자 감지 대신
+  // 3초 주기 반복 전송을 사용. IMAGE_SYNC는 스냅샷이라 매번 replace → 중복/누락 없음.
   Timer? _viewportTimer;
+
+  void _sendViewport() {
+    // 위젯이 dispose된 뒤 타이머가 한 번 더 도는 경우 방어
+    if (!mounted) return;
+    try {
+      final ctx = _whiteboardKey.currentContext;
+      if (ctx == null) return; // 아직 렌더 안 됨 → 이번 주기 skip
+      final obj = ctx.findRenderObject();
+      // findRenderObject()가 RenderBox가 아닐 수도 있으므로 is로 안전 체크
+      // (as RenderBox? 는 비-RenderBox일 때 throw → 크래시 원인)
+      if (obj is! RenderBox) return;
+      if (!obj.hasSize) return; // 레이아웃 전 → skip
+      final size = obj.size;
+      if (size.width <= 0 ||
+          size.height <= 0 ||
+          !size.width.isFinite ||
+          !size.height.isFinite) {
+        return; // 유효하지 않은 크기 → skip
+      }
+      ref.read(lessonProvider.notifier).sendViewport(size.width, size.height);
+    } catch (e) {
+      // 어떤 이유로든 실패하면 크래시 대신 이번 주기만 건너뛴다
+      debugPrint('[뷰포트 전송] skip: $e');
+    }
+  }
 
   void _startViewportBroadcast() {
     _viewportTimer?.cancel();
     void send() {
-      // 위젯이 dispose된 뒤 타이머가 한 번 더 도는 경우 방어
       if (!mounted) return;
+      _sendViewport();
+      // 이미지 스냅샷은 뷰포트 크기와 무관하게 항상 전송 (렌더 전이어도 OK)
       try {
-        final ctx = _whiteboardKey.currentContext;
-        if (ctx == null) return; // 아직 렌더 안 됨 → 이번 주기 skip
-        final obj = ctx.findRenderObject();
-        // findRenderObject()가 RenderBox가 아닐 수도 있으므로 is로 안전 체크
-        // (as RenderBox? 는 비-RenderBox일 때 throw → 크래시 원인)
-        if (obj is! RenderBox) return;
-        if (!obj.hasSize) return; // 레이아웃 전 → skip
-        final size = obj.size;
-        if (size.width <= 0 ||
-            size.height <= 0 ||
-            !size.width.isFinite ||
-            !size.height.isFinite) {
-          return; // 유효하지 않은 크기 → skip
-        }
-        ref.read(lessonProvider.notifier).sendViewport(size.width, size.height);
+        ref.read(lessonProvider.notifier).sendImageSync();
       } catch (e) {
-        // 어떤 이유로든 실패하면 크래시 대신 이번 주기만 건너뛴다
-        debugPrint('[뷰포트 전송] skip: $e');
+        debugPrint('[이미지 동기화] skip: $e');
       }
     }
 

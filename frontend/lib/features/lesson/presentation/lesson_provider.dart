@@ -455,6 +455,30 @@ class LessonNotifier extends StateNotifier<LessonState> {
     );
   }
 
+  /// 현재 이미지 목록 전체를 스냅샷으로 전송 (recorder가 board.images를 replace).
+  /// 초기 이미지 누락 + index 어긋남을 한 번에 해결. 강사만 주기 호출한다.
+  void sendImageSync() {
+    final channelName = state.channelName;
+    if (channelName == null) return;
+    final items = state.backgroundImages
+        .map((img) => ImageSyncItem(
+              url: img.url,
+              x: img.x,
+              y: img.y,
+              width: img.width,
+              height: img.height,
+            ))
+        .toList();
+    _repo.sendDraw(
+      channelName,
+      DrawEvent(
+        senderId: _repo.sessionId,
+        type: DrawType.imageSync,
+        images: items,
+      ),
+    );
+  }
+
   // ─── 카메라 비율 동기화 ─────────────────────────────────────────────────────
 
   void sendCameraRatio(double ratio) {
@@ -691,6 +715,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
           state = state.copyWith(remoteCameraRatio: event.cameraRatio!.clamp(0.1, 0.5));
         }
       case DrawType.viewport:
+      case DrawType.imageSync:
         // 강사→recorder 전용. 학생 앱에서는 무시한다.
         break;
       case DrawType.lessonEnd:

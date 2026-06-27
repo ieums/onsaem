@@ -58,7 +58,7 @@
     UNDO: 'UNDO', REDO: 'REDO', CAMERA_ON: 'CAMERA_ON', CAMERA_OFF: 'CAMERA_OFF',
     ZOOM: 'ZOOM', IMAGE_MOVE: 'IMAGE_MOVE', IMAGE_DELETE: 'IMAGE_DELETE',
     LESSON_END: 'LESSON_END', MIC_ON: 'MIC_ON', MIC_OFF: 'MIC_OFF',
-    CAMERA_RATIO: 'CAMERA_RATIO', VIEWPORT: 'VIEWPORT',
+    CAMERA_RATIO: 'CAMERA_RATIO', VIEWPORT: 'VIEWPORT', IMAGE_SYNC: 'IMAGE_SYNC',
   };
 
   // 기본값 — app_constants.dart / lesson_provider.dart 와 동일
@@ -152,6 +152,12 @@
         }
         break;
 
+      case T.IMAGE_SYNC:
+        // 전체 이미지 목록 스냅샷으로 board.images를 통째로 교체.
+        // 초기 이미지 누락 + index 어긋남을 한 번에 해결. (강사가 3초 주기 전송)
+        if (Array.isArray(e.images)) syncImages(e.images);
+        break;
+
       case T.LESSON_END:
         // 수업 종료 → 녹화 종료 트리거용 마커
         document.title = 'ENDED';
@@ -229,6 +235,47 @@
     img.onerror = () => { item.loaded = false; };
     img.src = meta.url;
     board.images.push(item);
+  }
+
+  // IMAGE_SYNC: 전체 목록을 새로 구성하되, 같은 url의 기존 Image 객체는 재사용해
+  // 3초마다 재로딩으로 깜빡이는 것을 방지한다.
+  function syncImages(list) {
+    // url → 기존 item 매핑 (먼저 만난 것 우선)
+    const prevByUrl = {};
+    for (const it of board.images) {
+      if (it.url && !(it.url in prevByUrl)) prevByUrl[it.url] = it;
+    }
+    const next = [];
+    for (const meta of list) {
+      if (!meta || !meta.url) continue;
+      const prev = prevByUrl[meta.url];
+      if (prev) {
+        // 기존 Image/loaded 상태 재사용, 위치/크기만 갱신
+        prev.x = meta.x != null ? meta.x : 0;
+        prev.y = meta.y != null ? meta.y : 0;
+        prev.width = meta.width != null ? meta.width : DEFAULT_IMAGE_W;
+        prev.height = meta.height != null ? meta.height : DEFAULT_IMAGE_H;
+        next.push(prev);
+      } else {
+        // 새 url → 새 Image 프리로드
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        const item = {
+          url: meta.url,
+          x: meta.x != null ? meta.x : 0,
+          y: meta.y != null ? meta.y : 0,
+          width: meta.width != null ? meta.width : DEFAULT_IMAGE_W,
+          height: meta.height != null ? meta.height : DEFAULT_IMAGE_H,
+          img: img,
+          loaded: false,
+        };
+        img.onload = () => { item.loaded = true; };
+        img.onerror = () => { item.loaded = false; };
+        img.src = meta.url;
+        next.push(item);
+      }
+    }
+    board.images = next; // 통째로 replace (삭제된 이미지는 자연히 빠짐)
   }
 
   // ────────────────────────────────────────────────────────────────────────
