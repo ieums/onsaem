@@ -68,6 +68,7 @@ public class ReviewService {
         } catch (DataIntegrityViolationException e) {
             throw BusinessException.conflict("이미 작성한 리뷰가 있습니다.", e);
         }
+        refreshTutorRating(review.getTutorId());
         return ReviewResponse.from(review);
     }
 
@@ -78,6 +79,7 @@ public class ReviewService {
     public ReviewResponse update(Long reviewId, Long studentId, UpdateReviewRequest request) {
         Review review = findOwnedReview(reviewId, studentId);
         review.update(request.getRating(), request.getComment());
+        refreshTutorRating(review.getTutorId());
         return ReviewResponse.from(review);
     }
 
@@ -87,7 +89,9 @@ public class ReviewService {
     @Transactional
     public void delete(Long reviewId, Long studentId) {
         Review review = findOwnedReview(reviewId, studentId);
+        Long tutorId = review.getTutorId();
         reviewRepository.delete(review);
+        refreshTutorRating(tutorId);
     }
 
     /**
@@ -158,6 +162,30 @@ public class ReviewService {
         double average = total == 0 ? 0.0 : Math.round((double) weightedSum / total * 10.0) / 10.0;
         return new ReviewSummaryResponse(tutorId, average, total, distribution);
     }
+    /** 강사의 노출 리뷰로 평균·개수를 재계산해 강사 실적/등급에 반영. */
+    private void refreshTutorRating(Long tutorId) {
+        List<Object[]> rows =
+                reviewRepository.ratingDistribution(tutorId, ReviewStatus.VISIBLE);
+        long total = 0;
+        long weighted = 0;
+        for (Object[] row : rows) {
+            int rating = ((Number) row[0]).intValue();
+            long count = ((Number) row[1]).longValue();
+            total += count;
+            weighted += (long) rating * count;
+        }
+        final long t = total;
+        final long w = weighted;
+        tutorRepository.findById(tutorId).ifPresent(tutor -> {
+            if (t == 0) {
+                tutor.applyRating(null, 0);
+            } else {
+                double avg = Math.round((double) w / t * 10.0) / 10.0;
+                tutor.applyRating(java.math.BigDecimal.valueOf(avg), (int) t);
+            }
+        });
+    }
+
 
     private Review findOwnedReview(Long reviewId, Long studentId) {
         Review review = reviewRepository.findById(reviewId)
