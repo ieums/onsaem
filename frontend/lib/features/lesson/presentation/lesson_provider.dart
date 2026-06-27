@@ -283,8 +283,14 @@ class LessonNotifier extends StateNotifier<LessonState> {
             onJoinChannelSuccess: (connection, elapsed) {
               debugPrint('[Agora] 채널 입장 성공: ${connection.channelId}');
               state = state.copyWith(isInChannel: true);
-              // 화이트보드 비디오는 Agora Web Page Recording(recorder.html)이 담당.
-              // 강사 앱은 오디오(마이크)만 송출하므로 별도 비디오 송출/녹화 트리거 없음.
+              // 화이트보드 화면은 Agora Web Page Recording(recorder.html)이 녹화한다.
+              // 강사일 때만, recorder가 STOMP 연결되고 그림 준비될 시간을 준 뒤(~5초)
+              // 녹화를 시작한다. (Agora도 web 녹화 시작에 수 초 소요)
+              if (isTutor) {
+                Future.delayed(const Duration(seconds: 5), () {
+                  _startRecording();
+                });
+              }
             },
             // join 실패가 조용히 묻히지 않도록 에러를 로그로 노출(시간 안 가는 원인 진단용).
             onError: (err, msg) {
@@ -949,8 +955,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
   // ─── 녹화 관리 ─────────────────────────────────────────────────────────────
 
-  // Web Page Recording 전환으로 현재 자동 호출되지 않음. web 모드 녹화 시작에 재사용 예정.
-  // ignore: unused_element
+  // Web Page Recording 모드 녹화 시작 — 강사 채널 입장 후 호출.
   Future<void> _startRecording() async {
     debugPrint('[녹화] _startRecording() 호출됨, lessonId=${state.lessonId}');
     final lessonId = state.lessonId;

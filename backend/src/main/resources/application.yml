@@ -55,6 +55,8 @@ agora:
   token-expiry-seconds: 5400   # 90분 (최대 강의 60분 + 결제 대기 여유)
   customer-id: ${AGORA_CUSTOMER_ID:none}
   customer-secret: ${AGORA_CUSTOMER_SECRET:none}
+  # Web Page Recording 녹화봇이 열 recorder.html 주소 (최종 url = {base}?channel={channelName})
+  recorder-url-base: ${AGORA_RECORDER_URL_BASE:http://3.35.10.251:8080/recorder.html}
 
 portone:
   api-secret: ${PORTONE_API_SECRET:}

@@ -13,4 +13,5 @@ public class AgoraConfig {
     private int tokenExpirySeconds;
     private String customerId;
     private String customerSecret;
+    private String recorderUrlBase;
 }
