@@ -135,13 +135,22 @@ public class AuthService {
             throw BusinessException.badRequest("이미 가입된 소셜 계정입니다.");
         }
 
+        // 이메일: 소셜이 주면 그 값, 안 주면(카카오 미동의 등) 폼 입력값 사용
+        String email = (info.email() != null && !info.email().isBlank())
+                ? info.email()
+                : req.email();
+        if (email == null || email.isBlank()) {
+            throw BusinessException.badRequest("이메일을 입력해주세요.");
+        }
+
+
         return switch (role) {
             case STUDENT -> {
                 Student student = studentRepository.save(
                         Student.builder()
                                 .provider(info.provider())
                                 .providerUserId(info.providerUserId())
-                                .email(info.email())
+                                .email(email)
                                 .name(info.name())
                                 .profileImageUrl(info.profileImageUrl())
                                 .birthDate(req.birthDate())
@@ -161,7 +170,7 @@ public class AuthService {
                         Tutor.builder()
                                 .provider(info.provider())
                                 .providerUserId(info.providerUserId())
-                                .email(info.email())
+                                .email(email)
                                 .name(info.name())
                                 .profileImageUrl(info.profileImageUrl())
                                 .birthDate(req.birthDate())
