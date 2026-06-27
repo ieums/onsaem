@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -188,20 +187,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
   RtcEngine? _engine;
   String? _currentStrokeId;
   final Map<String, DrawingStroke> _deletedStrokes = {};
-  GlobalKey? _whiteboardKey;
-  int? _customVideoTrackId;
-  Timer? _captureTimer;
-  bool _recordingStarted = false;
-  int _captureLogCount = 0;
-  bool _isCapturing = false;
 
   LessonNotifier(this._repo) : super(const LessonState());
 
   RtcEngine? get engine => _engine;
-
-  void setWhiteboardKey(GlobalKey key) {
-    _whiteboardKey = key;
-  }
 
   // ─── 초기화 ────────────────────────────────────────────────────────────────
 
@@ -294,21 +283,8 @@ class LessonNotifier extends StateNotifier<LessonState> {
             onJoinChannelSuccess: (connection, elapsed) {
               debugPrint('[Agora] 채널 입장 성공: ${connection.channelId}');
               state = state.copyWith(isInChannel: true);
-              if (isTutor) {
-                _startWhiteboardCapture();
-                Future.delayed(const Duration(seconds: 10), () {
-                  if (isTutor && !_recordingStarted) {
-                    _recordingStarted = true;
-                    _startRecording();
-                  }
-                });
-              }
-            },
-            onLocalVideoStats: (RtcConnection connection, LocalVideoStats stats) {
-              if (isTutor && !_recordingStarted && (stats.sentBitrate ?? 0) > 0) {
-                _recordingStarted = true;
-                _startRecording();
-              }
+              // 화이트보드 비디오는 Agora Web Page Recording(recorder.html)이 담당.
+              // 강사 앱은 오디오(마이크)만 송출하므로 별도 비디오 송출/녹화 트리거 없음.
             },
             // join 실패가 조용히 묻히지 않도록 에러를 로그로 노출(시간 안 가는 원인 진단용).
             onError: (err, msg) {
@@ -334,15 +310,6 @@ class LessonNotifier extends StateNotifier<LessonState> {
         await _engine!.enableVideo();
         await _engine!.enableLocalVideo(isTutor);
 
-        if (isTutor) {
-          await _engine!.getMediaEngine().setExternalVideoSource(
-            enabled: true,
-            useTexture: false,
-            sourceType: ExternalVideoSourceType.videoFrame,
-          );
-          _customVideoTrackId = await _engine!.createCustomVideoTrack();
-        }
-
         await _engine!.joinChannel(
           token: tokenResp.token,
           channelId: channelName,
@@ -352,8 +319,6 @@ class LessonNotifier extends StateNotifier<LessonState> {
             channelProfile: ChannelProfileType.channelProfileCommunication,
             publishMicrophoneTrack: true,
             publishCameraTrack: false,
-            publishCustomVideoTrack: isTutor,
-            customVideoTrackId: _customVideoTrackId ?? 0,
           ),
         );
         if (!mounted) return;
@@ -361,9 +326,9 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
       _repo.connectStomp(channelName, _onRemoteDrawEvent);
 
-      // 녹화 시작과 화이트보드 캡처는 onJoinChannelSuccess 콜백에서 호출
+      // 화이트보드 비디오/녹화는 Agora Web Page Recording(recorder.html)이 담당.
 
-      if (!mounted) return; // Agora 입장/녹화 시작 동안 이탈했으면 중단
+      if (!mounted) return; // Agora 입장 동안 이탈했으면 중단
       state = state.copyWith(isLoading: false);
 
       if (imageUrls.isNotEmpty) {
@@ -959,67 +924,14 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
   // ─── 녹화 관리 ─────────────────────────────────────────────────────────────
 
+  // Web Page Recording 전환으로 현재 자동 호출되지 않음. web 모드 녹화 시작에 재사용 예정.
+  // ignore: unused_element
   Future<void> _startRecording() async {
     debugPrint('[녹화] _startRecording() 호출됨, lessonId=${state.lessonId}');
     final lessonId = state.lessonId;
     if (lessonId == null) return;
     await _repo.startRecording(lessonId);
     state = state.copyWith(isRecording: true);
-  }
-
-  void _startWhiteboardCapture() {
-    _captureTimer = Timer.periodic(const Duration(milliseconds: 1000), (t) async {
-      if (_engine == null || _whiteboardKey == null) return;
-      // 이전 캡처가 끝나기 전에 다음 캡처가 시작되면 네이티브 메모리 크래시(SIGSEGV)가
-      // 발생하므로, 진행 중이면 이번 주기는 건너뛴다.
-      if (_isCapturing) return;
-      // 첫 5회만 디버깅 로그 출력 (주기마다 로그가 쌓이는 것 방지)
-      final shouldLog = _captureLogCount < 5;
-      final boundary = _whiteboardKey!.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary == null) {
-        if (shouldLog) {
-          _captureLogCount++;
-          debugPrint('[캡처] boundary null');
-        }
-        return;
-      }
-      _isCapturing = true;
-      try {
-        final image = await boundary.toImage(pixelRatio: 1.0);
-        final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-        if (byteData == null) {
-          if (shouldLog) {
-            _captureLogCount++;
-            debugPrint('[캡처] byteData null');
-          }
-          return;
-        }
-        final bytes = Uint8List.fromList(byteData.buffer.asUint8List());
-        if (shouldLog) {
-          debugPrint('[캡처] push: ${image.width}x${image.height}, trackId=$_customVideoTrackId');
-        }
-        await _engine!.getMediaEngine().pushVideoFrame(
-          frame: ExternalVideoFrame(
-            type: VideoBufferType.videoBufferRawData,
-            format: VideoPixelFormat.videoPixelRgba,
-            buffer: bytes,
-            stride: image.width * 4,
-            height: image.height,
-            timestamp: DateTime.now().millisecondsSinceEpoch,
-          ),
-          videoTrackId: _customVideoTrackId ?? 0,
-        );
-        if (shouldLog) {
-          _captureLogCount++;
-          debugPrint('[캡처] pushVideoFrame 완료');
-        }
-      } catch (e) {
-        debugPrint('[화이트보드 캡처] 오류: $e');
-      } finally {
-        _isCapturing = false;
-      }
-    });
   }
 
   Future<void> pauseRecording() async {
@@ -1047,7 +959,6 @@ class LessonNotifier extends StateNotifier<LessonState> {
     debugPrint('[수업완료] completeLesson() 호출됨, lessonId=$lessonId, isRecording=${state.isRecording}');
 
     try {
-      _captureTimer?.cancel();
       String? recordingUrl = state.recordingUrl;
 
       if (state.isRecording) {
@@ -1089,7 +1000,6 @@ class LessonNotifier extends StateNotifier<LessonState> {
 
   @override
   void dispose() {
-    _captureTimer?.cancel();
     _engine?.leaveChannel().then((_) => _engine?.release());
     _repo.disconnectStomp();
     super.dispose();

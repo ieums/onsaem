@@ -57,10 +57,28 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   void _startViewportBroadcast() {
     _viewportTimer?.cancel();
     void send() {
-      final box = _whiteboardKey.currentContext?.findRenderObject() as RenderBox?;
-      if (box == null || !box.hasSize) return;
-      final size = box.size;
-      ref.read(lessonProvider.notifier).sendViewport(size.width, size.height);
+      // 위젯이 dispose된 뒤 타이머가 한 번 더 도는 경우 방어
+      if (!mounted) return;
+      try {
+        final ctx = _whiteboardKey.currentContext;
+        if (ctx == null) return; // 아직 렌더 안 됨 → 이번 주기 skip
+        final obj = ctx.findRenderObject();
+        // findRenderObject()가 RenderBox가 아닐 수도 있으므로 is로 안전 체크
+        // (as RenderBox? 는 비-RenderBox일 때 throw → 크래시 원인)
+        if (obj is! RenderBox) return;
+        if (!obj.hasSize) return; // 레이아웃 전 → skip
+        final size = obj.size;
+        if (size.width <= 0 ||
+            size.height <= 0 ||
+            !size.width.isFinite ||
+            !size.height.isFinite) {
+          return; // 유효하지 않은 크기 → skip
+        }
+        ref.read(lessonProvider.notifier).sendViewport(size.width, size.height);
+      } catch (e) {
+        // 어떤 이유로든 실패하면 크래시 대신 이번 주기만 건너뛴다
+        debugPrint('[뷰포트 전송] skip: $e');
+      }
     }
 
     send(); // 처음 1회 즉시 시도
@@ -112,7 +130,6 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(lessonProvider.notifier).setWhiteboardKey(_whiteboardKey);
       _startLessonInit();
       // 웹에서는 isInChannel이 설정되지 않으므로 즉시 타이머 시작
       if (kIsWeb) _startTimer();
