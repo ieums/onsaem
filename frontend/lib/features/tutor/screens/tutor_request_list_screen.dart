@@ -423,7 +423,7 @@ class _TutorRequestListScreenState
                     ),
                   ),
                   child: const Text(
-                    '취소',
+                    '신청 취소',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),

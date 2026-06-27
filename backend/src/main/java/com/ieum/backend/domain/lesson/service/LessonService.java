@@ -271,12 +271,15 @@ public class LessonService {
     }
 
     /**
-     * 녹화 중지: Agora Cloud Recording 중지 + recordingUrl DB 저장
+     * 녹화 중지: Agora stop API 즉시 호출 후 200 반환.
+     * S3 .m3u8 폴링은 비동기로 처리 — DB에 recordingUrl 저장은 백그라운드에서 완료.
      */
     @Transactional
     public RecordingStopResponseDto stopRecording(Long lessonId) {
         Lesson lesson = findByIdOrThrow(lessonId);
-        return agoraRecordingService.stopRecording(lesson);
+        RecordingStopResponseDto result = agoraRecordingService.stopRecording(lesson);
+        agoraRecordingService.stopRecordingAsync(lessonId);
+        return result;
     }
 
     // ──────────── private 헬퍼 ────────────

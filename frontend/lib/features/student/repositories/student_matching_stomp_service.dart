@@ -17,7 +17,7 @@ class StudentMatchingStompService {
     void Function(String message)? onMatchCancelled,
     void Function()? onSearchExpiringSoon,
     void Function()? onSearchExpired,
-    void Function(String channelName, List<String> imageUrls, String? subject)? onMatched,
+    void Function(String channelName, List<String> imageUrls, String? subject, String? tutorProfileImageUrl, String? studentProfileImageUrl)? onMatched,
     void Function(int tutorId)? onTutorUnavailable,
     void Function(int tutorId)? onTutorAvailable,
   }) {
@@ -70,7 +70,9 @@ class StudentMatchingStompService {
                         (json['imageUrls'] as List<dynamic>? ?? [])
                             .cast<String>();
                     final subject = json['subject'] as String?;
-                    onMatched?.call(channelName, imageUrls, subject);
+                    final tutorProfileImageUrl = json['tutorProfileImageUrl'] as String?;
+                    final studentProfileImageUrl = json['studentProfileImageUrl'] as String?;
+                    onMatched?.call(channelName, imageUrls, subject, tutorProfileImageUrl, studentProfileImageUrl);
                   case 'TUTOR_UNAVAILABLE':
                     onTutorUnavailable?.call(json['tutorId'] as int);
                   case 'TUTOR_AVAILABLE':

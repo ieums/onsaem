@@ -218,13 +218,15 @@ class TutorApplicationsNotifier
         _tutorId,
         (problemId) => _removeByProblemId(problemId),
         matchingProblemIds: matchingIds,
-        onMatched: (problemId, channelName, imageUrls, subject) {
+        onMatched: (problemId, channelName, imageUrls, subject, tutorProfileImageUrl, studentProfileImageUrl) {
           _removeByProblemId(problemId);
           if (channelName.isNotEmpty) {
             appRouter.go('/lesson', extra: {
               'channelName': channelName,
               'imageUrls': imageUrls,
               'subject': subject,
+              'tutorProfileImageUrl': tutorProfileImageUrl,
+              'studentProfileImageUrl': studentProfileImageUrl,
             });
           }
         },

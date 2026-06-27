@@ -22,6 +22,10 @@ import 'package:ieum/features/student/screens/student_report_screen.dart';
 import 'package:ieum/features/student/screens/student_review_write_screen.dart';
 import 'package:ieum/features/student/screens/student_shell_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_shell_screen.dart';
+import 'package:ieum/features/tutor/screens/tutor_profile_edit_screen.dart';
+import 'package:ieum/features/tutor/screens/tutor_academic_edit_screen.dart';
+import 'package:ieum/features/tutor/screens/tutor_my_reviews_screen.dart';
+import 'package:ieum/features/tutor/screens/tutor_my_reports_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_lesson_complete_screen.dart';
 import '../features/lesson/presentation/lesson_screen.dart';
 import '../features/matching/models/searching_problem_model.dart';
@@ -164,6 +168,22 @@ final appRouter = GoRouter(
       path: RoutePaths.tutorHome,
       builder: (_, _) => const TutorShellScreen(),
     ),
+    GoRoute(
+      path: RoutePaths.tutorProfileEdit,
+      builder: (_, _) => const TutorProfileEditScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.tutorAcademicEdit,
+      builder: (_, _) => const TutorAcademicEditScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.tutorMyReviews,
+      builder: (_, _) => const TutorMyReviewsScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.tutorMyReports,
+      builder: (_, _) => const TutorMyReportsScreen(),
+    ),
 
     // ─── 화상강의 라우트 ───────────────────────────────────────────────────
     GoRoute(
@@ -175,6 +195,8 @@ final appRouter = GoRouter(
             channelName: extra['channelName'] as String,
             imageUrls: (extra['imageUrls'] as List?)?.cast<String>() ?? const [],
             subject: extra['subject'] as String?,
+            tutorProfileImageUrl: extra['tutorProfileImageUrl'] as String?,
+            studentProfileImageUrl: extra['studentProfileImageUrl'] as String?,
           );
         }
         return LessonScreen(channelName: extra as String);

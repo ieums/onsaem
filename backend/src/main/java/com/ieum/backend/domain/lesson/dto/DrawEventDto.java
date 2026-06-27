@@ -4,6 +4,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -36,4 +38,18 @@ public class DrawEventDto {
     private Integer index;
     /** 카메라 패널 높이 비율 동기화 */
     private Double cameraRatio;
+    /** IMAGE_SYNC — 전체 이미지 목록 스냅샷 (recorder 좌표/index 정합용) */
+    private List<ImageSyncItem> images;
+
+    /** IMAGE_SYNC에 담기는 이미지 1개 */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class ImageSyncItem {
+        private String url;
+        private Double x;
+        private Double y;
+        private Double width;
+        private Double height;
+    }
 }

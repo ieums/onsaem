@@ -8,6 +8,15 @@ class TutorAvailabilityNotifier extends StateNotifier<bool> {
 
   final TutorRepository _repo;
   final int? _tutorId;
+  bool _synced = false;
+
+  /// API에서 가져온 초기값 동기화 — 최초 1회만 반영.
+  void syncFromApi(bool value) {
+    if (!_synced) {
+      _synced = true;
+      state = value;
+    }
+  }
 
   Future<void> toggle(bool value) async {
     state = value;
