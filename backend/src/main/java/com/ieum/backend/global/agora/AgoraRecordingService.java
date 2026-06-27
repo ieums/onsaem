@@ -251,8 +251,12 @@ public class AgoraRecordingService {
     }
 
     /** S3 ListObjectsV2로 lessons/recordings/{lessonId}/ 경로에서 녹화 파일을 찾아 URL 반환.
-     *  web 모드는 .mp4가 주 출력 → .mp4 우선, 없으면 .m3u8 허용.
-     *  최대 60회, 10초 간격으로 폴링 — Agora 업로드 완료까지 최대 10분 대기 */
+     *  web page recording은 ts/m3u8 조각이 먼저 올라오고 mp4(최종 합본)가 나중에 올라온다.
+     *  우선순위: mp4 > (mp4를 기다리다 타임아웃 시) m3u8 폴백.
+     *  - mp4를 찾으면 즉시 확정.
+     *  - m3u8만 있으면 바로 끝내지 않고, 처음 발견 시점부터 추가 M3U8_WAIT_LIMIT회까지
+     *    mp4를 더 기다린 뒤 그래도 없으면 m3u8로 폴백.
+     *  - 전체 최대 60회, 10초 간격 (≈ 최대 10분). */
     private String findRecordingFromS3(Long lessonId) {
         if (s3Client == null) {
             log.warn("[Agora] S3Client 미주입 상태 (prod 프로파일 아님) — S3 탐색 생략");
@@ -260,6 +264,10 @@ public class AgoraRecordingService {
         }
         String prefix = "lessons/recordings/" + lessonId + "/";
         int maxAttempts = 60;
+        int m3u8WaitLimit = 15;       // m3u8 처음 발견 후 mp4를 추가로 기다릴 최대 횟수 (≈2.5분)
+        int m3u8WaitCount = 0;        // m3u8만 있는 상태로 mp4를 기다린 횟수
+        String m3u8Fallback = null;   // mp4 끝내 없을 때 쓸 폴백
+
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 ListObjectsV2Response listResponse = s3Client.listObjectsV2(
@@ -275,14 +283,30 @@ public class AgoraRecordingService {
                     if (key.endsWith(".mp4") && mp4Key == null) mp4Key = key;
                     else if (key.endsWith(".m3u8") && m3u8Key == null) m3u8Key = key;
                 }
-                String foundKey = mp4Key != null ? mp4Key : m3u8Key;  // mp4 우선
-                if (foundKey != null) {
-                    String resolvedUrl = "https://" + bucket + ".s3." + region
-                            + ".amazonaws.com/" + foundKey;
-                    log.info("[Agora] S3에서 녹화 파일 발견 (시도 {}/{}) - {}", attempt, maxAttempts, resolvedUrl);
+
+                // ① mp4 발견 → 즉시 확정 (최선)
+                if (mp4Key != null) {
+                    String resolvedUrl = toS3Url(mp4Key);
+                    log.info("[Agora] mp4 발견 → 확정 (시도 {}/{}) - {}", attempt, maxAttempts, resolvedUrl);
                     return resolvedUrl;
                 }
-                log.info("[Agora] S3 녹화 파일 없음 (시도 {}/{}) - prefix={}", attempt, maxAttempts, prefix);
+
+                // ② m3u8만 있음 → mp4를 더 기다린다 (한도 초과 시 폴백)
+                if (m3u8Key != null) {
+                    m3u8Fallback = m3u8Key;
+                    m3u8WaitCount++;
+                    if (m3u8WaitCount >= m3u8WaitLimit) {
+                        String resolvedUrl = toS3Url(m3u8Fallback);
+                        log.warn("[Agora] mp4 끝내 없음 → m3u8 폴백 (시도 {}/{}) - {}", attempt, maxAttempts, resolvedUrl);
+                        return resolvedUrl;
+                    }
+                    log.info("[Agora] m3u8만 있음, mp4 대기 중 (m3u8대기 {}/{}, 시도 {}/{})",
+                            m3u8WaitCount, m3u8WaitLimit, attempt, maxAttempts);
+                } else {
+                    // ③ 아무것도 없음
+                    log.info("[Agora] S3 녹화 파일 없음 (시도 {}/{}) - prefix={}", attempt, maxAttempts, prefix);
+                }
+
                 if (attempt < maxAttempts) {
                     Thread.sleep(10000);
                 }
@@ -300,8 +324,20 @@ public class AgoraRecordingService {
                 }
             }
         }
+
+        // 전체 폴링 소진 — mp4는 못 찾았지만 m3u8을 본 적 있으면 폴백
+        if (m3u8Fallback != null) {
+            String resolvedUrl = toS3Url(m3u8Fallback);
+            log.warn("[Agora] 폴링 소진, mp4 없음 → m3u8 폴백 - {}", resolvedUrl);
+            return resolvedUrl;
+        }
         log.warn("[Agora] S3 녹화 파일 최종 미발견 - lessonId={}", lessonId);
         return "";
+    }
+
+    /** S3 key → 공개 URL */
+    private String toS3Url(String key) {
+        return "https://" + bucket + ".s3." + region + ".amazonaws.com/" + key;
     }
 
     // ──────────────────────── HTTP 공통 ────────────────────────
