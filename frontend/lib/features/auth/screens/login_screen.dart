@@ -151,11 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         token = await UserApi.instance.loginWithKakaoAccount();
       }
 
-      await ref.read(authControllerProvider).oauthLogin(
-            provider: 'kakao',
-            role: _isTutor ? UserRole.tutor : UserRole.student,
-            token: token.accessToken,
-          );
+      await _handleOAuth(provider: 'kakao', token: token.accessToken);
       if (!mounted) return;
       context.go(_isTutor ? RoutePaths.tutorHome : RoutePaths.studentHome);
     } catch (e) {
@@ -175,11 +171,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       final naverToken = await FlutterNaverLogin.getCurrentAccessToken();
 
-      await ref.read(authControllerProvider).oauthLogin(
-            provider: 'naver',
-            role: _isTutor ? UserRole.tutor : UserRole.student,
-            token: naverToken.accessToken,
-          );
+      await _handleOAuth(provider: 'naver', token: naverToken.accessToken);
       if (!mounted) return;
       context.go(_isTutor ? RoutePaths.tutorHome : RoutePaths.studentHome);
     } catch (e) {
@@ -201,11 +193,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _showMessage('구글 로그인에 실패했어요.');
         return;
       }
-      await ref.read(authControllerProvider).oauthLogin(
-            provider: 'google',
-            role: _isTutor ? UserRole.tutor : UserRole.student,
-            token: idToken,
-          );
+      await _handleOAuth(provider: 'google', token: idToken);
       if (!mounted) return;
       context.go(_isTutor ? RoutePaths.tutorHome : RoutePaths.studentHome);
     } catch (e) {
@@ -214,6 +202,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _showMessage(apiErrorMessage(e, fallback: '구글 로그인에 실패했어요.'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+    String _homeFor(UserRole role) =>
+      role == UserRole.tutor ? RoutePaths.tutorHome : RoutePaths.studentHome;
+
+  /// 소셜 1단계: 기존 회원이면 홈, 신규면 가입 폼으로.
+  Future<void> _handleOAuth({
+    required String provider,
+    required String token,
+  }) async {
+    final role = _isTutor ? UserRole.tutor : UserRole.student;
+    final result = await ref
+        .read(authControllerProvider)
+        .oauthCheck(provider: provider, token: token);
+    if (!mounted) return;
+    if (result.registered) {
+      context.go(_homeFor(result.tokens!.role)); // 역할은 서버 판정값
+    } else {
+      context.push(
+        role == UserRole.tutor
+            ? RoutePaths.signupTutor
+            : RoutePaths.signupStudent,
+        extra: SocialSignupArgs(
+          provider: provider,
+          role: role,
+          token: token,
+          profile: result.profile!,
+        ),
+      );
     }
   }
 

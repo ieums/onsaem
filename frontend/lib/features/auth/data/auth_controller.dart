@@ -77,16 +77,47 @@ class AuthController {
     );
     await _onAuthenticated(tokens);
   }
-    // ─── 소셜 로그인 (가입/로그인 자동 처리) ───────
-  Future<void> oauthLogin({
+    // ─── 소셜 로그인 1단계 ────────────────────────
+  /// 기존 회원이면 즉시 로그인 처리하고 결과 반환.
+  /// 신규면 로그인하지 않고 결과(profile)만 반환 → 화면이 가입 폼으로 이동.
+  Future<OAuthCheckResult> oauthCheck({
+    required String provider,
+    required String token,
+  }) async {
+    final result = await _repo.oauthCheck(provider: provider, token: token);
+    if (result.registered && result.tokens != null) {
+      await _onAuthenticated(result.tokens!);
+    }
+    return result;
+  }
+
+  // ─── 소셜 로그인 2단계 ────────────────────────
+  /// 신규 소셜 사용자 가입 + 즉시 로그인.
+  Future<void> oauthSignup({
     required String provider,
     required UserRole role,
     required String token,
+    required String birthDate,
+    required String phone,
+    String? educationStatus,
+    List<String>? subjects,
+    int? experienceYears,
+    String? bio,
+    String? school,
+    String? major,
   }) async {
-    final tokens = await _repo.oauthLogin(
+    final tokens = await _repo.oauthSignup(
       provider: provider,
       role: role,
       token: token,
+      birthDate: birthDate,
+      phone: phone,
+      educationStatus: educationStatus,
+      subjects: subjects,
+      experienceYears: experienceYears,
+      bio: bio,
+      school: school,
+      major: major,
     );
     await _onAuthenticated(tokens);
   }

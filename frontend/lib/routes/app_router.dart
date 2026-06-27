@@ -30,6 +30,7 @@ import 'package:ieum/features/tutor/screens/tutor_lesson_complete_screen.dart';
 import '../features/lesson/presentation/lesson_screen.dart';
 import '../features/matching/models/searching_problem_model.dart';
 import '../features/matching/screens/problem_detail_screen.dart';
+import 'package:ieum/features/auth/data/auth_models.dart';
 
 final appRouter = GoRouter(
   navigatorKey: GlobalKey<NavigatorState>(),
@@ -63,16 +64,22 @@ final appRouter = GoRouter(
       path: RoutePaths.signup,
       builder: (_, _) => const SignupRoleScreen(),
     ),
-    GoRoute(
+        GoRoute(
       path: RoutePaths.signupStudent,
       builder: (_, state) => StudentSignupScreen(
         isEditMode: state.uri.queryParameters['edit'] == 'true',
+        social: state.extra is SocialSignupArgs
+            ? state.extra as SocialSignupArgs
+            : null,
       ),
     ),
     GoRoute(
       path: RoutePaths.signupTutor,
       builder: (_, state) => TutorSignupScreen(
         isEditMode: state.uri.queryParameters['edit'] == 'true',
+        social: state.extra is SocialSignupArgs
+            ? state.extra as SocialSignupArgs
+            : null,
       ),
     ),
     GoRoute(
