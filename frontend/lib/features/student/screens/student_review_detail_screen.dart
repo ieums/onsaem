@@ -529,7 +529,7 @@ class _MessageBubble extends StatelessWidget {
                         color: shell.cardBorder.withValues(alpha: 0.6)),
               ),
               child: Text(
-                message.content,
+                _stripReviewMarkdown(message.content),
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.55,
@@ -569,4 +569,17 @@ class _AiAvatar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 복습 채팅 표시용 — 마크다운 기호 제거(평문화). 수식 문자($ \ ^ _ { } 등)는 건드리지 않음.
+String _stripReviewMarkdown(String input) {
+  var t = input;
+  t = t.replaceAll(RegExp(r'```[a-zA-Z]*\n?'), '');
+  t = t.replaceAll('`', '');
+  t = t.replaceAll(RegExp(r'^\s{0,3}#{1,6}\s*', multiLine: true), '');
+  t = t.replaceAllMapped(RegExp(r'\*\*\*(.+?)\*\*\*'), (m) => m[1]!);
+  t = t.replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (m) => m[1]!);
+  t = t.replaceAllMapped(RegExp(r'\[([^\]]+)\]\([^)]+\)'), (m) => m[1]!);
+  t = t.replaceAll(RegExp(r'^\s*[-*]\s+', multiLine: true), '• ');
+  return t.trim();
 }
