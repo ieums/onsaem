@@ -120,10 +120,13 @@ public class LessonSummaryService {
     }
 
     private String buildHtml(LessonInfo lesson, String markdown, List<String> imageUrls) {
+        // 0) 모델이 ```markdown ... ``` 펜스로 감싸면 통째 코드블록으로 렌더되므로 벗겨낸다
+        String cleaned = stripCodeFence(markdown);
+
         // 1) 마크다운 → HTML 본문
         Parser parser = Parser.builder().build();
         HtmlRenderer renderer = HtmlRenderer.builder().build();
-        String summaryHtml = renderer.render(parser.parse(markdown));
+        String summaryHtml = renderer.render(parser.parse(cleaned));
 
         // 2) 이미지를 base64 data URI 로 임베드
         StringBuilder imagesHtml = new StringBuilder();
@@ -146,6 +149,18 @@ public class LessonSummaryService {
                 .replace("{{images}}", imagesHtml.toString())
                 .replace("{{summary}}", summaryHtml);
     }
+    /** 응답을 ```markdown ... ``` 펜스로 감싼 경우 벗겨낸다. */
+    private String stripCodeFence(String md) {
+        if (md == null) return "";
+        String t = md.trim();
+        if (t.startsWith("```")) {
+            int nl = t.indexOf('\n');
+            if (nl >= 0) t = t.substring(nl + 1);          // 첫 줄(```markdown) 제거
+            if (t.endsWith("```")) t = t.substring(0, t.length() - 3); // 끝 ``` 제거
+        }
+        return t.trim();
+    }
+
 
     private String fetchAsDataUri(String imageUrl) {
         try {
