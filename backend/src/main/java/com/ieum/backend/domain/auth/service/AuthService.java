@@ -1,11 +1,6 @@
 package com.ieum.backend.domain.auth.service;
 
-import com.ieum.backend.domain.auth.dto.LoginRequest;
-import com.ieum.backend.domain.auth.dto.MeResponse;
-import com.ieum.backend.domain.auth.dto.UpdateProfileRequest;
-import com.ieum.backend.domain.auth.dto.StudentSignupRequest;
-import com.ieum.backend.domain.auth.dto.TokenResponse;
-import com.ieum.backend.domain.auth.dto.TutorSignupRequest;
+import com.ieum.backend.domain.auth.dto.*;
 import com.ieum.backend.domain.auth.entity.*;
 import com.ieum.backend.domain.auth.entity.EducationStatus;
 import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
@@ -90,14 +85,96 @@ public class AuthService {
         return tokenService.issue(tutor.getId(), Role.TUTOR);
     }
 
+    /**
+     * 소셜 로그인 1단계: 토큰 검증 후 기존 회원이면 바로 로그인
+     * 학생/강사 양쪽 테이블을 조회하므로 프론트 토글과 무관하게 자기 역할로 로그인
+     * 신규면 계정을 만들지 않고 가입 폼 프리필 정보만 돌려줌
+     */
     @Transactional
-    public TokenResponse oauthLogin(String providerName, String roleName, String token) {
+    public OAuthCheckResponse oauthCheck(String providerName, String token) {
         AuthProvider provider = parseProvider(providerName);
-        Role role = parseRole(roleName);
         OAuthUserInfo info = oauthClientResolver.resolve(provider).getUserInfo(token);
+
+        var student = studentRepository
+                .findByProviderAndProviderUserId(info.provider(), info.providerUserId());
+        if (student.isPresent()) {
+            verifyActive(student.get().getStatus());
+            return OAuthCheckResponse.loggedIn(
+                    tokenService.issue(student.get().getId(), Role.STUDENT));
+        }
+
+        var tutor = tutorRepository
+                .findByProviderAndProviderUserId(info.provider(), info.providerUserId());
+        if (tutor.isPresent()) {
+            verifyActive(tutor.get().getStatus());
+            return OAuthCheckResponse.loggedIn(
+                    tokenService.issue(tutor.get().getId(), Role.TUTOR));
+        }
+
+        // 신규 — 가입 안 하고 프리필 정보만
+        return OAuthCheckResponse.needsSignup(
+                new OAuthProfile(info.email(), info.name(), info.profileImageUrl()));
+    }
+
+    /**
+     * 소셜 로그인 2단계: 신규 소셜 사용자를 추가 정보와 함께 가입시키고 토큰 발급.
+     * 토큰을 재검증해 같은 소셜 신원으로만 가입되게 한다(폼 위변조 방지).
+     */
+    @Transactional
+    public TokenResponse oauthSignup(String providerName, OAuthSignupRequest req) {
+        AuthProvider provider = parseProvider(providerName);
+        Role role = parseRole(req.role());
+        OAuthUserInfo info = oauthClientResolver.resolve(provider).getUserInfo(req.token());
+
+        // 이미 가입돼 있으면(양쪽 테이블) 가입 거부 — check 로 로그인해야 함
+        boolean exists = studentRepository
+                .findByProviderAndProviderUserId(info.provider(), info.providerUserId()).isPresent()
+                || tutorRepository
+                .findByProviderAndProviderUserId(info.provider(), info.providerUserId()).isPresent();
+        if (exists) {
+            throw BusinessException.badRequest("이미 가입된 소셜 계정입니다.");
+        }
+
         return switch (role) {
-            case STUDENT -> oauthLoginStudent(info);
-            case TUTOR -> oauthLoginTutor(info);
+            case STUDENT -> {
+                Student student = studentRepository.save(
+                        Student.builder()
+                                .provider(info.provider())
+                                .providerUserId(info.providerUserId())
+                                .email(info.email())
+                                .name(info.name())
+                                .profileImageUrl(info.profileImageUrl())
+                                .birthDate(req.birthDate())
+                                .phone(req.phone())
+                                .build());
+                yield tokenService.issue(student.getId(), Role.STUDENT);
+            }
+            case TUTOR -> {
+                // 강사 필수값 검증 (로컬 가입과 동일 기준)
+                if (req.subjects() == null || req.subjects().isEmpty()) {
+                    throw BusinessException.badRequest("과외 가능 과목을 1개 이상 선택해주세요.");
+                }
+                if (req.educationStatus() == null || req.educationStatus().isBlank()) {
+                    throw BusinessException.badRequest("최종학력을 선택해주세요.");
+                }
+                Tutor tutor = tutorRepository.save(
+                        Tutor.builder()
+                                .provider(info.provider())
+                                .providerUserId(info.providerUserId())
+                                .email(info.email())
+                                .name(info.name())
+                                .profileImageUrl(info.profileImageUrl())
+                                .birthDate(req.birthDate())
+                                .phone(req.phone())
+                                .bio(req.bio())
+                                .school(req.school())
+                                .major(req.major())
+                                .experienceYears(req.experienceYears())
+                                .educationStatus(EducationStatus.fromLabel(req.educationStatus()))
+                                .subjects(req.subjects())
+                                .build());
+                yield tokenService.issue(tutor.getId(), Role.TUTOR);
+            }
         };
     }
 
@@ -169,50 +246,7 @@ public class AuthService {
         };
     }
 
-    private TokenResponse oauthLoginStudent(OAuthUserInfo info) {
-        Student student = studentRepository
-                .findByProviderAndProviderUserId(info.provider(), info.providerUserId())
-                .orElseGet(() -> {
-                    // 같은 소셜 계정이 이미 강사로 가입돼 있으면 차단 (한 계정 = 한 역할)
-                    if (tutorRepository
-                            .findByProviderAndProviderUserId(info.provider(), info.providerUserId())
-                            .isPresent()) {
-                        throw BusinessException.badRequest("이미 강사로 가입된 소셜 계정입니다.");
-                    }
-                    return studentRepository.save(
-                            Student.builder()
-                                    .provider(info.provider())
-                                    .providerUserId(info.providerUserId())
-                                    .email(info.email())
-                                    .name(info.name())
-                                    .profileImageUrl(info.profileImageUrl())
-                                    .build());
-                });
-        verifyActive(student.getStatus());
-        return tokenService.issue(student.getId(), Role.STUDENT);
-    }
-    private TokenResponse oauthLoginTutor(OAuthUserInfo info) {
-        Tutor tutor = tutorRepository
-                .findByProviderAndProviderUserId(info.provider(), info.providerUserId())
-                .orElseGet(() -> {
-                    // 같은 소셜 계정이 이미 학생으로 가입돼 있으면 차단 (한 계정 = 한 역할)
-                    if (studentRepository
-                            .findByProviderAndProviderUserId(info.provider(), info.providerUserId())
-                            .isPresent()) {
-                        throw BusinessException.badRequest("이미 학생으로 가입된 소셜 계정입니다.");
-                    }
-                    return tutorRepository.save(
-                            Tutor.builder()
-                                    .provider(info.provider())
-                                    .providerUserId(info.providerUserId())
-                                    .email(info.email())
-                                    .name(info.name())
-                                    .profileImageUrl(info.profileImageUrl())
-                                    .build());
-                });
-        verifyActive(tutor.getStatus());
-        return tokenService.issue(tutor.getId(), Role.TUTOR);
-    }
+
 
     private void verifyPassword(String raw, String encoded) {
         if (encoded == null || !passwordEncoder.matches(raw, encoded)) {
