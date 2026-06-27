@@ -104,6 +104,7 @@ class AuthRepository {
     required String token,
     required String birthDate, // "yyyy-MM-dd"
     required String phone,
+    String? email, // 소셜이 이메일 미제공 시 폼 입력값
     // 강사 전용 (role=tutor)
     String? educationStatus,
     List<String>? subjects,
@@ -119,6 +120,7 @@ class AuthRepository {
         'token': token,
         'birthDate': birthDate,
         'phone': phone,
+        if (email != null) 'email': email,
         if (educationStatus != null) 'educationStatus': educationStatus,
         if (subjects != null) 'subjects': subjects,
         if (experienceYears != null) 'experienceYears': experienceYears,

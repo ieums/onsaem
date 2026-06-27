@@ -80,6 +80,10 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   bool _isSubmitting = false;
 
   bool get _isSocial => widget.social != null;
+  bool get _needsSocialEmail =>
+      widget.social != null &&
+      (widget.social!.profile.email == null ||
+          widget.social!.profile.email!.trim().isEmpty);
 
   final List<String> _subjectKeywords = [];
 
@@ -335,6 +339,14 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
       _showSnack('과외 가능 과목을 1개 이상 선택해주세요.');
       return;
     }
+    String? email;
+    if (_needsSocialEmail) {
+      email = _emailLocalController.text.trim();
+      if (email.isEmpty || !email.contains('@')) {
+        _showSnack('이메일을 입력해주세요.');
+        return;
+      }
+    }
     final birthDate =
         '$year-${month.padLeft(2, '0')}-${day.padLeft(2, '0')}';
 
@@ -346,6 +358,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
             token: social.token,
             birthDate: birthDate,
             phone: phone,
+            email: email,
             educationStatus: _selectedEducation,
             subjects: _subjectKeywords,
             experienceYears: experienceYears,
@@ -739,6 +752,17 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                     _buildLabel(context, '이메일'),
                     const SizedBox(height: 8),
                     _buildDomainRow(context),
+                    const SizedBox(height: 20),
+                  ],
+                  if (_needsSocialEmail) ...[
+                    _buildLabel(context, '이메일'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      context,
+                      controller: _emailLocalController,
+                      hint: '이메일을 입력하세요',
+                      keyboardType: TextInputType.emailAddress,
+                    ),
                     const SizedBox(height: 20),
                   ],
                   _buildLabel(context, '휴대폰'),

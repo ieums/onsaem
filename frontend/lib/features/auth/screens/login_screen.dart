@@ -152,8 +152,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
 
       await _handleOAuth(provider: 'kakao', token: token.accessToken);
-      if (!mounted) return;
-      context.go(_isTutor ? RoutePaths.tutorHome : RoutePaths.studentHome);
     } catch (e) {
       if (!mounted) return;
       _showMessage(apiErrorMessage(e, fallback: '카카오 로그인에 실패했어요.'));
@@ -172,8 +170,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final naverToken = await FlutterNaverLogin.getCurrentAccessToken();
 
       await _handleOAuth(provider: 'naver', token: naverToken.accessToken);
-      if (!mounted) return;
-      context.go(_isTutor ? RoutePaths.tutorHome : RoutePaths.studentHome);
     } catch (e) {
       debugPrint('[naver] 로그인 실패: $e');
       if (!mounted) return;
@@ -194,8 +190,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return;
       }
       await _handleOAuth(provider: 'google', token: idToken);
-      if (!mounted) return;
-      context.go(_isTutor ? RoutePaths.tutorHome : RoutePaths.studentHome);
     } catch (e) {
       debugPrint('[google] 로그인 실패: $e');
       if (!mounted) return;
@@ -220,10 +214,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (result.registered) {
       context.go(_homeFor(result.tokens!.role)); // 역할은 서버 판정값
     } else {
+      // 신규 소셜 사용자 → 역할 선택 화면 경유(토글로 자동 가입 방지)
       context.push(
-        role == UserRole.tutor
-            ? RoutePaths.signupTutor
-            : RoutePaths.signupStudent,
+        RoutePaths.signup,
         extra: SocialSignupArgs(
           provider: provider,
           role: role,

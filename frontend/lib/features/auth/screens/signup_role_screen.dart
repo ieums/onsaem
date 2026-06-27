@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/features/auth/data/auth_models.dart';
 
 /// 회원가입 — 학생 / 강사 역할 선택
 class SignupRoleScreen extends StatelessWidget {
-  const SignupRoleScreen({super.key});
+  const SignupRoleScreen({super.key, this.social});
+
+  final SocialSignupArgs? social;
 
   static const _backgroundColor = Color(0xFFF8F9FD);
   static const _titleColor = Color(0xFF1A1D26);
@@ -69,7 +72,17 @@ class SignupRoleScreen extends StatelessWidget {
                             ),
                             title: '학생으로 회원가입하기',
                             description: '질문하고 강사님과 실시간으로 소통해요',
-                            onTap: () => context.push(RoutePaths.signupStudent),
+                            onTap: () => context.push(
+                              RoutePaths.signupStudent,
+                              extra: social == null
+                                  ? null
+                                  : SocialSignupArgs(
+                                      provider: social!.provider,
+                                      role: UserRole.student,
+                                      token: social!.token,
+                                      profile: social!.profile,
+                                    ),
+                            ),
                           ),
                           const SizedBox(height: 16),
                           _RoleCard(
@@ -78,7 +91,17 @@ class SignupRoleScreen extends StatelessWidget {
                             leadingIcon: const _WhiteboardIcon(),
                             title: '강사로 회원가입하기',
                             description: '학생들의 질문에 답하고 수익을 창출해요',
-                            onTap: () => context.push(RoutePaths.signupTutor),
+                            onTap: () => context.push(
+                              RoutePaths.signupTutor,
+                              extra: social == null
+                                  ? null
+                                  : SocialSignupArgs(
+                                      provider: social!.provider,
+                                      role: UserRole.tutor,
+                                      token: social!.token,
+                                      profile: social!.profile,
+                                    ),
+                            ),
                           ),
                     ],
                   ),

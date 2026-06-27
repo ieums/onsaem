@@ -66,6 +66,10 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
 
   bool get _isShellThemed => widget.isEditMode;
   bool get _isSocial => widget.social != null;
+  bool get _needsSocialEmail =>
+      widget.social != null &&
+      (widget.social!.profile.email == null ||
+          widget.social!.profile.email!.trim().isEmpty);
 
   ThemeData? get _shellTheme {
     if (!_isShellThemed) return null;
@@ -390,13 +394,17 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     final day = _dayController.text.trim();
     final phone = _phoneController.text.trim();
 
-    if (year.length != 4 || month.isEmpty || day.isEmpty) {
-      _showSnack('생년월일을 정확히 입력해주세요.');
-      return;
-    }
     if (phone.isEmpty) {
       _showSnack('휴대폰 번호를 입력해주세요.');
       return;
+    }
+    String? email;
+    if (_needsSocialEmail) {
+      email = _emailLocalController.text.trim();
+      if (email.isEmpty || !email.contains('@')) {
+        _showSnack('이메일을 입력해주세요.');
+        return;
+      }
     }
     final birthDate = '$year-${month.padLeft(2, '0')}-${day.padLeft(2, '0')}';
 
@@ -408,6 +416,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
             token: social.token,
             birthDate: birthDate,
             phone: phone,
+            email: email,
           );
       if (!mounted) return;
       context.go(RoutePaths.studentHome);
@@ -556,6 +565,17 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                           child: _buildDomainTrigger(context),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                  if (_needsSocialEmail) ...[
+                    _buildLabel(context, '이메일'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      context,
+                      controller: _emailLocalController,
+                      hint: '이메일을 입력하세요',
+                      keyboardType: TextInputType.emailAddress,
                     ),
                     const SizedBox(height: 20),
                   ],

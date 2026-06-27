@@ -62,7 +62,11 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: RoutePaths.signup,
-      builder: (_, _) => const SignupRoleScreen(),
+      builder: (_, state) => SignupRoleScreen(
+        social: state.extra is SocialSignupArgs
+            ? state.extra as SocialSignupArgs
+            : null,
+      ),
     ),
         GoRoute(
       path: RoutePaths.signupStudent,
