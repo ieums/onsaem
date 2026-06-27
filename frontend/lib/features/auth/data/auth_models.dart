@@ -71,3 +71,61 @@ class UserProfile {
     );
   }
 }
+/// 소셜 로그인 1단계(check) 결과.
+/// - registered=true  → tokens 로 즉시 로그인
+/// - registered=false → profile 프리필 들고 가입 폼으로 이동
+class OAuthCheckResult {
+  final bool registered;
+  final AuthTokens? tokens;   // registered=true 일 때만
+  final OAuthProfile? profile; // registered=false 일 때만
+
+  const OAuthCheckResult({
+    required this.registered,
+    this.tokens,
+    this.profile,
+  });
+
+  factory OAuthCheckResult.fromJson(Map<String, dynamic> json) {
+    final registered = json['registered'] as bool;
+    return OAuthCheckResult(
+      registered: registered,
+      tokens: registered
+          ? AuthTokens.fromJson(json['tokens'] as Map<String, dynamic>)
+          : null,
+      profile: registered
+          ? null
+          : OAuthProfile.fromJson(json['profile'] as Map<String, dynamic>),
+    );
+  }
+}
+
+/// 신규 소셜 사용자 가입 폼 프리필 정보 (이메일 미동의 시 null 가능).
+class OAuthProfile {
+  final String? email;
+  final String? name;
+  final String? profileImageUrl;
+
+  const OAuthProfile({this.email, this.name, this.profileImageUrl});
+
+  factory OAuthProfile.fromJson(Map<String, dynamic> json) {
+    return OAuthProfile(
+      email: json['email'] as String?,
+      name: json['name'] as String?,
+      profileImageUrl: json['profileImageUrl'] as String?,
+    );
+  }
+}
+/// 소셜 가입 폼으로 넘기는 인자 (provider/token + 프리필 프로필).
+class SocialSignupArgs {
+  final String provider;       // "google" | "kakao" | "naver"
+  final UserRole role;         // student | tutor
+  final String token;          // 소셜 토큰 (서버 재검증용)
+  final OAuthProfile profile;  // 프리필 (이름/이메일/사진)
+
+  const SocialSignupArgs({
+    required this.provider,
+    required this.role,
+    required this.token,
+    required this.profile,
+  });
+}

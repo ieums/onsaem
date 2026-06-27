@@ -16,6 +16,7 @@ import 'package:ieum/features/student/screens/student_problem_detail_screen.dart
 import 'package:ieum/features/student/utils/coin_shortage.dart';
 import 'package:ieum/features/student/widgets/student_problem_chips.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
+import 'student_ai_tutor_screen.dart';
 
 class StudentProblemStatusScreen extends ConsumerStatefulWidget {
   const StudentProblemStatusScreen({super.key, required this.problem});
@@ -248,6 +249,33 @@ class _StudentProblemStatusScreenState
                       const SizedBox(height: 12),
                     ],
                   const SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => StudentAiTutorScreen(
+                              problemId: widget.problem.problemId,
+                              problemSummary: session?.questionSummary,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.smart_toy_outlined, size: 18),
+                      label: const Text('AI 튜터에게 물어보기'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.studentPoint,
+                        foregroundColor: AppColors.studentInk,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     height: 48,

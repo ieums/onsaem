@@ -28,6 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.ieum.backend.domain.auth.entity.Tutor;
+import com.ieum.backend.domain.auth.repository.TutorRepository;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -48,6 +50,7 @@ public class LessonService {
     private final ImageStorageService imageStorageService; // local/S3 자동 분기 (강의 임시 이미지)
     private final SettlementRepository settlementRepository; // 정산 보류/확정 판단
     private final ReportRepository reportRepository;         // 신고 보류 게이팅
+    private final TutorRepository tutorRepository;           // 등급 실적(완료 수업수) 반영
 
     @Transactional
     public Lesson createLesson(Long tutorId, Long studentId, String channelName) {
@@ -200,7 +203,15 @@ public class LessonService {
     public void completeLesson(Long lessonId, String recordingUrl) {
         Lesson lesson = findByIdOrThrow(lessonId);
 
+        // ACTIVE→COMPLETED 전이일 때만 강사 완료 수업수에 반영(중복 완료 방어)
+        boolean wasActive = lesson.getStatus() == LessonStatus.ACTIVE;
+
         lesson.complete(recordingUrl);  // recordingUrl null이면 기존 값 유지
+
+        if (wasActive && lesson.getTutorId() != null) {
+            tutorRepository.findById(lesson.getTutorId())
+                    .ifPresent(Tutor::recordLessonCompleted);
+        }
 
         // 녹음 URL이 비어 있으면 저장소가 주는 기본 참조로 채운다.
         // (로컬: marker → 전사 스케줄러가 인식 / prod: null → Agora가 세팅한 값 유지)

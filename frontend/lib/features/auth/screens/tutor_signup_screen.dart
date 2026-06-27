@@ -12,14 +12,18 @@ import 'package:ieum/features/auth/data/auth_controller.dart';
 import 'package:ieum/features/auth/utils/password_rules.dart';
 import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/core/network/api_error.dart';
+import 'package:ieum/features/auth/data/auth_models.dart';
 
 class TutorSignupScreen extends ConsumerStatefulWidget {
   const TutorSignupScreen({
     super.key,
     this.isEditMode = false,
+    this.social,
   });
 
   final bool isEditMode;
+  final SocialSignupArgs? social;
+
 
   @override
   ConsumerState<TutorSignupScreen> createState() => _TutorSignupScreenState();
@@ -74,6 +78,12 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   bool _showPasswordMismatch = false;
   int _introLength = 0;
   bool _isSubmitting = false;
+
+  bool get _isSocial => widget.social != null;
+  bool get _needsSocialEmail =>
+      widget.social != null &&
+      (widget.social!.profile.email == null ||
+          widget.social!.profile.email!.trim().isEmpty);
 
   final List<String> _subjectKeywords = [];
 
@@ -231,6 +241,12 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
       return;
     }
 
+    // ── 소셜 가입 모드 ──
+    if (widget.social != null) {
+      await _submitSocial();
+      return;
+    }
+
     // ── 신규 강사 회원가입 ──
     final name = _nameController.text.trim();
     final emailLocal = _emailLocalController.text.trim();
@@ -240,7 +256,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     final password = _passwordController.text;
     final confirm = _confirmPasswordController.text;
     final major = _majorController.text.trim();
-    final school = _schoolController.text.trim(); 
+    final school = _schoolController.text.trim();
     final bio = _introController.text.trim();
 
     final year = _yearController.text.trim();
@@ -283,18 +299,78 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
             name: name,
             birthDate: birthDate,
             phone: phone,
-            educationStatus: _selectedEducation,    // 재학/휴학/졸업
-            subjects: _subjectKeywords,             // 과외 가능 과목
-            experienceYears: experienceYears,       // 경력 연수 (선택)
-            school: school.isEmpty ? null : school,  //학교
-            major: major.isEmpty ? null : major,    // 전공 (선택)
-            bio: bio.isEmpty ? null : bio,          // 한줄소개 (선택)
+            educationStatus: _selectedEducation,
+            subjects: _subjectKeywords,
+            experienceYears: experienceYears,
+            school: school.isEmpty ? null : school,
+            major: major.isEmpty ? null : major,
+            bio: bio.isEmpty ? null : bio,
           );
       if (!mounted) return;
-      context.go(RoutePaths.tutorHome); // 가입 즉시 로그인됨 → 강사 홈
+      context.go(RoutePaths.tutorHome);
     } catch (e) {
       if (!mounted) return;
       _showSnack(apiErrorMessage(e, fallback: '회원가입에 실패했어요. 이미 가입된 이메일인지 확인해주세요.'));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _submitSocial() async {
+    final social = widget.social!;
+    final major = _majorController.text.trim();
+    final school = _schoolController.text.trim();
+    final bio = _introController.text.trim();
+    final year = _yearController.text.trim();
+    final month = _monthController.text.trim();
+    final day = _dayController.text.trim();
+    final phone = _phoneController.text.trim();
+    final experienceYears = int.tryParse(_experienceController.text.trim());
+
+    if (year.length != 4 || month.isEmpty || day.isEmpty) {
+      _showSnack('생년월일을 정확히 입력해주세요.');
+      return;
+    }
+    if (phone.isEmpty) {
+      _showSnack('휴대폰 번호를 입력해주세요.');
+      return;
+    }
+    if (_subjectKeywords.isEmpty) {
+      _showSnack('과외 가능 과목을 1개 이상 선택해주세요.');
+      return;
+    }
+    String? email;
+    if (_needsSocialEmail) {
+      email = _emailLocalController.text.trim();
+      if (email.isEmpty || !email.contains('@')) {
+        _showSnack('이메일을 입력해주세요.');
+        return;
+      }
+    }
+    final birthDate =
+        '$year-${month.padLeft(2, '0')}-${day.padLeft(2, '0')}';
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(authControllerProvider).oauthSignup(
+            provider: social.provider,
+            role: UserRole.tutor,
+            token: social.token,
+            birthDate: birthDate,
+            phone: phone,
+            email: email,
+            educationStatus: _selectedEducation,
+            subjects: _subjectKeywords,
+            experienceYears: experienceYears,
+            school: school.isEmpty ? null : school,
+            major: major.isEmpty ? null : major,
+            bio: bio.isEmpty ? null : bio,
+          );
+      if (!mounted) return;
+      context.go(RoutePaths.tutorHome);
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack(apiErrorMessage(e, fallback: '회원가입에 실패했어요.'));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -614,14 +690,16 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                 children: [
                   _buildProfilePhotoSection(context),
                   const SizedBox(height: 24),
-                  _buildLabel(context, '이름'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    context,
-                    controller: _nameController,
-                    hint: '이름을 입력하세요',
-                  ),
-                  const SizedBox(height: 20),
+                  if (!_isSocial) ...[
+                    _buildLabel(context, '이름'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      context,
+                      controller: _nameController,
+                      hint: '이름을 입력하세요',
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   _buildLabel(context, '생년월일'),
                   const SizedBox(height: 8),
                   Row(
@@ -670,10 +748,23 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _buildLabel(context, '이메일'),
-                  const SizedBox(height: 8),
-                  _buildDomainRow(context),
-                  const SizedBox(height: 20),
+                  if (!_isSocial) ...[
+                    _buildLabel(context, '이메일'),
+                    const SizedBox(height: 8),
+                    _buildDomainRow(context),
+                    const SizedBox(height: 20),
+                  ],
+                  if (_needsSocialEmail) ...[
+                    _buildLabel(context, '이메일'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      context,
+                      controller: _emailLocalController,
+                      hint: '이메일을 입력하세요',
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   _buildLabel(context, '휴대폰'),
                   const SizedBox(height: 8),
                   _buildTextField(
@@ -687,53 +778,55 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _buildLabel(context, '비밀번호'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    context,
-                    controller: _passwordController,
-                    hint: '비밀번호를 입력하세요',
-                    obscureText: _obscurePassword,
-                    suffixIcon: _buildVisibilityToggle(
-                      context,
-                      isVisible: _obscurePassword,
-                      onToggle: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  PasswordRulesChecklist(
-                    password: _passwordController.text,
-                    compact: true,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildLabel(context, '비밀번호 확인'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    context,
-                    controller: _confirmPasswordController,
-                    hint: '비밀번호를 다시 입력하세요',
-                    obscureText: _obscureConfirmPassword,
-                    suffixIcon: _buildVisibilityToggle(
-                      context,
-                      isVisible: _obscureConfirmPassword,
-                      onToggle: () => setState(
-                        () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                      ),
-                    ),
-                  ),
-                  if (_showPasswordMismatch) ...[
+                  if (!_isSocial) ...[
+                    _buildLabel(context, '비밀번호'),
                     const SizedBox(height: 8),
-                    const Text(
-                      '비밀번호가 일치하지 않습니다.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: _errorColor,
-                        fontWeight: FontWeight.w500,
+                    _buildTextField(
+                      context,
+                      controller: _passwordController,
+                      hint: '비밀번호를 입력하세요',
+                      obscureText: _obscurePassword,
+                      suffixIcon: _buildVisibilityToggle(
+                        context,
+                        isVisible: _obscurePassword,
+                        onToggle: () =>
+                            setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    PasswordRulesChecklist(
+                      password: _passwordController.text,
+                      compact: true,
+                    ),
+                    const SizedBox(height: 20),
+                    _buildLabel(context, '비밀번호 확인'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      context,
+                      controller: _confirmPasswordController,
+                      hint: '비밀번호를 다시 입력하세요',
+                      obscureText: _obscureConfirmPassword,
+                      suffixIcon: _buildVisibilityToggle(
+                        context,
+                        isVisible: _obscureConfirmPassword,
+                        onToggle: () => setState(
+                          () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                        ),
+                      ),
+                    ),
+                    if (_showPasswordMismatch) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        '비밀번호가 일치하지 않습니다.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: _errorColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
                   ],
-                  const SizedBox(height: 20),
                   _buildLabel(context, '최종학력'),
                   const SizedBox(height: 8),
                   Align(

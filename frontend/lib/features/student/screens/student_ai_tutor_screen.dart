@@ -6,6 +6,7 @@ import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/data/models/ai_tutor_message.dart';
 import 'package:ieum/features/student/providers/ai_tutor_provider.dart';
 import 'package:ieum/features/student/utils/coin_shortage.dart';
+import 'package:ieum/core/constants/api_constants.dart';
 
 class StudentAiTutorScreen extends ConsumerStatefulWidget {
   const StudentAiTutorScreen({
@@ -25,6 +26,7 @@ class StudentAiTutorScreen extends ConsumerStatefulWidget {
 class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
   final _msgController = TextEditingController();
   final _scrollController = ScrollController();
+  bool _problemExpanded = false;
 
   @override
   void initState() {
@@ -157,6 +159,7 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
                   if (state.isInitializing)
                     const LinearProgressIndicator(
                         minHeight: 2, color: AppColors.studentInk),
+                  _buildProblemBanner(shell, state),
                   Expanded(child: _buildBody(shell, state)),
                   if (state.error != null && state.messages.isNotEmpty)
                     Padding(
@@ -220,6 +223,165 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
       itemCount: state.messages.length,
       itemBuilder: (_, i) =>
           _MessageBubble(message: state.messages[i], shell: shell),
+    );
+  }
+    Widget _buildProblemBanner(ShellTheme shell, AiTutorChatState state) {
+    final problem = state.problem;
+    final summary = (problem?.summary?.trim().isNotEmpty ?? false)
+        ? problem!.summary!.trim()
+        : (widget.problemSummary?.trim() ?? '');
+    final images = problem?.imageUrls ?? const <String>[];
+    // 보여줄 게 없으면 배너 숨김
+    if (images.isEmpty && summary.isEmpty) return const SizedBox.shrink();
+
+    final firstImageUrl =
+        images.isNotEmpty ? ApiConstants.resolveImageUrl(images.first) : null;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: shell.cardBackground,
+        border: Border(
+          bottom: BorderSide(color: shell.cardBorder.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _problemExpanded = !_problemExpanded),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+              child: Row(
+                children: [
+                  if (firstImageUrl != null)
+                    GestureDetector(
+                      onTap: () => _showImageViewer(images),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          firstImageUrl,
+                          width: 46,
+                          height: 46,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _bannerThumbFallback(shell),
+                        ),
+                      ),
+                    )
+                  else
+                    _bannerThumbFallback(shell),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '문제',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.studentInk,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          summary.isNotEmpty
+                              ? summary
+                              : '이미지를 눌러 문제를 확인하세요',
+                          maxLines: _problemExpanded ? 6 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: shell.titleColor,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _problemExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: shell.hintColor,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_problemExpanded && firstImageUrl != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: GestureDetector(
+                onTap: () => _showImageViewer(images),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    firstImageUrl,
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bannerThumbFallback(ShellTheme shell) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        color: shell.cardBorder.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(Icons.image_outlined, size: 22, color: shell.hintColor),
+    );
+  }
+
+  void _showImageViewer(List<String> imageUrls) {
+    if (imageUrls.isEmpty) return;
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(12),
+        child: Stack(
+          children: [
+            ListView(
+              shrinkWrap: true,
+              children: [
+                for (final u in imageUrls)
+                  InteractiveViewer(
+                    minScale: 0.8,
+                    maxScale: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Image.network(
+                        ApiConstants.resolveImageUrl(u),
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
