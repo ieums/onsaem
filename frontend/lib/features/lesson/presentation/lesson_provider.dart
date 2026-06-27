@@ -193,6 +193,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
   Timer? _captureTimer;
   bool _recordingStarted = false;
   int _captureLogCount = 0;
+  bool _isCapturing = false;
 
   LessonNotifier(this._repo) : super(const LessonState());
 
@@ -471,6 +472,24 @@ class LessonNotifier extends StateNotifier<LessonState> {
     );
   }
 
+  // ─── 뷰포트 크기 전송 (Agora Web Page Recording 좌표 정합용) ─────────────────
+
+  /// 강사 화이트보드 영역의 실제 크기(논리픽셀)를 전송.
+  /// recorder.html이 이 값으로 1280×720 프레임에 fit 스케일을 적용한다.
+  void sendViewport(double w, double h) {
+    final channelName = state.channelName;
+    if (channelName == null) return;
+    _repo.sendDraw(
+      channelName,
+      DrawEvent(
+        senderId: _repo.sessionId,
+        type: DrawType.viewport,
+        width: w,
+        height: h,
+      ),
+    );
+  }
+
   // ─── 카메라 비율 동기화 ─────────────────────────────────────────────────────
 
   void sendCameraRatio(double ratio) {
@@ -706,6 +725,9 @@ class LessonNotifier extends StateNotifier<LessonState> {
         if (event.cameraRatio != null) {
           state = state.copyWith(remoteCameraRatio: event.cameraRatio!.clamp(0.1, 0.5));
         }
+      case DrawType.viewport:
+        // 강사→recorder 전용. 학생 앱에서는 무시한다.
+        break;
       case DrawType.lessonEnd:
         _applyRemoteComplete();
     }
@@ -946,9 +968,12 @@ class LessonNotifier extends StateNotifier<LessonState> {
   }
 
   void _startWhiteboardCapture() {
-    _captureTimer = Timer.periodic(const Duration(milliseconds: 500), (t) async {
+    _captureTimer = Timer.periodic(const Duration(milliseconds: 1000), (t) async {
       if (_engine == null || _whiteboardKey == null) return;
-      // 첫 5회만 디버깅 로그 출력 (500ms마다 로그가 쌓이는 것 방지)
+      // 이전 캡처가 끝나기 전에 다음 캡처가 시작되면 네이티브 메모리 크래시(SIGSEGV)가
+      // 발생하므로, 진행 중이면 이번 주기는 건너뛴다.
+      if (_isCapturing) return;
+      // 첫 5회만 디버깅 로그 출력 (주기마다 로그가 쌓이는 것 방지)
       final shouldLog = _captureLogCount < 5;
       final boundary = _whiteboardKey!.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
@@ -959,6 +984,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         }
         return;
       }
+      _isCapturing = true;
       try {
         final image = await boundary.toImage(pixelRatio: 1.0);
         final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -990,6 +1016,8 @@ class LessonNotifier extends StateNotifier<LessonState> {
         }
       } catch (e) {
         debugPrint('[화이트보드 캡처] 오류: $e');
+      } finally {
+        _isCapturing = false;
       }
     });
   }

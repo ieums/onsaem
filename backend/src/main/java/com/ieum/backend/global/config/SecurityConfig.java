@@ -61,7 +61,8 @@ public class SecurityConfig {
                                 "/ws-raw",
                                 "/api/v1/matching/**",
                                 "/uploads/**",
-                                "/error"
+                                "/error",
+                                "/recorder.html"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

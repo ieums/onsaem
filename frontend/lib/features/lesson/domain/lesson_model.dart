@@ -99,7 +99,8 @@ enum DrawType {
   lessonEnd,
   micOn,
   micOff,
-  cameraRatio;
+  cameraRatio,
+  viewport;
 
   String get value {
     switch (this) {
@@ -133,6 +134,8 @@ enum DrawType {
         return 'MIC_OFF';
       case DrawType.cameraRatio:
         return 'CAMERA_RATIO';
+      case DrawType.viewport:
+        return 'VIEWPORT';
     }
   }
 
@@ -168,6 +171,8 @@ enum DrawType {
         return DrawType.micOff;
       case 'CAMERA_RATIO':
         return DrawType.cameraRatio;
+      case 'VIEWPORT':
+        return DrawType.viewport;
       default:
         return DrawType.draw;
     }

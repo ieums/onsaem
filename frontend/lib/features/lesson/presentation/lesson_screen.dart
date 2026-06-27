@@ -49,6 +49,24 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   Timer? _timer;
   int _elapsedSeconds = 0;
 
+  // ─── 뷰포트 브로드캐스트 (Agora Web Page Recording 좌표 정합용) ───────────────
+  // 강사일 때만, 화이트보드 영역 크기를 주기적으로 전송한다. recorder가 늦게
+  // 접속해도 받을 수 있도록 새 구독자 감지 대신 3초 주기 반복 전송을 사용.
+  Timer? _viewportTimer;
+
+  void _startViewportBroadcast() {
+    _viewportTimer?.cancel();
+    void send() {
+      final box = _whiteboardKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return;
+      final size = box.size;
+      ref.read(lessonProvider.notifier).sendViewport(size.width, size.height);
+    }
+
+    send(); // 처음 1회 즉시 시도
+    _viewportTimer = Timer.periodic(const Duration(seconds: 3), (_) => send());
+  }
+
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -98,12 +116,16 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
       _startLessonInit();
       // 웹에서는 isInChannel이 설정되지 않으므로 즉시 타이머 시작
       if (kIsWeb) _startTimer();
+      // 강사면 화이트보드 크기를 주기 전송 (recorder 좌표 정합)
+      final session = ref.read(currentUserProvider);
+      if (session?.isTutor ?? false) _startViewportBroadcast();
     });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _viewportTimer?.cancel();
     super.dispose();
   }
 
