@@ -11,6 +11,10 @@ import com.ieum.backend.domain.lesson.entity.Lesson.LessonStatus;
 import com.ieum.backend.domain.lesson.policy.LessonPolicy;
 import com.ieum.backend.domain.lesson.repository.LessonRepository;
 import com.ieum.backend.domain.payment.service.CoinService;
+import com.ieum.backend.domain.matching.entity.ApplicationStatus;
+import com.ieum.backend.domain.matching.entity.MatchingApplication;
+import com.ieum.backend.domain.matching.repository.MatchingApplicationRepository;
+import com.ieum.backend.domain.matching.service.MatchingNotificationService;
 import com.ieum.backend.domain.report.entity.enums.ReportStatus;
 import com.ieum.backend.domain.report.repository.ReportRepository;
 import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
@@ -51,6 +55,8 @@ public class LessonService {
     private final SettlementRepository settlementRepository; // 정산 보류/확정 판단
     private final ReportRepository reportRepository;         // 신고 보류 게이팅
     private final TutorRepository tutorRepository;           // 등급 실적(완료 수업수) 반영
+    private final MatchingApplicationRepository matchingApplicationRepository; // 수업중 알림 대상(강사의 PENDING 신청)
+    private final MatchingNotificationService matchingNotificationService;     // 강사 수업중/해제 STOMP 알림
 
     @Transactional
     public Lesson createLesson(Long tutorId, Long studentId, String channelName) {
@@ -155,6 +161,10 @@ public class LessonService {
 
         LocalDateTime endsAt = LocalDateTime.now().plusMinutes(LessonPolicy.BASE_DURATION_MIN);
         lesson.startBilling(studentId, tutorId, cost, endsAt);
+
+        // 수업 시작 → 그 강사의 PENDING 신청을 가진 학생들에게 '수업 중' 라이브 알림.
+        // (위 ACTIVE/billable 가드를 통과한 '실제 시작'에서만 1회 발송)
+        notifyTutorLessonStatus(tutorId, true);
     }
 
     /**
@@ -211,6 +221,9 @@ public class LessonService {
         if (wasActive && lesson.getTutorId() != null) {
             tutorRepository.findById(lesson.getTutorId())
                     .ifPresent(Tutor::recordLessonCompleted);
+            // 수업 종료 → 그 강사의 PENDING 신청 학생들에게 '수업 중 해제' 라이브 알림.
+            // (ACTIVE→COMPLETED 전이일 때만 = 중복 완료 호출엔 재발송 안 됨)
+            notifyTutorLessonStatus(lesson.getTutorId(), false);
         }
 
         // 녹음 URL이 비어 있으면 저장소가 주는 기본 참조로 채운다.
@@ -233,6 +246,26 @@ public class LessonService {
         // 정산은 즉시 하지 않고 24h 보류한다(완료 직후 신고가 들어오면 막아야 하므로).
         // 코인은 홀드 상태로 그대로 두고, finalizeDueSettlements() 스케줄러가
         // 24h 경과 + 미신고일 때 확정차감 + 정산한다.
+    }
+
+    /**
+     * 수업 시작/종료 시 그 강사의 PENDING 신청을 가진 학생들에게 '수업 중' 상태 변경을 라이브로 알린다.
+     * 토픽/대상은 기존 매칭 알림과 동일(/topic/matching/{problemId}, 강사의 PENDING 신청들).
+     * 신청 상태(markUnavailable)는 바꾸지 않고 알림만 보낸다 —
+     * MatchingService는 LessonService를 의존하므로 역주입은 순환 참조라, 알림 서비스/레포만 직접 사용한다.
+     * 로드 시점의 isInLesson은 별도(수업 ACTIVE/WAITING 존재 여부)로 계산되므로 상태변경 없이도 일관된다.
+     */
+    private void notifyTutorLessonStatus(Long tutorId, boolean inLesson) {
+        if (tutorId == null) return;
+        List<MatchingApplication> pendingApps =
+                matchingApplicationRepository.findByTutorIdAndStatus(tutorId, ApplicationStatus.PENDING);
+        for (MatchingApplication app : pendingApps) {
+            if (inLesson) {
+                matchingNotificationService.notifyTutorUnavailable(app.getProblemId(), tutorId);
+            } else {
+                matchingNotificationService.notifyTutorAvailable(app.getProblemId(), tutorId);
+            }
+        }
     }
 
     /**
