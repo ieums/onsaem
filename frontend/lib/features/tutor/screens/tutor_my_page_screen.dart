@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,12 +7,15 @@ import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/storage/token_storage.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/widgets/profile_image.dart';
+import 'package:ieum/features/tutor/widgets/tutor_action_button_style.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/auth/screens/password_reset_screen.dart';
 import 'package:ieum/features/student/providers/mypage_provider.dart';
 import 'package:ieum/features/tutor/providers/settlement_provider.dart';
 import 'package:ieum/features/tutor/providers/tutor_availability_provider.dart';
+import 'package:ieum/features/tutor/widgets/settlement_account_dialog.dart';
 
 class TutorMyPageScreen extends ConsumerStatefulWidget {
   const TutorMyPageScreen({super.key});
@@ -30,37 +32,9 @@ class _TutorMyPageScreenState
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSettlementAccount());
-  }
-
-  /// 정산 계좌를 백엔드에서 로드(미등록이면 빈 상태 유지).
-  Future<void> _loadSettlementAccount() async {
-    try {
-      final acc = await ref.read(settlementRepositoryProvider).fetchAccount();
-      if (!mounted) return;
-      setState(() {
-        if (acc.bank != null && acc.bank!.isNotEmpty) _bankName = acc.bank!;
-        _accountNumber = acc.account ?? '';
-        _accountHolder = acc.holder ?? '';
-      });
-    } catch (_) {
-      // 미등록/네트워크 오류는 빈 상태로 둔다.
-    }
   }
 
   bool _pushNotifications = true;
-
-  // 정산 계좌 — 백엔드(GET /tutors/me/settlement-account)에서 로드. 미등록이면 빈 값.
-  String _bankName = '';
-  String _accountNumber = '';
-  String _accountHolder = '';
-
-  static const _bankOptions = [
-    '국민은행', '신한은행', '하나은행', '우리은행', 'NH농협은행',
-    '카카오뱅크', '토스뱅크', '케이뱅크', 'IBK기업은행', '새마을금고',
-    '신협', 'SC제일은행', '수협은행', '우체국', '대구은행',
-    '부산은행', '경남은행', '광주은행', '전북은행', '제주은행',
-  ];
 
   static const _faqItems = <({String question, String answer})>[
     (
@@ -69,7 +43,13 @@ class _TutorMyPageScreenState
     ),
     (
       question: '출금 신청은 어떻게 하나요?',
-      answer: '정산 탭에서 출금 가능 금액을 확인한 뒤 「출금 신청」 버튼을 눌러 주세요. 최소 출금 금액과 1일 출금 횟수 제한이 적용될 수 있습니다.',
+      answer: '정산 탭에서 출금 가능 금액을 확인한 뒤 「출금 신청」 버튼을 눌러 주세요. 출금하려면 먼저 「정산 계좌 관리」에서 계좌를 등록해야 합니다.',
+    ),
+    (
+      question: '수업이 끝났는데 왜 바로 출금이 안 되나요?',
+      answer: '수업 종료 후 24시간 동안은 정산이 보류됩니다. 이 시간은 분쟁·신고에 대비하기 위한 기간으로, '
+          '24시간이 지나고 해당 수업에 접수된 신고가 없으면 자동으로 정산이 확정되어 출금할 수 있게 됩니다. '
+          '해당 수업에 신고가 접수된 경우에는 처리가 끝날 때까지 출금이 보류됩니다.',
     ),
     (
       question: '수업료는 어떻게 정해지나요?',
@@ -134,7 +114,7 @@ class _TutorMyPageScreenState
                 _buildMenuRow(
                   icon: Icons.account_balance_outlined,
                   title: '정산 계좌 관리',
-                  onTap: _showSettlementAccountDialog,
+                  onTap: () => showSettlementAccountDialog(context, ref),
                   showDivider: false,
                 ),
               ]),
@@ -240,8 +220,12 @@ class _TutorMyPageScreenState
             backgroundImage:
                 resolved != null ? NetworkImage(resolved) : null,
             child: resolved == null
-                ? const Icon(Icons.person,
-                    size: 42, color: AppColors.primaryBlue)
+                ? const ClipOval(
+                    child: DefaultProfileImage(
+                      role: ProfileRole.tutor,
+                      size: 76,
+                    ),
+                  )
                 : null,
           ),
           const SizedBox(width: 12),
@@ -532,331 +516,6 @@ class _TutorMyPageScreenState
     );
   }
 
-  void _showSettlementAccountDialog() {
-    final accountController =
-        TextEditingController(text: _accountNumber);
-    final holderController =
-        TextEditingController(text: _accountHolder);
-    var selectedBank = _bankOptions.contains(_bankName)
-        ? _bankName
-        : _bankOptions.first;
-
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        final scheme = Theme.of(dialogContext).colorScheme;
-        final width = MediaQuery.sizeOf(dialogContext).width * 0.92;
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return Dialog(
-              backgroundColor: scheme.surface,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
-              insetPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: width),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment:
-                        CrossAxisAlignment.stretch,
-                    children: [
-                      Text('정산 계좌 관리',
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: _shell.titleColor)),
-                      const SizedBox(height: 6),
-                      Text('입금받을 본인 명의 계좌만 등록할 수 있습니다.',
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: _shell.hintColor)),
-                      const SizedBox(height: 16),
-                      _buildBankSelectField(
-                        selectedBank: selectedBank,
-                        onTap: () => _showBankPickerSheet(
-                          dialogContext,
-                          selectedBank: selectedBank,
-                          onSelected: (bank) => setDialogState(
-                              () => selectedBank = bank),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      _buildAccountField(
-                          label: '계좌번호',
-                          controller: accountController),
-                      const SizedBox(height: 10),
-                      _buildAccountField(
-                          label: '예금주',
-                          controller: holderController),
-                      const SizedBox(height: 18),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext)
-                                      .pop(),
-                              style: OutlinedButton.styleFrom(
-                                minimumSize:
-                                    const Size.fromHeight(44),
-                                side: BorderSide(
-                                    color: _shell.borderColor),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(12)),
-                              ),
-                              child: const Text('취소'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: () async {
-                                final bank = selectedBank;
-                                final account = accountController.text.trim();
-                                final holder = holderController.text.trim();
-                                final messenger =
-                                    ScaffoldMessenger.of(context);
-                                final navigator = Navigator.of(dialogContext);
-                                try {
-                                  final saved = await ref
-                                      .read(settlementRepositoryProvider)
-                                      .updateAccount(
-                                        bank: bank,
-                                        account: account,
-                                        holder: holder,
-                                      );
-                                  if (!mounted) return;
-                                  setState(() {
-                                    _bankName = saved.bank ?? bank;
-                                    _accountNumber = saved.account ?? account;
-                                    _accountHolder = saved.holder ?? holder;
-                                  });
-                                  navigator.pop();
-                                  messenger.showSnackBar(
-                                    const SnackBar(
-                                        content: Text('정산 계좌가 저장되었습니다.')),
-                                  );
-                                } on DioException catch (e) {
-                                  // 백엔드 형식 검증 메시지(계좌번호 8~20자리 등)를 그대로 노출.
-                                  final data = e.response?.data;
-                                  final msg = data is Map<String, dynamic>
-                                      ? data['message'] as String?
-                                      : null;
-                                  messenger.showSnackBar(
-                                    SnackBar(
-                                        content: Text(msg ??
-                                            '저장에 실패했어요. 잠시 후 다시 시도해 주세요.')),
-                                  );
-                                } catch (_) {
-                                  messenger.showSnackBar(
-                                    const SnackBar(
-                                        content: Text(
-                                            '저장에 실패했어요. 잠시 후 다시 시도해 주세요.')),
-                                  );
-                                }
-                              },
-                              style: FilledButton.styleFrom(
-                                backgroundColor:
-                                    AppColors.primaryBlue,
-                                foregroundColor: Colors.white,
-                                minimumSize:
-                                    const Size.fromHeight(44),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(12)),
-                              ),
-                              child: const Text('저장'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    ).whenComplete(() {
-      accountController.dispose();
-      holderController.dispose();
-    });
-  }
-
-  Widget _buildBankSelectField({
-    required String selectedBank,
-    required VoidCallback onTap,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('은행',
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: _shell.subtitleColor)),
-        const SizedBox(height: 6),
-        Material(
-          color: _shell.scaffoldBackground,
-          borderRadius: BorderRadius.circular(10),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: onTap,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                border:
-                    Border.all(color: _shell.borderColor),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(selectedBank,
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: _shell.titleColor)),
-                  ),
-                  Icon(Icons.keyboard_arrow_down_rounded,
-                      color: _shell.hintColor),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showBankPickerSheet(
-    BuildContext context, {
-    required String selectedBank,
-    required ValueChanged<String> onSelected,
-  }) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor:
-          Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        final scheme =
-            Theme.of(sheetContext).colorScheme;
-        final bottom =
-            MediaQuery.paddingOf(sheetContext).bottom;
-        final maxH =
-            MediaQuery.sizeOf(sheetContext).height * 0.55;
-        return ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: maxH),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: scheme.outline,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text('은행 선택',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: _shell.titleColor)),
-              const SizedBox(height: 10),
-              Flexible(
-                child: ListView.separated(
-                  padding: EdgeInsets.fromLTRB(
-                      12, 0, 12, 12 + bottom),
-                  itemCount: _bankOptions.length,
-                  separatorBuilder: (_, _) => Divider(
-                      height: 1,
-                      color: _shell.dividerColor),
-                  itemBuilder: (_, index) {
-                    final bank = _bankOptions[index];
-                    final selected = bank == selectedBank;
-                    return ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(
-                              horizontal: 8),
-                      title: Text(bank,
-                          style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: selected
-                                  ? AppColors.primaryBlue
-                                  : _shell.titleColor)),
-                      trailing: selected
-                          ? const Icon(Icons.check_rounded,
-                              color: AppColors.primaryBlue)
-                          : null,
-                      onTap: () {
-                        onSelected(bank);
-                        Navigator.of(sheetContext).pop();
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildAccountField({
-    required String label,
-    required TextEditingController controller,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: _shell.subtitleColor)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: _shell.scaffoldBackground,
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 12),
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    BorderSide(color: _shell.borderColor)),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    BorderSide(color: _shell.borderColor)),
-            focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                    color: AppColors.primaryBlue)),
-          ),
-        ),
-      ],
-    );
-  }
 
   void _showCustomerCenterSheet() {
     showModalBottomSheet<void>(
@@ -931,15 +590,14 @@ class _TutorMyPageScreenState
                                   Icons
                                       .check_circle_rounded,
                                   size: 18,
-                                  color: Color(0xFF2E9E6B)),
+                                  color: AppColors.primaryBlue),
                               SizedBox(width: 4),
                               Text('복사됨',
                                   style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight:
                                           FontWeight.w700,
-                                      color: Color(
-                                          0xFF2E9E6B))),
+                                      color: AppColors.primaryBlue)),
                             ],
                           )
                         : Icon(Icons.copy_rounded,
@@ -955,20 +613,16 @@ class _TutorMyPageScreenState
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    child: FilledButton.icon(
+                    child: OutlinedButton.icon(
                       onPressed: copyEmail,
                       icon: const Icon(
                           Icons.content_copy_rounded,
                           size: 18),
-                      style: FilledButton.styleFrom(
-                        backgroundColor:
-                            AppColors.primaryBlue,
-                        foregroundColor: Colors.white,
-                        minimumSize:
-                            const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(12)),
+                      // 통일 스타일: 테두리만 특징색 + 흰/다크 배경 + 검정/특징색 글씨.
+                      style: tutorOutlinedButtonStyle(
+                        Theme.of(context).brightness == Brightness.dark,
+                        radius: 12,
+                        minimumSize: const Size.fromHeight(48),
                       ),
                       label: Text(copied
                           ? '이메일이 복사됐어요'

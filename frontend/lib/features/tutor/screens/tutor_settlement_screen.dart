@@ -8,6 +8,8 @@ import 'package:ieum/core/utils/won_format_util.dart';
 import 'package:ieum/core/utils/date_format_util.dart';
 import 'package:ieum/features/tutor/data/settlement_models.dart';
 import 'package:ieum/features/tutor/providers/settlement_provider.dart';
+import 'package:ieum/features/tutor/widgets/settlement_account_dialog.dart';
+import 'package:ieum/features/tutor/widgets/tutor_action_button_style.dart';
 
 enum _ChartPeriod { weekly, monthly, yearly }
 
@@ -1506,25 +1508,14 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
         .where((r) => r.isWithdrawable)
         .fold<int>(0, (sum, r) => sum + r.tutorAmount);
 
+    final scheme = _scheme(context);
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primaryBlue,
-            AppColors.primaryBlue.withValues(alpha: 0.85),
-          ],
-        ),
+        // 테두리만 특징색 + 내부 흰(라이트)/다크 표면. (기존 그라데이션 채움 → 통일 스타일)
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryBlue.withValues(alpha: 0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        border: Border.all(color: AppColors.primaryBlue),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1533,16 +1524,16 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
             children: [
               const Icon(
                 Icons.account_balance_wallet,
-                color: Colors.white,
+                color: AppColors.primaryBlue,
                 size: 22,
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 '출금 가능 금액',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: scheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -1553,10 +1544,10 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
             children: [
               Text(
                 formatWon(withdrawableAmount),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  color: scheme.onSurface,
                   height: 1.0,
                   letterSpacing: -0.5,
                 ),
@@ -1569,34 +1560,38 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
               '정산 대기 $withdrawableCount건',
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.white.withValues(alpha: 0.85),
+                color: scheme.onSurfaceVariant,
               ),
             ),
           const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(
+            child: OutlinedButton.icon(
               onPressed: (withdrawableCount > 0 && !_withdrawBusy)
                   ? _onBulkWithdraw
                   : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppColors.primaryBlue,
-                disabledBackgroundColor: Colors.white.withValues(alpha: 0.5),
-                disabledForegroundColor: AppColors.primaryBlue.withValues(alpha: 0.4),
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
+              // 통일 스타일: 테두리만 특징색 + 흰/다크 배경 + 검정/특징색 글씨, 아이콘은 특징색.
+              icon: Icon(
+                withdrawableCount > 0
+                    ? Icons.account_balance_wallet_rounded
+                    : Icons.lock_outline_rounded,
+                size: 20,
+                color: withdrawableCount > 0
+                    ? AppColors.primaryBlue
+                    : Colors.grey,
               ),
-              child: Text(
+              style: tutorOutlinedButtonStyle(
+                scheme.brightness == Brightness.dark,
+                radius: 16,
+                minimumSize: const Size.fromHeight(52),
+              ),
+              label: Text(
                 withdrawableCount > 0
                     ? '전체 출금 신청 ($withdrawableCount건)'
                     : '출금 가능한 정산이 없습니다',
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -1607,6 +1602,9 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
   }
 
   Future<void> _onBulkWithdraw() async {
+    if (_withdrawBusy) return; // 다이얼로그 단계부터 잠가 동시 출금 방지
+    setState(() => _withdrawBusy = true);
+    try {
     final withdrawableCount = _records
         .where((r) => r.isWithdrawable)
         .length;
@@ -1681,35 +1679,77 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
       ),
     );
 
-    if (confirmed != true) return;
+      if (confirmed != true) return;
 
-    final tutorId = ref.read(currentUserProvider)?.id;
-    if (tutorId == null) return;
-    if (_withdrawBusy) return; // 진행 중이면 무시(연타 방지)
-    setState(() => _withdrawBusy = true);
-    try {
+      final tutorId = ref.read(currentUserProvider)?.id;
+      if (tutorId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('로그인이 필요해요. 다시 로그인해 주세요.')),
+          );
+        }
+        return;
+      }
       final result = await ref
           .read(settlementRepositoryProvider)
           .requestBulkWithdraw(tutorId);
       ref.invalidate(settlementDataProvider);
       if (mounted) {
+        final msg = result.settlementCount == 0
+            ? '출금 가능한 정산이 없어요.'
+            : '${result.settlementCount}건 / ${formatWon(result.totalAmount)} 출금 요청 완료';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${result.settlementCount}건 / ${formatWon(result.totalAmount)} 출금 요청 완료',
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
+          SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
         );
       }
     } catch (error) {
-      if (mounted) {
+      if (!mounted) return;
+      // 정산 계좌 미등록은 단순 실패가 아니라 '계좌 등록'으로 유도해야 한다.
+      final msg = error.toString();
+      if (msg.contains('계좌')) {
+        await _showAccountRequiredDialog(_onBulkWithdraw);
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('출금 요청 실패: $error')),
         );
       }
     } finally {
       if (mounted) setState(() => _withdrawBusy = false);
+    }
+  }
+
+  /// 정산 계좌 미등록 안내 — 이 자리에서 바로 계좌를 등록하고 출금을 재시도한다.
+  /// [onRegistered]: 계좌 저장 성공 후 실행할 재시도(일괄/단건 출금).
+  Future<void> _showAccountRequiredDialog(
+      Future<void> Function() onRegistered) async {
+    final goRegister = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('정산 계좌 등록이 필요해요'),
+        content: const Text(
+          '출금하려면 먼저 정산 계좌를 등록해야 해요.\n지금 등록할까요?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('닫기'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('계좌 등록하기'),
+          ),
+        ],
+      ),
+    );
+    if (goRegister != true || !mounted) return;
+    // 마이페이지와 동일한 계좌 등록 다이얼로그를 그대로 사용.
+    final saved = await showSettlementAccountDialog(context, ref);
+    if (saved && mounted) {
+      await onRegistered(); // 등록 성공 → 출금 재시도(일괄/단건)
     }
   }
 
@@ -2133,6 +2173,8 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
         return ('송금 완료', _incomeColor);
       case SettlementStatus.failed:
         return ('실패', _expenseColor);
+      case SettlementStatus.canceled:
+        return ('정산 취소', _scheme(context).onSurfaceVariant);
       case SettlementStatus.unknown:
         return ('알 수 없음', _scheme(context).onSurfaceVariant);
     }
@@ -2248,13 +2290,11 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
               child: OutlinedButton(
                 onPressed:
                     _withdrawBusy ? null : () => _onRequestWithdraw(record.id),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primaryBlue,
-                  side: const BorderSide(color: AppColors.primaryBlue),
+                // 통일 스타일: 테두리만 특징색 + 흰/다크 배경 + 검정/특징색 글씨.
+                style: tutorOutlinedButtonStyle(
+                  scheme.brightness == Brightness.dark,
+                  radius: 10,
                   minimumSize: const Size.fromHeight(40),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
                 ),
                 child: const Text(
                   '출금 요청',
@@ -2284,7 +2324,11 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
         );
       }
     } catch (error) {
-      if (mounted) {
+      if (!mounted) return;
+      // 계좌 미등록은 그 자리에서 등록 → 같은 정산 건 출금 재시도.
+      if (error.toString().contains('계좌')) {
+        await _showAccountRequiredDialog(() => _onRequestWithdraw(settlementId));
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('출금 요청에 실패했습니다: $error')),
         );

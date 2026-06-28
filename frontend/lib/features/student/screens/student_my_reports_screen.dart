@@ -44,7 +44,7 @@ class StudentMyReportsScreen extends ConsumerWidget {
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
@@ -62,13 +62,13 @@ class StudentMyReportsScreen extends ConsumerWidget {
             ),
             body: SafeArea(
               child: RefreshIndicator(
-                color: AppColors.studentInk,
+                color: AppColors.studentPoint,
                 onRefresh: () => ref.refresh(myReportsProvider.future),
                 child: async.when(
                   loading: () => const Center(
                     child: Padding(
                       padding: EdgeInsets.only(top: 80),
-                      child: CircularProgressIndicator(color: AppColors.studentInk),
+                      child: CircularProgressIndicator(color: AppColors.studentPoint),
                     ),
                   ),
                   error: (_, _) => _hint(shell, '신고 내역을 불러오지 못했어요.'),

@@ -27,7 +27,7 @@ Future<bool> promptRechargeAndReturn(BuildContext context) async {
           onPressed: () => Navigator.pop(ctx, true),
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.studentPoint,
-            foregroundColor: AppColors.studentInk,
+            foregroundColor: Colors.black,
           ),
           child: const Text('충전하기',
               style: TextStyle(fontWeight: FontWeight.w800)),

@@ -7,6 +7,7 @@ import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/utils/problem_enum_labels.dart';
+import 'package:ieum/features/student/widgets/student_action_button_style.dart';
 import 'package:ieum/features/student/utils/problem_type_registry.dart';
 import 'package:ieum/features/student/widgets/student_problem_image_viewer.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
@@ -135,7 +136,7 @@ class _StudentProblemEditScreenState
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
@@ -233,26 +234,20 @@ class _StudentProblemEditScreenState
                   const SizedBox(height: 32),
                   SizedBox(
                     height: 52,
-                    child: ElevatedButton(
+                    child: OutlinedButton(
                       onPressed: _saving ? null : _save,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.studentPoint,
-                        foregroundColor: AppColors.studentInk,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
+                      style: studentOutlinedButtonStyle(isDark, radius: 14),
                       child: _saving
                           ? const SizedBox(
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.4,
-                                color: Colors.white,
+                                color: AppColors.studentPoint,
                               ),
                             )
                           : const Text(
-                              '저장',
+                              '저장하기',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
@@ -283,14 +278,19 @@ class _StudentProblemEditScreenState
           onTap: () => openGallery(i),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              ApiConstants.resolveImageUrl(urls[i]),
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
-                color: shell.detailBackground,
-                alignment: Alignment.center,
-                child: Icon(Icons.image_not_supported_outlined,
-                    color: shell.hintColor),
+            // 문제 전체가 잘리지 않게 contain(꽉 차게 잘리던 문제 수정). 여백은 배경색으로.
+            child: Container(
+              color: shell.cardBackground,
+              alignment: Alignment.center,
+              child: Image.network(
+                ApiConstants.resolveImageUrl(urls[i]),
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => Container(
+                  color: shell.detailBackground,
+                  alignment: Alignment.center,
+                  child: Icon(Icons.image_not_supported_outlined,
+                      color: shell.hintColor),
+                ),
               ),
             ),
           ),
@@ -323,7 +323,7 @@ class _StudentProblemEditScreenState
                 height: 6,
                 decoration: BoxDecoration(
                   color:
-                      i == _previewPage ? AppColors.studentInk : shell.cardBorder,
+                      i == _previewPage ? AppColors.studentPoint : shell.cardBorder,
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -389,7 +389,7 @@ class _StudentProblemEditScreenState
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.studentInk,
+                        color: AppColors.studentPoint,
                       ),
                     ),
                   ),
@@ -445,10 +445,10 @@ class _StudentProblemEditScreenState
           child: OutlinedButton.icon(
             onPressed: (_orderChanged && !_savingOrder) ? _saveOrder : null,
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.studentInk,
+              foregroundColor: AppColors.studentPoint,
               side: BorderSide(
                 color: _orderChanged
-                    ? AppColors.studentInk
+                    ? AppColors.studentPoint
                     : shell.cardBorder,
               ),
               shape: RoundedRectangleBorder(
@@ -559,7 +559,7 @@ class _StudentProblemEditScreenState
                   : shell.cardBackground,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isSel ? AppColors.studentInk : shell.cardBorder,
+                color: isSel ? AppColors.studentPoint : shell.cardBorder,
                 width: isSel ? 1.4 : 1,
               ),
             ),
@@ -569,7 +569,8 @@ class _StudentProblemEditScreenState
                 Icon(
                   isSel ? Icons.check : Icons.add,
                   size: 15,
-                  color: isSel ? AppColors.studentInk : shell.hintColor,
+                  // 선택 칩은 연두 배경 → 아이콘/글씨 검정(연두 위 가독성).
+                  color: isSel ? Colors.black : shell.hintColor,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -577,7 +578,7 @@ class _StudentProblemEditScreenState
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                    color: isSel ? AppColors.studentInk : shell.titleColor,
+                    color: isSel ? Colors.black : shell.titleColor,
                   ),
                 ),
               ],
@@ -602,7 +603,7 @@ class _StudentProblemEditScreenState
       enabledBorder: border,
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.studentInk, width: 1.6),
+        borderSide: const BorderSide(color: AppColors.studentPoint, width: 1.6),
       ),
     );
   }

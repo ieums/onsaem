@@ -8,6 +8,7 @@ import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/repositories/mypage_repository.dart';
 import 'package:ieum/features/student/screens/student_report_screen.dart';
+import 'package:ieum/features/student/widgets/student_action_button_style.dart';
 import 'package:ieum/routes/app_router.dart';
 
 class StudentReviewWriteArgs {
@@ -54,7 +55,7 @@ class _StudentReviewWriteScreenState
   ThemeData _flowTheme(bool isDark) {
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     return baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
@@ -124,7 +125,6 @@ class _StudentReviewWriteScreenState
         builder: (context) {
           final shell = ShellTheme.of(context);
           final pageBg = theme.scaffoldBackgroundColor;
-          final buttonLabelColor = AppColors.studentInk;
 
           return PopScope(
             canPop: false,
@@ -161,7 +161,17 @@ class _StudentReviewWriteScreenState
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const _CompletionCheckRipple(),
+                                // 움직이는 체크 링 대신 마스코트 이미지(학생=연두 a).
+                                SizedBox(
+                                  width: 120,
+                                  height: 120,
+                                  child: Image.asset(
+                                    'assets/images/review_student.png',
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, _, _) =>
+                                        const SizedBox(width: 120, height: 120),
+                                  ),
+                                ),
                           const SizedBox(height: 16),
                           Text(
                             '수업이 완료되었습니다!',
@@ -276,7 +286,7 @@ class _StudentReviewWriteScreenState
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                       borderSide: const BorderSide(
-                                        color: AppColors.studentInk,
+                                        color: AppColors.studentPoint,
                                         width: 1.5,
                                       ),
                                     ),
@@ -351,16 +361,12 @@ class _StudentReviewWriteScreenState
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: FilledButton(
+                          child: OutlinedButton(
                             onPressed: _submit,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.studentPoint,
-                              foregroundColor: buttonLabelColor,
-                              minimumSize: const Size.fromHeight(52),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(26),
-                              ),
-                            ),
+                            // 통일 스타일: 테두리 특징색 + 흰/다크 배경 + 검정/특징색 글씨.
+                            style: studentOutlinedButtonStyle(isDark,
+                                radius: 26,
+                                minimumSize: const Size.fromHeight(52)),
                             child: const Text(
                               '제출하기',
                               style: TextStyle(
@@ -381,109 +387,6 @@ class _StudentReviewWriteScreenState
         },
       ),
     );
-  }
-}
-
-class _CompletionCheckRipple extends StatefulWidget {
-  const _CompletionCheckRipple();
-
-  @override
-  State<_CompletionCheckRipple> createState() => _CompletionCheckRippleState();
-}
-
-class _CompletionCheckRippleState extends State<_CompletionCheckRipple>
-    with SingleTickerProviderStateMixin {
-  static const _ringCount = 3;
-
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 120,
-      height: 120,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return CustomPaint(
-            painter: _CompletionRipplePainter(
-              progress: _controller.value,
-              color: AppColors.incomeGreen,
-              ringCount: _ringCount,
-            ),
-            child: Center(
-              child: Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppColors.incomeGreen.withValues(alpha: 0.16),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_rounded,
-                  size: 40,
-                  color: AppColors.incomeGreen,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _CompletionRipplePainter extends CustomPainter {
-  const _CompletionRipplePainter({
-    required this.progress,
-    required this.color,
-    required this.ringCount,
-  });
-
-  final double progress;
-  final Color color;
-  final int ringCount;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final innerRadius = size.width * 0.30;
-    final outerRadius = size.width * 0.48;
-
-    for (var i = 0; i < ringCount; i++) {
-      final phase = (progress + i / ringCount) % 1.0;
-      final radius = innerRadius + (outerRadius - innerRadius) * phase;
-      final opacity = (1 - phase).clamp(0.0, 1.0) * 0.45;
-
-      canvas.drawCircle(
-        center,
-        radius,
-        Paint()
-          ..color = color.withValues(alpha: opacity)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.5,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _CompletionRipplePainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.color != color;
   }
 }
 

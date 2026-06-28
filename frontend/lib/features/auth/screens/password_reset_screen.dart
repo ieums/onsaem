@@ -31,7 +31,7 @@ class PasswordResetScreen extends ConsumerStatefulWidget {
 
 class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
   Color get _accent =>
-      widget.isTutor ? AppColors.primaryBlue : AppColors.studentInk;
+      widget.isTutor ? AppColors.primaryBlue : AppColors.studentPoint;
 
   final _email = TextEditingController();
   final _code = TextEditingController();
@@ -255,21 +255,24 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
             const SizedBox(height: 32),
             SizedBox(
               height: 52,
-              child: FilledButton(
+              child: OutlinedButton(
                 onPressed: _busy ? null : (_step == 1 ? _sendCode : _resetPassword),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _accent,
-                  foregroundColor: Colors.white,
+                // 통일 스타일: 테두리만 역할 특징색 + 흰/다크 배경 + 검정/특징색 글씨.
+                style: OutlinedButton.styleFrom(
+                  backgroundColor:
+                      isDark ? AppColors.shellSurfaceDark : Colors.white,
+                  foregroundColor: isDark ? _accent : Colors.black,
+                  side: BorderSide(color: _accent),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
                 child: _busy
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2.4, color: Colors.white),
+                            strokeWidth: 2.4, color: _accent),
                       )
                     : Text(_step == 1 ? '인증 코드 받기' : '비밀번호 변경',
                         style: const TextStyle(

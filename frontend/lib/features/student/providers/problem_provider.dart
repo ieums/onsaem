@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
+import 'package:ieum/features/matching/models/pending_confirm.dart';
 import 'package:ieum/features/matching/repositories/matching_repository.dart';
 import 'package:ieum/features/student/models/applicant_model.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
@@ -23,6 +24,15 @@ final problemApplicantsProvider =
     return ref.watch(matchingRepositoryProvider).getApplicants(problemId);
   },
 );
+
+/// 학생이 놓친 매칭 수락 요청(있으면) — 홈 배너로 복구용. 없으면 null.
+/// 홈 진입/포커스 시 watch, 처리 후 invalidate로 갱신.
+final pendingConfirmProvider =
+    FutureProvider.autoDispose<PendingConfirm?>((ref) async {
+  final studentId = ref.watch(currentUserProvider)?.id;
+  if (studentId == null) return null;
+  return ref.watch(matchingRepositoryProvider).fetchPendingConfirm(studentId);
+});
 
 /// 로그인한 학생의 내 질문 목록. 화면에서 watch, 수정/취소 후 invalidate로 새로고침.
 final studentProblemsProvider =

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/api_constants.dart';
+import 'package:ieum/core/widgets/profile_image.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
@@ -31,7 +32,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
   Color get _pageBackground =>
       Theme.of(context).brightness == Brightness.dark
           ? _shell.scaffoldBackground
-          : Colors.white;
+          : AppColors.studentScaffoldLight;
 
   static const _faqItems = <({String question, String answer})>[
     (
@@ -80,9 +81,17 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
               const SizedBox(height: 16),
               _buildProfileSummary(),
               const SizedBox(height: 14),
-              _buildCreditCard(),
-              const SizedBox(height: 14),
-              _buildSubscriptionCard(),
+              // 보유 크레딧 / 구독을 홈의 강사찾기·AI튜터처럼 가로로 나란히.
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: _buildCreditCard()),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildSubscriptionCard()),
+                  ],
+                ),
+              ),
               const SizedBox(height: 18),
               _buildSectionTitle('내 활동'),
               const SizedBox(height: 10),
@@ -164,7 +173,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
     final imageUrl = (me?['profileImageUrl'] as String?)?.trim();
 
     return Material(
-      color: _pageBackground,
+      color: _shell.cardBackground,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -184,9 +193,14 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                 backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
                     ? NetworkImage(ApiConstants.resolveImageUrl(imageUrl))
                     : null,
+                // 사진 없으면 역할별 기본 프로필(default_student.png)
                 child: (imageUrl == null || imageUrl.isEmpty)
-                    ? const Icon(Icons.person,
-                        size: 42, color: AppColors.studentInk)
+                    ? const ClipOval(
+                        child: DefaultProfileImage(
+                          role: ProfileRole.student,
+                          size: 76,
+                        ),
+                      )
                     : null,
               ),
               const SizedBox(width: 12),
@@ -235,7 +249,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: _pageBackground,
+        color: _shell.cardBackground,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _shell.cardBorder),
       ),
@@ -259,7 +273,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  foregroundColor: AppColors.studentInk,
+                  foregroundColor: AppColors.studentPoint,
                 ),
                 child: const Text(
                   '충전하기',
@@ -274,7 +288,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.studentInk,
+              color: AppColors.studentPoint,
               height: 1.1,
             ),
           ),
@@ -293,7 +307,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: _pageBackground,
+        color: _shell.cardBackground,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _shell.cardBorder),
       ),
@@ -317,7 +331,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  foregroundColor: AppColors.studentInk,
+                  foregroundColor: AppColors.studentPoint,
                 ),
                 child: Text(
                   hasActive ? '관리' : '구독하기',
@@ -353,7 +367,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
         Row(
           children: [
             const Icon(Icons.workspace_premium_rounded,
-                size: 20, color: AppColors.studentInk),
+                size: 20, color: AppColors.studentPoint),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -372,7 +386,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: (sub.autoRenew
-                        ? AppColors.studentInk
+                        ? AppColors.studentPoint
                         : _shell.hintColor)
                     .withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(8),
@@ -383,7 +397,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color:
-                      sub.autoRenew ? AppColors.studentInk : _shell.hintColor,
+                      sub.autoRenew ? AppColors.studentPoint : _shell.hintColor,
                 ),
               ),
             ),
@@ -522,7 +536,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
   Widget _buildGroupedMenuCard({required List<Widget> children}) {
     return Container(
       decoration: BoxDecoration(
-        color: _pageBackground,
+        color: _shell.cardBackground,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _shell.cardBorder),
       ),
@@ -605,7 +619,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                   }),
                   trackColor: WidgetStateProperty.resolveWith((states) {
                     return states.contains(WidgetState.selected)
-                        ? AppColors.studentInk
+                        ? AppColors.studentPoint
                         : _shell.trackOffColor;
                   }),
                   trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
@@ -617,7 +631,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                   child: CupertinoSwitch(
                     value: value,
                     onChanged: onChanged,
-                    activeTrackColor: AppColors.studentInk,
+                    activeTrackColor: AppColors.studentPoint,
                     inactiveTrackColor: _shell.trackOffColor,
                     thumbColor:
                         Theme.of(context).brightness == Brightness.dark
@@ -643,7 +657,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
         color: AppColors.roleStudentBorder.withValues(alpha: 0.25),
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: AppColors.studentInk, size: 18),
+      child: Icon(icon, color: AppColors.studentPoint, size: 18),
     );
   }
 
@@ -737,7 +751,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                   icon: const Icon(Icons.content_copy_rounded, size: 18),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.studentPoint,
-                    foregroundColor: AppColors.studentInk,
+                    foregroundColor: Colors.black,
                     minimumSize: const Size.fromHeight(48),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -774,7 +788,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                Icon(icon, color: AppColors.studentInk, size: 22),
+                Icon(icon, color: AppColors.studentPoint, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -888,7 +902,7 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                                 color: _shell.titleColor,
                               ),
                             ),
-                            iconColor: AppColors.studentInk,
+                            iconColor: AppColors.studentPoint,
                             collapsedIconColor: scheme.onSurfaceVariant,
                             children: [
                               Align(

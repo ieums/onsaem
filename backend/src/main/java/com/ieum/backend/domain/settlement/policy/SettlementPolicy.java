@@ -24,7 +24,8 @@ public final class SettlementPolicy {
      * 수수료를 먼저 떼고 나머지를 강사 몫으로 둬 합이 항상 totalCoin과 일치(잔액 보존).
      */
     public static Distribution distribute(int totalCoin) {
-        int platformFeeCoin = (int) (totalCoin * PLATFORM_FEE_RATE);
+        // 정수 연산으로 20%를 계산(double 절삭 편향 제거). 나머지를 강사 몫으로 둬 잔액 보존.
+        int platformFeeCoin = totalCoin * 20 / 100;
         int tutorCoin = totalCoin - platformFeeCoin;
         int tutorAmount = tutorCoin * COIN_TO_WON;
         return new Distribution(platformFeeCoin, tutorCoin, tutorAmount);

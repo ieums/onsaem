@@ -79,6 +79,15 @@ public class Settlement {
         this.status = SettlementStatus.FAILED;
     }
 
+    /** 송금 실패분 재시도 — FAILED → CALCULATED(다시 출금 요청 가능). 실패 상태가 아니면 거부. */
+    public void retryAfterFailure() {
+        if (this.status != SettlementStatus.FAILED) {
+            throw BusinessException.conflict(
+                    "실패 상태의 정산만 재시도할 수 있습니다. 현재 상태: " + this.status);
+        }
+        this.status = SettlementStatus.CALCULATED;
+    }
+
     /**
      * 정산 취소(롤백) — 강의 환불/취소 시. 이미 송금 완료(TRANSFERRED)된 건은
      * 실제 돈이 나갔으므로 자동 롤백 불가(별도 회수 절차 필요).

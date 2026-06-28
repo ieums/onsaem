@@ -17,10 +17,12 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +51,16 @@ public class GeminiClassifier {
         return "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent";
     }
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    // 무한 대기 방지 — connect/read 타임아웃(OCR과 동일하게 read 80초).
+    private final RestTemplate restTemplate = buildRestTemplate();
+
+    private static RestTemplate buildRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(80));
+        return new RestTemplate(factory);
+    }
+
     private final ProblemTypeRegistry typeRegistry;
 
     private final ObjectMapper objectMapper = JsonMapper.builder()
@@ -166,7 +177,10 @@ public class GeminiClassifier {
         );
     }
 
-    private static final int MAX_ATTEMPTS = 3;
+    // 분류는 문제 수만큼 반복 호출되므로 총시간을 줄이려 예산을 최소화.
+    // 기본 모델 1회 → 503이면 바로 폴백 모델 1회(=서로 다른 모델로 두 번 시도).
+    private static final int PRIMARY_ATTEMPTS = 1;
+    private static final int FALLBACK_ATTEMPTS = 1;
 
     public ClassificationResult classify(String problemText, String examCode) {
         if ("none".equals(apiKey)) {
@@ -174,7 +188,7 @@ public class GeminiClassifier {
             return mockClassification();
         }
         try {
-            return classifyWith(model, problemText, examCode);
+            return classifyWith(model, problemText, examCode, PRIMARY_ATTEMPTS);
         } catch (HttpStatusCodeException e) {
             // 기본 모델이 끝내 과부하(5xx)/레이트리밋(429)이면 더 안정적인 폴백 모델로 1회 더 시도.
             // (이게 없으면 503 때마다 분류 실패 → summary가 원문 일부로 채워져 "문제 본문이 그대로" 노출됨)
@@ -183,7 +197,7 @@ public class GeminiClassifier {
             if (transientError && fallbackModel != null && !fallbackModel.equals(model)) {
                 log.warn("분류 기본 모델({}) {} — 폴백 모델({})로 재시도", model, e.getStatusCode(), fallbackModel);
                 try {
-                    return classifyWith(fallbackModel, problemText, examCode);
+                    return classifyWith(fallbackModel, problemText, examCode, FALLBACK_ATTEMPTS);
                 } catch (Exception fe) {
                     log.error("분류 폴백 모델도 실패", fe);
                     throw BusinessException.internalError("분류 API 호출 실패: " + fe.getMessage(), fe);
@@ -198,17 +212,17 @@ public class GeminiClassifier {
     }
 
     /** 한 모델로 분류 시도(일시적 5xx/429는 백오프 재시도, 끝내 실패하면 예외를 상위로 던져 폴백 결정). */
-    private ClassificationResult classifyWith(String modelName, String problemText, String examCode)
-            throws Exception {
+    private ClassificationResult classifyWith(String modelName, String problemText, String examCode,
+                                              int maxAttempts) throws Exception {
         for (int attempt = 1; ; attempt++) {
             try {
                 return callApi(modelName, problemText, examCode);
             } catch (HttpStatusCodeException e) {
                 boolean transientError =
                         e.getStatusCode().is5xxServerError() || e.getStatusCode().value() == 429;
-                if (transientError && attempt < MAX_ATTEMPTS) {
+                if (transientError && attempt < maxAttempts) {
                     log.warn("분류 일시 오류({}) [{}] — 재시도 {}/{}",
-                            e.getStatusCode(), modelName, attempt, MAX_ATTEMPTS);
+                            e.getStatusCode(), modelName, attempt, maxAttempts);
                     backoff(attempt);
                     continue;
                 }

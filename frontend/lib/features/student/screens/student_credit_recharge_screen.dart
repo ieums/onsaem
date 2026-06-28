@@ -85,7 +85,7 @@ class _StudentCreditRechargeScreenState
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
@@ -132,7 +132,7 @@ class _StudentCreditRechargeScreenState
                 body: packagesAsync.when(
                   loading: () => const Center(
                     child: CircularProgressIndicator(
-                        color: AppColors.studentInk),
+                        color: AppColors.studentPoint),
                   ),
                   error: (_, _) => Center(
                     child: Text('패키지를 불러오지 못했어요.',
@@ -195,7 +195,7 @@ class _StudentCreditRechargeScreenState
                                       _paying ? null : () => _pay(selected),
                                   style: FilledButton.styleFrom(
                                     backgroundColor: AppColors.studentPoint,
-                                    foregroundColor: AppColors.studentInk,
+                                    foregroundColor: Colors.black,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
@@ -223,7 +223,7 @@ class _StudentCreditRechargeScreenState
                   child: ColoredBox(
                     color: Color(0x55000000),
                     child: Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+                      child: CircularProgressIndicator(color: Colors.black),
                     ),
                   ),
                 ),
@@ -262,7 +262,7 @@ class _StudentCreditRechargeScreenState
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppColors.studentInk.withValues(alpha: 0.8),
+              color: AppColors.studentPoint.withValues(alpha: 0.8),
             ),
           ),
           const SizedBox(height: 8),
@@ -271,7 +271,7 @@ class _StudentCreditRechargeScreenState
             style: const TextStyle(
               fontSize: 30,
               fontWeight: FontWeight.w800,
-              color: AppColors.studentInk,
+              color: AppColors.studentPoint,
               height: 1.1,
             ),
           ),
@@ -293,7 +293,7 @@ class _StudentCreditRechargeScreenState
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: selected ? AppColors.studentInk : shell.cardBorder,
+          color: selected ? AppColors.studentPoint : shell.cardBorder,
           width: selected ? 1.8 : 1,
         ),
       ),
@@ -357,7 +357,7 @@ class _StudentCreditRechargeScreenState
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
-                                color: AppColors.studentInk,
+                                color: AppColors.studentPoint,
                                 letterSpacing: 0.2,
                               ),
                             ),
@@ -373,15 +373,15 @@ class _StudentCreditRechargeScreenState
                 height: 24,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: selected ? AppColors.studentInk : Colors.transparent,
+                  color: selected ? AppColors.studentPoint : Colors.transparent,
                   border: Border.all(
-                    color: selected ? AppColors.studentInk : shell.cardBorder,
+                    color: selected ? AppColors.studentPoint : shell.cardBorder,
                     width: 1.6,
                   ),
                 ),
                 child: selected
                     ? const Icon(Icons.check_rounded,
-                        size: 16, color: Colors.white)
+                        size: 16, color: Colors.black)
                     : null,
               ),
             ],

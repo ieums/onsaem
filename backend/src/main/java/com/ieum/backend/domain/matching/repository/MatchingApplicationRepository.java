@@ -25,4 +25,8 @@ public interface MatchingApplicationRepository extends JpaRepository<MatchingApp
     List<MatchingApplication> findByTutorIdAndStatusIn(Long tutorId, List<ApplicationStatus> statuses);
 
     List<MatchingApplication> findByStatusAndConfirmedAtBefore(ApplicationStatus status, LocalDateTime cutoff);
+
+    /** 학생이 아직 수락하지 않은(studentConfirmed=false) CONFIRMING 신청 — 앱 재실행 시 수락 복구용. */
+    List<MatchingApplication> findByProblemIdInAndStatusAndStudentConfirmedFalse(
+            List<Long> problemIds, ApplicationStatus status);
 }

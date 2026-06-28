@@ -14,6 +14,7 @@ import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/screens/student_problem_detail_screen.dart';
 import 'package:ieum/features/student/utils/coin_shortage.dart';
+import 'package:ieum/features/student/widgets/student_action_button_style.dart';
 import 'package:ieum/features/student/widgets/student_problem_chips.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
 import 'student_ai_tutor_screen.dart';
@@ -156,7 +157,7 @@ class _StudentProblemStatusScreenState
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
       colorScheme:
-          baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+          baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
@@ -197,7 +198,7 @@ class _StudentProblemStatusScreenState
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 24),
                         child: CircularProgressIndicator(
-                            color: AppColors.studentInk),
+                            color: AppColors.studentPoint),
                       ),
                     )
                   else if (effectiveCandidates.isEmpty)
@@ -252,7 +253,7 @@ class _StudentProblemStatusScreenState
                   SizedBox(
                     width: double.infinity,
                     height: 48,
-                    child: FilledButton.icon(
+                    child: OutlinedButton.icon(
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -263,35 +264,39 @@ class _StudentProblemStatusScreenState
                           ),
                         );
                       },
-                      icon: const Icon(Icons.smart_toy_outlined, size: 18),
-                      label: const Text('AI 튜터에게 물어보기'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.studentPoint,
-                        foregroundColor: AppColors.studentInk,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      // 아이콘만 특징색, 글씨는 검정(다크는 특징색) 유지.
+                      icon: const Icon(Icons.smart_toy_outlined,
+                          size: 18, color: AppColors.studentPoint),
+                      label: Text(
+                        'AI 튜터에게 물어보기',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? AppColors.studentPoint : Colors.black,
                         ),
                       ),
+                      style: studentOutlinedButtonStyle(isDark),
                     ),
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     height: 48,
-                    child: OutlinedButton(
+                    child: OutlinedButton.icon(
                       onPressed: () => _deleteQuestion(context),
+                      // 삭제는 위험 동작 → 아이콘만 빨강, 글씨는 검정(다크는 흰색), 보더 빨강.
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          size: 18, color: AppColors.buttonDanger),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.buttonDanger,
-                        side: BorderSide(
-                          color: AppColors.buttonDanger.withValues(alpha: 0.6),
-                        ),
+                        backgroundColor:
+                            isDark ? AppColors.shellSurfaceDark : Colors.white,
+                        foregroundColor: isDark ? Colors.white : Colors.black,
+                        side: const BorderSide(color: AppColors.buttonDanger),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: const Text(
-                        '질문 삭제',
+                      label: const Text(
+                        '질문 삭제하기',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
@@ -346,10 +351,10 @@ class _BriefCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.studentPoint.withValues(alpha: 0.35),
+          // 학생 홈 문제 카드와 동일한 배경/테두리로 통일
+          color: shell.cardBackground,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-              color: AppColors.studentInk.withValues(alpha: 0.25)),
+          border: Border.all(color: shell.cardBorder),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,16 +367,16 @@ class _BriefCard extends StatelessWidget {
                 const Spacer(),
                 Row(
                   children: [
-                    Text(
+                    const Text(
                       '상세 보기',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.studentInk,
+                        color: AppColors.studentPoint,
                       ),
                     ),
-                    Icon(Icons.chevron_right,
-                        size: 18, color: AppColors.studentInk),
+                    const Icon(Icons.chevron_right,
+                        size: 18, color: AppColors.studentPoint),
                   ],
                 ),
               ],
