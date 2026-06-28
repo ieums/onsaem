@@ -48,6 +48,12 @@ public class S3LessonMediaStorage implements LessonMediaStorage {
     }
 
     @Override
+    public boolean isRecordingAvailable(Long lessonId, String recordingRef) {
+        // prod는 recording_url(S3 URL)이 세팅돼 있으면 존재로 간주(실패 시 기존처럼 fetch에서 처리).
+        return recordingRef != null && !recordingRef.isBlank();
+    }
+
+    @Override
     public Path fetchRecordingToTemp(Long lessonId, String recordingRef) throws IOException {
         return s3VideoService.downloadToTempFile(recordingRef);
     }

@@ -37,11 +37,16 @@ public class GeminiClassifier {
     @Value("${gemini.api.key:none}")
     private String apiKey;
 
-    @Value("${gemini.api.model:gemini-2.5-flash-lite}")
+    // 분류 모델 — 수능 등 어려운 문제 정확도 위해 flash-lite → flash 기본값 상향(yml로 override 가능).
+    @Value("${gemini.api.model:gemini-2.5-flash}")
     private String model;
 
-    private String geminiUrl() {
-        return "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
+    // 기본 모델이 503(과부하)이면 갈아탈 폴백(더 안정적인 구세대 flash). OCR과 동일한 안전망.
+    @Value("${gemini.api.classify-fallback-model:gemini-2.5-flash}")
+    private String fallbackModel;
+
+    private String geminiUrl(String modelName) {
+        return "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent";
     }
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -85,6 +90,13 @@ public class GeminiClassifier {
             ─────────────────────────────────────────────
             [과목 판단]
             ─────────────────────────────────────────────
+            ★ 언어로 1차 판별 (오분류 주의):
+              - 발문·선택지가 한국어면 ENGLISH 아님. 본문에 영어 단어·짧은 영어 인용이 섞여 있어도 ENGLISH로 보지 말 것.
+                → 한글 문학·독서·문법(어휘/음운 등) 문제는 무조건 KOREAN.
+              - ENGLISH는 "영어 지문을 영어로 읽고 영어 독해/어휘/어법/문법을 묻는" 문제만.
+                (발문이 영어이거나, 본문 대부분이 영어 문장이고 그 영어를 대상으로 묻는 경우)
+              - 수식·기호 위주 + 한국어 발문 → 거의 MATH (영어 변수 x,y가 있어도 ENGLISH 아님).
+
             - "다음 글을 읽고", "윗글을 읽고", "<보기>를 읽고" → 무조건 KOREAN (독서)
             - 지문 주제가 과학/사회여도 독해 형태면 KOREAN
             - SCIENCE/SOCIAL은 단원 개념을 직접 묻는 경우만
@@ -161,23 +173,46 @@ public class GeminiClassifier {
             log.warn("Gemini API 키 없음. Mock 분류 결과 반환.");
             return mockClassification();
         }
+        try {
+            return classifyWith(model, problemText, examCode);
+        } catch (HttpStatusCodeException e) {
+            // 기본 모델이 끝내 과부하(5xx)/레이트리밋(429)이면 더 안정적인 폴백 모델로 1회 더 시도.
+            // (이게 없으면 503 때마다 분류 실패 → summary가 원문 일부로 채워져 "문제 본문이 그대로" 노출됨)
+            boolean transientError =
+                    e.getStatusCode().is5xxServerError() || e.getStatusCode().value() == 429;
+            if (transientError && fallbackModel != null && !fallbackModel.equals(model)) {
+                log.warn("분류 기본 모델({}) {} — 폴백 모델({})로 재시도", model, e.getStatusCode(), fallbackModel);
+                try {
+                    return classifyWith(fallbackModel, problemText, examCode);
+                } catch (Exception fe) {
+                    log.error("분류 폴백 모델도 실패", fe);
+                    throw BusinessException.internalError("분류 API 호출 실패: " + fe.getMessage(), fe);
+                }
+            }
+            log.error("분류 API 호출 실패", e);
+            throw BusinessException.internalError("분류 API 호출 실패: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("분류 API 호출 실패", e);
+            throw BusinessException.internalError("분류 API 호출 실패: " + e.getMessage(), e);
+        }
+    }
+
+    /** 한 모델로 분류 시도(일시적 5xx/429는 백오프 재시도, 끝내 실패하면 예외를 상위로 던져 폴백 결정). */
+    private ClassificationResult classifyWith(String modelName, String problemText, String examCode)
+            throws Exception {
         for (int attempt = 1; ; attempt++) {
             try {
-                return callApi(problemText, examCode);
+                return callApi(modelName, problemText, examCode);
             } catch (HttpStatusCodeException e) {
-                // 503/502/500/429 등 일시 과부하·레이트리밋이면 잠깐 쉬고 재시도
                 boolean transientError =
                         e.getStatusCode().is5xxServerError() || e.getStatusCode().value() == 429;
                 if (transientError && attempt < MAX_ATTEMPTS) {
-                    log.warn("분류 일시 오류({}) — 재시도 {}/{}", e.getStatusCode(), attempt, MAX_ATTEMPTS);
+                    log.warn("분류 일시 오류({}) [{}] — 재시도 {}/{}",
+                            e.getStatusCode(), modelName, attempt, MAX_ATTEMPTS);
                     backoff(attempt);
                     continue;
                 }
-                log.error("분류 API 호출 실패", e);
-                throw BusinessException.internalError("분류 API 호출 실패: " + e.getMessage(), e);
-            } catch (Exception e) {
-                log.error("분류 API 호출 실패", e);
-                throw BusinessException.internalError("분류 API 호출 실패: " + e.getMessage(), e);
+                throw e; // 상위(classify)에서 폴백 모델 사용 여부 결정
             }
         }
     }
@@ -191,7 +226,7 @@ public class GeminiClassifier {
         }
     }
 
-    private ClassificationResult callApi(String problemText, String examCode) throws Exception {
+    private ClassificationResult callApi(String modelName, String problemText, String examCode) throws Exception {
         // 텍스트만 보내는 호출 — 이미지 X
         Map<String, Object> requestBody = Map.of(
                 "contents", List.of(Map.of(
@@ -210,7 +245,7 @@ public class GeminiClassifier {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
-        String urlWithKey = geminiUrl() + "?key=" + apiKey;
+        String urlWithKey = geminiUrl(modelName) + "?key=" + apiKey;
         ResponseEntity<String> response = restTemplate.postForEntity(urlWithKey, request, String.class);
 
         return parseResponse(response.getBody());

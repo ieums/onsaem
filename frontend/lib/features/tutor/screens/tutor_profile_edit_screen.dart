@@ -5,6 +5,7 @@ import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/core/widgets/profile_image.dart';
 import 'package:ieum/features/student/providers/mypage_provider.dart';
 
 class TutorProfileEditScreen extends ConsumerStatefulWidget {
@@ -64,6 +65,58 @@ class _TutorProfileEditScreenState
     _phone.dispose();
     _bio.dispose();
     super.dispose();
+  }
+
+  /// 프로필 이미지 변경 — 기본 이미지 / 갤러리 선택. (학생 화면과 동일)
+  Future<void> _chooseProfileImage() async {
+    final hasImage = _imageUrl != null && _imageUrl!.isNotEmpty;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasImage)
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('기본 이미지 사용'),
+                onTap: () => Navigator.pop(ctx, 'default'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('갤러리에서 선택'),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == 'default') {
+      await _resetToDefaultImage();
+    } else if (choice == 'gallery') {
+      await _pickAndUploadImage();
+    }
+  }
+
+  /// 기본 이미지로 되돌리기 — 서버에 저장된 프로필 이미지를 비운다(PATCH profileImageUrl='').
+  Future<void> _resetToDefaultImage() async {
+    setState(() => _uploadingImage = true);
+    try {
+      await ref
+          .read(mypageRepositoryProvider)
+          .updateProfile(profileImageUrl: '');
+      if (!mounted) return;
+      setState(() {
+        _imageUrl = null;
+        _uploadingImage = false;
+      });
+      ref.invalidate(meProvider);
+      _snack('기본 이미지로 변경했어요.');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _uploadingImage = false);
+      _snack('변경에 실패했어요. 잠시 후 다시 시도해 주세요.');
+    }
   }
 
   Future<void> _pickAndUploadImage() async {
@@ -128,7 +181,7 @@ class _TutorProfileEditScreenState
     final theme =
         (isDark ? AppTheme.shellDark : AppTheme.shellLight).copyWith(
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.tutorScaffoldLight,
     );
     return Theme(
       data: theme,
@@ -224,8 +277,14 @@ class _TutorProfileEditScreenState
                 ? const CircularProgressIndicator(
                     color: AppColors.primaryBlue, strokeWidth: 2.6)
                 : (resolved == null
-                    ? const Icon(Icons.person,
-                        size: 52, color: AppColors.primaryBlue)
+                    // 기본 이미지로 되돌렸을 때 역할별(강사) 기본 프로필 표시
+                    ? const ClipOval(
+                        child: DefaultProfileImage(
+                          role: ProfileRole.tutor,
+                          size: 96,
+                          iconColor: AppColors.primaryBlue,
+                        ),
+                      )
                     : null),
           ),
           Positioned(
@@ -237,7 +296,7 @@ class _TutorProfileEditScreenState
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap:
-                    _uploadingImage ? null : _pickAndUploadImage,
+                    _uploadingImage ? null : _chooseProfileImage,
                 child: const Padding(
                   padding: EdgeInsets.all(7),
                   child: Icon(Icons.camera_alt_rounded,

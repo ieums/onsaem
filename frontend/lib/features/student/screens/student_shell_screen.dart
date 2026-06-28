@@ -106,8 +106,9 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
       colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
-      scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+      scaffoldBackgroundColor: isDark
+          ? AppColors.shellScaffoldDark
+          : AppColors.studentScaffoldLight,
     );
 
     return Theme(

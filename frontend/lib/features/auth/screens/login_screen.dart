@@ -25,11 +25,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   static const _hintColor = Color(0xFF9AA3B2);
 
   static const _kakaoYellow = Color(0xFFFEE500);
-  static const _kakaoBrown = Color(0xFF3C1E1E);
-
-  /// 소셜 버튼 아이콘 — Google/Kakao 동일 크기
-  static const double _socialIconSize = 24;
-  static const double _socialIconGap = 8;
+  // 학생 강조색(연두) — 토글 글씨·입력 포커스 테두리. 진한 녹색 대신 밝은 연두.
+  static const _studentAccent = Color(0xFFD2E096);
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -57,11 +54,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _roleTab(
             label: '학생',
             selected: !_isTutor,
+            selectedColor: _studentAccent, // 학생 = 연두(D2E096)
             onTap: () => setState(() => _isTutor = false),
           ),
           _roleTab(
             label: '강사',
             selected: _isTutor,
+            selectedColor: AppColors.primaryBlue, // 강사 = 보라
             onTap: () => setState(() => _isTutor = true),
           ),
         ],
@@ -72,6 +71,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _roleTab({
     required String label,
     required bool selected,
+    required Color selectedColor,
     required VoidCallback onTap,
   }) {
     return Expanded(
@@ -79,7 +79,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected ? Colors.white : Colors.transparent,
@@ -99,7 +99,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: selected ? AppColors.primaryBlue : _hintColor,
+              color: selected ? selectedColor : _hintColor,
             ),
           ),
         ),
@@ -246,19 +246,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Column(
+                    // 한 화면에 다 들어가도록 가운데 정렬 + 간격 압축.
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      const SizedBox(height: 16),
                       const _BrandTitle(),
-                      const SizedBox(height: 48),
-                      _buildRoleToggle(),              
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 22),
+                      _buildRoleToggle(),
+                      const SizedBox(height: 16),
                       _buildTextField(
                         controller: _emailController,
                         hint: '이메일',
                         keyboardType: TextInputType.emailAddress,
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       _buildTextField(
                         controller: _passwordController,
                         hint: '비밀번호',
@@ -276,51 +278,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 20),
                       _buildPrimaryButton(
                         label: _isLoading ? '로그인 중...' : '로그인',
                         onPressed: _isLoading ? null : _login,
                       ),
-                      const SizedBox(height: 4),
-                      Center(
-                        child: TextButton(
-                          onPressed: () => context.push(
-                            RoutePaths.passwordReset,
-                            extra: PasswordResetArgs(isTutor: _isTutor),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _LinkText(
+                            label: '회원가입',
+                            onTap: () => context.push(RoutePaths.signup),
                           ),
-                          child: const Text(
-                            '비밀번호를 잊으셨나요?',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF6B6B6B),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              '|',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFFC2C6CF),
+                              ),
                             ),
                           ),
-                        ),
+                          _LinkText(
+                            label: '비밀번호를 잊으셨나요?',
+                            onTap: () => context.push(
+                              RoutePaths.passwordReset,
+                              extra: PasswordResetArgs(isTutor: _isTutor),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _buildOrDivider(),
-                      const SizedBox(height: 28),
-                      _buildGoogleLoginButton(onPressed: _isLoading ? () {} : _googleLogin,),
+                      const SizedBox(height: 18),
+                      _buildSocialCircles(),
                       const SizedBox(height: 12),
-                      _buildKakaoLoginButton(onPressed: _isLoading ? () {} : _kakaoLogin,),
-                      const SizedBox(height: 12),
-                      _buildNaverLoginButton(
-                        onPressed: _isLoading ? () {} : _naverLogin,),
-                      const SizedBox(height: 28),
-                      Center(
-                        child: TextButton(
-                          onPressed: () => context.push(RoutePaths.signup),
-                          child: const Text(
-                            '회원가입',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1A1D26),
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -350,7 +344,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         filled: true,
         fillColor: _inputFillColor,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide.none,
@@ -361,8 +355,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide:
-              const BorderSide(color: AppColors.primaryBlue, width: 1.5),
+          // 학생이면 학생색(연두 D2E096), 강사면 보라
+          borderSide: BorderSide(
+            color: _isTutor ? AppColors.primaryBlue : _studentAccent,
+            width: 1.5,
+          ),
         ),
         suffixIcon: suffixIcon,
       ),
@@ -374,7 +371,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     required VoidCallback? onPressed,
   }) {
     return SizedBox(
-      height: 54,
+      height: 48,
       child: FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
@@ -409,104 +406,106 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildGoogleLoginButton({required VoidCallback onPressed}) {
-    return _SocialLoginButton(
-      onPressed: onPressed,
-      backgroundColor: Colors.white,
-      borderColor: const Color(0xFFDADCE0),
-      label: 'Google 계정으로 로그인',
-      labelColor: const Color(0xFF1A1D26),
-      iconAsset: 'assets/icons/google_logo.png',
-      iconSize: 28,
-      iconPadding: const EdgeInsets.only(left: 5),
-    );
-  }
-
-  Widget _buildKakaoLoginButton({required VoidCallback onPressed}) {
-    return _SocialLoginButton(
-      onPressed: onPressed,
-      backgroundColor: _kakaoYellow,
-      borderColor: _kakaoYellow,
-      label: 'Kakao 계정으로 로그인',
-      labelColor: _kakaoBrown,
-      iconAsset: 'assets/icons/kakao_logo.png',
+  // 소셜 로그인 — 원형 아이콘 버튼 3개를 가로로.
+  Widget _buildSocialCircles() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _SocialCircle(
+          onPressed: _isLoading ? () {} : _googleLogin,
+          backgroundColor: Colors.white,
+          borderColor: const Color(0xFFDADCE0),
+          iconAsset: 'assets/icons/google_logo.png',
+          iconSize: 30,
+        ),
+        const SizedBox(width: 22),
+        _SocialCircle(
+          onPressed: _isLoading ? () {} : _kakaoLogin,
+          backgroundColor: _kakaoYellow,
+          borderColor: _kakaoYellow,
+          iconAsset: 'assets/icons/kakao_logo.png',
+          iconSize: 30,
+        ),
+        const SizedBox(width: 22),
+        _SocialCircle(
+          onPressed: _isLoading ? () {} : _naverLogin,
+          backgroundColor: const Color(0xFF03A94D),
+          borderColor: const Color(0xFF03A94D),
+          iconAsset: 'assets/icons/naver_logo.png',
+          iconSize: 30,
+        ),
+      ],
     );
   }
 }
-  Widget _buildNaverLoginButton({required VoidCallback onPressed}) {
-    return _SocialLoginButton(
-      onPressed: onPressed,
-      backgroundColor: const Color(0xFF03A94D),
-      borderColor: const Color(0xFF03A94D),
-      label: 'Naver 계정으로 로그인',
-      labelColor: Colors.white,
-      iconAsset: 'assets/icons/naver_logo.png',
+
+/// 작은 텍스트 링크 (회원가입 / 비밀번호 찾기).
+class _LinkText extends StatelessWidget {
+  const _LinkText({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF6B6B6B),
+        ),
+      ),
     );
   }
+}
 
-class _SocialLoginButton extends StatelessWidget {
-  const _SocialLoginButton({
+/// 원형 소셜 로그인 버튼 — 아이콘만.
+class _SocialCircle extends StatelessWidget {
+  const _SocialCircle({
     required this.onPressed,
     required this.backgroundColor,
     required this.borderColor,
-    required this.label,
-    required this.labelColor,
     required this.iconAsset,
-    this.iconSize,
-    this.iconPadding,
+    required this.iconSize,
   });
 
   final VoidCallback onPressed;
   final Color backgroundColor;
   final Color borderColor;
-  final String label;
-  final Color labelColor;
   final String iconAsset;
-  final double? iconSize;
-  final EdgeInsetsGeometry? iconPadding;
+  final double iconSize;
+
+  static const double _size = 58;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      child: Material(
-        color: backgroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: borderColor, width: 1),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Padding(
-                padding: iconPadding ?? EdgeInsets.zero,
-                child: SizedBox(
-                  width: iconSize ?? _LoginScreenState._socialIconSize,
-                  height: iconSize ?? _LoginScreenState._socialIconSize,
-                  child: Image.asset(
-                    iconAsset,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => Icon(
-                      Icons.broken_image_outlined,
-                      size: iconSize ?? _LoginScreenState._socialIconSize,
-                      color: const Color(0xFF9AA3B2),
-                    ),
-                  ),
+    return Material(
+      color: backgroundColor,
+      shape: CircleBorder(side: BorderSide(color: borderColor, width: 1)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: _size,
+          height: _size,
+          child: Center(
+            child: SizedBox(
+              width: iconSize,
+              height: iconSize,
+              child: Image.asset(
+                iconAsset,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  Icons.broken_image_outlined,
+                  size: iconSize,
+                  color: const Color(0xFF9AA3B2),
                 ),
               ),
-              const SizedBox(width: _LoginScreenState._socialIconGap),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: labelColor,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -514,31 +513,40 @@ class _SocialLoginButton extends StatelessWidget {
   }
 }
 
-/// 사진 상단 로고 자리 — 텍스트만 (캐릭터 로고 제외)
+/// 사진 상단 로고 자리 — 캐릭터 로고(login_mascot.png) + 텍스트
 class _BrandTitle extends StatelessWidget {
   const _BrandTitle();
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
+        // 캐릭터 로고 — assets/images/login_mascot.png 에 파일을 넣으면 표시.
+        // 아직 없으면 여백 없이 폴백(빌드 안 깨짐).
+        Image.asset(
+          'assets/images/login_mascot.png',
+          height: 176,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        ),
+        const SizedBox(height: 10),
+        const Text(
           '온샘',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 36,
+            fontSize: 26,
             fontWeight: FontWeight.bold,
             color: Color(0xFF1A1D26),
             height: 1.1,
           ),
         ),
-        SizedBox(height: 4),
-        Text(
+        const SizedBox(height: 4),
+        const Text(
           'ONSAEM',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 15,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             letterSpacing: 3,
             color: Color(0xFF1A1D26),

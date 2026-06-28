@@ -17,6 +17,8 @@ public class SearchingProblemResponse {
     private Long problemId;
     private Long studentId;
     private String summary;
+    private String extractedText;        // 선택된 문제 본문(강사에게 '어느 문제인지' 표시)
+    private Integer problemNumber;       // OCR 인식 문제 번호(있으면 'N번' 배지)
     private String studentDescription;   // 학생이 직접 입력한 설명
     private Subject subject;
     private String primaryType;
@@ -33,6 +35,8 @@ public class SearchingProblemResponse {
                 .problemId(problem.getId())
                 .studentId(problem.getStudentId())
                 .summary(problem.getSummary())
+                .extractedText(problem.getExtractedText())
+                .problemNumber(problem.getProblemNumber())
                 .studentDescription(problem.getStudentDescription())
                 .subject(problem.getSubject())
                 .primaryType(problem.getPrimaryType())

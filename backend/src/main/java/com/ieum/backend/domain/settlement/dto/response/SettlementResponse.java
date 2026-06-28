@@ -15,9 +15,15 @@ public record SettlementResponse(
         Integer tutorAmount,
         SettlementStatus status,
         LocalDateTime createdAt,
-        LocalDateTime transferredAt
+        LocalDateTime transferredAt,
+        // 그 강의에 처리 중인 신고가 있어 출금이 막힌 상태인지(프론트 배지/버튼 비활성용)
+        boolean reportPending
 ) {
     public static SettlementResponse from(Settlement settlement) {
+        return from(settlement, false);
+    }
+
+    public static SettlementResponse from(Settlement settlement, boolean reportPending) {
         return new SettlementResponse(
                 settlement.getId(),
                 settlement.getTutorId(),
@@ -28,7 +34,8 @@ public record SettlementResponse(
                 settlement.getTutorAmount(),
                 settlement.getStatus(),
                 settlement.getCreatedAt(),
-                settlement.getTransferredAt()
+                settlement.getTransferredAt(),
+                reportPending
         );
     }
 }

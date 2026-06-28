@@ -36,7 +36,7 @@ class TutorMyReportsScreen extends ConsumerWidget {
     final theme =
         (isDark ? AppTheme.shellDark : AppTheme.shellLight).copyWith(
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.tutorScaffoldLight,
     );
     final async = ref.watch(myReportsProvider);
 

@@ -94,7 +94,10 @@ public abstract class Account {
         if (name != null && !name.isBlank()) this.name = name;
         if (phone != null && !phone.isBlank()) this.phone = phone;
         if (birthDate != null) this.birthDate = birthDate;
-        if (profileImageUrl != null) this.profileImageUrl = profileImageUrl;
+        // 빈 문자열("")은 '기본 이미지로 되돌리기' 신호 → null로 비움. null(미전송)은 변경 안 함.
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl.isBlank() ? null : profileImageUrl;
+        }
     }
 
     /** 비밀번호 변경 — 이미 인코딩된 값을 받는다(서비스에서 BCrypt 처리). */

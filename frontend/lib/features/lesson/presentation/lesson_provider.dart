@@ -733,9 +733,20 @@ class LessonNotifier extends StateNotifier<LessonState> {
     }
   }
 
-  void _applyRemoteComplete() {
+  Future<void> _applyRemoteComplete() async {
     _repo.disconnectStomp();
     _engine?.leaveChannel();
+    // 상대(주로 강사)가 종료한 경우에도, 학생 쪽에서 백엔드 완료를 한 번 더 보장한다(멱등).
+    // 끝낸 쪽의 complete가 누락/실패하면 강의가 ACTIVE로 남아 리뷰(COMPLETED 전용)가 막히므로.
+    final lessonId = state.lessonId;
+    if (lessonId != null) {
+      try {
+        await _repo.completeLesson(lessonId);
+      } catch (_) {
+        // 이미 완료됐거나 일시 실패여도 리뷰 화면 진입은 진행(다음에 재시도 가능)
+      }
+    }
+    if (!mounted) return;
     state = state.copyWith(isCompleted: true);
   }
 

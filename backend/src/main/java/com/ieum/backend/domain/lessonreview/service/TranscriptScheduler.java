@@ -36,7 +36,9 @@ public class TranscriptScheduler {
         // 1) 전사 처리
         List<Long> needsTranscript = lessonQueryRepository.findCompletedLessonIdsWithoutTranscript();
         if (!needsTranscript.isEmpty()) {
-            log.info("[TranscriptScheduler] 전사 대상 {}건: {}", needsTranscript.size(), needsTranscript);
+            // 녹음 파일이 아직 없는 강의도 매 주기 잡히므로 idle 노이즈 방지 위해 debug.
+            // 실제 처리 로그는 TranscriptService.processLesson('처리 시작/완료')에서 INFO로 남는다.
+            log.debug("[TranscriptScheduler] 전사 대상 {}건: {}", needsTranscript.size(), needsTranscript);
             for (Long lessonId : needsTranscript) {
                 try {
                     transcriptService.processLesson(lessonId);

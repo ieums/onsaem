@@ -161,7 +161,10 @@ class _StudentReviewDetailScreenState
     });
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // 라이트모드는 학생 연두 틴트로 통일(다크는 기존 그대로).
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? Theme.of(context).scaffoldBackgroundColor
+          : AppColors.studentScaffoldLight,
       body: SafeArea(
         child: Column(
           children: [

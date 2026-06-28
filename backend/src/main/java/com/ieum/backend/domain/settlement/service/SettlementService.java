@@ -4,6 +4,8 @@ import com.ieum.backend.domain.auth.entity.Tutor;
 import com.ieum.backend.domain.auth.repository.TutorRepository;
 import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.domain.lesson.repository.LessonRepository;
+import com.ieum.backend.domain.report.entity.enums.ReportStatus;
+import com.ieum.backend.domain.report.repository.ReportRepository;
 import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
 import com.ieum.backend.domain.settlement.dto.response.BulkWithdrawResponse;
 import com.ieum.backend.domain.settlement.dto.response.SettlementResponse;
@@ -28,6 +30,16 @@ public class SettlementService {
     private final SettlementRepository settlementRepository;
     private final LessonRepository lessonRepository;   // 정산 대상 강사를 강의에서 권위있게 가져오기 위함
     private final TutorRepository tutorRepository;      // 출금 전 정산 계좌 등록 확인용
+    private final ReportRepository reportRepository;    // 출금 전 신고 보류 확인용
+
+    /** 출금을 막아야 하는 '처리 중' 신고 상태. */
+    private static final List<ReportStatus> OPEN_REPORTS =
+            List.of(ReportStatus.PENDING, ReportStatus.REVIEWING);
+
+    /** 그 강의에 처리 중(PENDING/REVIEWING)인 신고가 있는지 — 있으면 출금 보류. */
+    private boolean hasOpenReport(Long lessonId) {
+        return reportRepository.existsByLessonIdAndStatusIn(lessonId, OPEN_REPORTS);
+    }
 
     /**
      * 정산 계산 (강의 완료 시 호출).
@@ -74,7 +86,10 @@ public class SettlementService {
     public List<SettlementResponse> getByTutor(Long tutorId) {
         return settlementRepository.findByTutorIdOrderByCreatedAtDesc(tutorId)
                 .stream()
-                .map(SettlementResponse::from)
+                // CALCULATED인데 신고 처리 중이면 reportPending=true → 프론트가 '신고 처리 중' 표시 + 출금 비활성
+                .map(s -> SettlementResponse.from(s,
+                        s.getStatus() == SettlementStatus.CALCULATED
+                                && hasOpenReport(s.getLessonId())))
                 .toList();
     }
 
@@ -133,6 +148,11 @@ public class SettlementService {
             throw BusinessException.conflict("출금 요청 가능한 상태가 아닙니다. 현재 상태: " + settlement.getStatus());
         }
 
+        // 신고 보류 — 처리 중인 신고가 있으면 출금 막음(정산 생성 후 들어온 신고 케이스)
+        if (hasOpenReport(settlement.getLessonId())) {
+            throw BusinessException.conflict("신고 처리 중인 강의의 정산은 출금할 수 없어요. 처리 완료 후 가능합니다.");
+        }
+
         settlement.markPending();
         return SettlementResponse.from(settlement);
     }
@@ -145,13 +165,21 @@ public class SettlementService {
      */
     @Transactional
     public BulkWithdrawResponse requestBulkWithdraw(Long tutorId) {
-        List<Settlement> calculated = settlementRepository
+        List<Settlement> calculatedAll = settlementRepository
                 .findByTutorIdAndStatusOrderByCreatedAtDesc(
                         tutorId, SettlementStatus.CALCULATED
                 );
 
+        // 신고 처리 중인 강의의 정산은 제외(출금 보류). 나머지만 일괄 출금.
+        List<Settlement> calculated = calculatedAll.stream()
+                .filter(s -> !hasOpenReport(s.getLessonId()))
+                .toList();
+
         if (calculated.isEmpty()) {
-            throw BusinessException.badRequest("출금 가능한 정산이 없습니다.");
+            throw BusinessException.badRequest(
+                    calculatedAll.isEmpty()
+                            ? "출금 가능한 정산이 없습니다."
+                            : "출금 가능한 정산이 모두 신고 처리 중이라 출금할 수 없어요.");
         }
 
         // 정산 계좌 등록 필수

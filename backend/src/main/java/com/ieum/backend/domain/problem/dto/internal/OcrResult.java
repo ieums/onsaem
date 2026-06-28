@@ -47,6 +47,8 @@ public class OcrResult {
         private String extractedText;   // 추출된 본문 (지문 + 문제 + 선택지)
         private String examCode;        // [25xxx-xxxx] 코드(수능특강/수능 완성의 경우에 있음)
         private Integer problemNumber;  // 문제 번호 (01, 02, 03...)
+        /** 이 문제가 걸쳐 있는 업로드 이미지 인덱스들(0-based). 한 문제가 여러 장이면 [0,1]. 선택 시 이 장들만 저장. */
+        private List<Integer> imageIndices = new ArrayList<>();
     }
 
     /** 한 문제 여러 장일 때, 업로드한 이미지 1장의 텍스트. */

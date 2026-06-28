@@ -99,6 +99,8 @@ public class GeminiClient {
             // DetectedProblem 조립
             DetectedProblem p = new DetectedProblem();
             p.setExtractedText(t.getExtractedText());
+            p.setProblemNumber(t.getProblemNumber()); // OCR 인식 문제 번호(강사 표시용)
+            p.setImageIndices(t.getImageIndices());    // 이 문제가 걸친 이미지들(다중 선택 시 그 장들만 저장)
             p.setSummary(c.getSummary());
             p.setSubject(c.getSubject());
             p.setPrimaryType(c.getPrimaryType());

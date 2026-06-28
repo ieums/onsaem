@@ -38,7 +38,7 @@ class _StudentTutorProfileScreenState
     return base.copyWith(
       colorScheme: base.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
   }
 
@@ -122,7 +122,7 @@ class _StudentTutorProfileScreenState
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
               children: [
-                _buildProfileHeader(shell, profile, isOnline),
+                _buildProfileHeader(shell, profile, isOnline, canSelect),
                 const SizedBox(height: 14),
                 _buildMetrics(shell, profile),
                 const SizedBox(height: 16),
@@ -135,37 +135,38 @@ class _StudentTutorProfileScreenState
               ],
             ),
           ),
-          Divider(height: 1, thickness: 1, color: shell.cardBorder),
-          ColoredBox(
-            color: pageBg,
-            child: SafeArea(
-              top: false,
-              minimum: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-              child: SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: FilledButton(
-                  onPressed: canSelect ? _selectTutor : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.studentPoint,
-                    foregroundColor: AppColors.studentInk,
-                    disabledBackgroundColor:
-                        AppColors.studentPoint.withValues(alpha: 0.35),
-                    disabledForegroundColor:
-                        AppColors.studentInk.withValues(alpha: 0.45),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+          // 매칭 선택 흐름으로 들어왔을 때만 '선택하기' 노출.
+          // 리뷰 내역 등에서 프로필만 보러 들어오면(canSelect=false) 버튼 영역 자체를 숨긴다.
+          if (canSelect) ...[
+            Divider(height: 1, thickness: 1, color: shell.cardBorder),
+            ColoredBox(
+              color: pageBg,
+              child: SafeArea(
+                top: false,
+                minimum: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: FilledButton(
+                    onPressed: _selectTutor,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.studentPoint,
+                      foregroundColor: AppColors.studentInk,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
                     ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    '선택하기',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    child: const Text(
+                      '선택하기',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -175,6 +176,7 @@ class _StudentTutorProfileScreenState
     ShellTheme shell,
     TutorProfileDetail profile,
     bool isOnline,
+    bool showOnline, // 매칭 선택 흐름일 때만 온/오프라인 배지 노출(리뷰 내역에선 무의미)
   ) {
     final schoolText = [
       if (profile.school?.isNotEmpty ?? false) profile.school!,
@@ -212,8 +214,10 @@ class _StudentTutorProfileScreenState
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    _OnlineStatusBadge(isOnline: isOnline),
+                    if (showOnline) ...[
+                      const SizedBox(width: 8),
+                      _OnlineStatusBadge(isOnline: isOnline),
+                    ],
                   ],
                 ),
                 if (hasSchool) ...[

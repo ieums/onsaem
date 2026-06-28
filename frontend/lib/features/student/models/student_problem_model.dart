@@ -76,12 +76,14 @@ class DetectedProblem {
     this.extractedText,
     this.subject,
     this.difficulty,
+    this.problemNumber,
   });
 
   final String? summary;
   final String? extractedText;
   final String? subject;
   final String? difficulty;
+  final int? problemNumber; // OCR 인식 문제 번호(있으면 'N번' 표시)
 
   factory DetectedProblem.fromJson(Map<String, dynamic> json) {
     return DetectedProblem(
@@ -89,18 +91,27 @@ class DetectedProblem {
       extractedText: json['extractedText'] as String?,
       subject: json['subject'] as String?,
       difficulty: json['difficulty'] as String?,
+      problemNumber: json['problemNumber'] as int?,
     );
   }
 
   /// 목록에 보여줄 미리보기 텍스트.
+  /// summary 우선. 리터럴 "\n"·중복 공백을 정리해 한 줄로 깔끔하게 보여준다.
   String get preview {
-    final s = summary?.trim();
-    if (s != null && s.isNotEmpty) return s;
-    final t = extractedText?.trim();
-    if (t != null && t.isNotEmpty) {
-      return t.length > 60 ? '${t.substring(0, 60)}…' : t;
-    }
+    final s = _oneLine(summary);
+    if (s.isNotEmpty) return s;
+    final t = _oneLine(extractedText);
+    if (t.isNotEmpty) return t.length > 60 ? '${t.substring(0, 60)}…' : t;
     return '문제 내용 미리보기 없음';
+  }
+
+  static String _oneLine(String? raw) {
+    if (raw == null) return '';
+    return raw
+        .replaceAll('\\n', ' ')
+        .replaceAll('\n', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 }
 

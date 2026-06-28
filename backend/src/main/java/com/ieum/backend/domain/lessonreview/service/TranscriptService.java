@@ -39,8 +39,6 @@ public class TranscriptService {
      */
     @Transactional
     public void processLesson(Long lessonId) {
-        log.info("[Transcript] 강의 {} 처리 시작", lessonId);
-
         LessonInfo lesson = lessonQueryRepository.findById(lessonId).orElse(null);
         if (lesson == null) {
             log.warn("[Transcript] 강의 {} — lessons 테이블에서 못 찾음. 건너뜀.", lessonId);
@@ -50,6 +48,15 @@ public class TranscriptService {
             log.warn("[Transcript] 강의 {} — recording_url 없음. 건너뜀.", lessonId);
             return;
         }
+
+        // 녹음 파일이 아직 없으면(예: 로컬에 파일 미투입) 에러 없이 조용히 스킵.
+        // 트랜스크립트 행을 만들지 않으므로 다음 폴링에서 파일이 생기면 자동 처리된다.
+        if (!lessonMediaStorage.isRecordingAvailable(lessonId, lesson.recordingUrl())) {
+            log.debug("[Transcript] 강의 {} — 녹음 파일 아직 없음. 조용히 스킵(다음 폴링 재시도).", lessonId);
+            return;
+        }
+
+        log.info("[Transcript] 강의 {} 처리 시작", lessonId);
 
         LessonTranscript transcript = lessonTranscriptRepository.findByLessonId(lessonId)
                 .orElseGet(() -> lessonTranscriptRepository.save(

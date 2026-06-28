@@ -20,6 +20,12 @@ public interface LessonMediaStorage {
      */
     String defaultRecordingRef(Long lessonId);
 
+    /**
+     * 전사 가능한 녹음 파일이 실제로 존재하는지(미존재면 전사 스킵, 에러 아님).
+     * local: media/recordings/{id}/ 에 파일이 있는지. prod(S3): 항상 true(녹음 URL이 세팅돼 있으면 존재로 간주).
+     */
+    boolean isRecordingAvailable(Long lessonId, String recordingRef);
+
     /** 녹음을 전사용 임시 파일로 가져온다. 호출자가 사용 후 삭제 책임. */
     Path fetchRecordingToTemp(Long lessonId, String recordingRef) throws IOException;
 

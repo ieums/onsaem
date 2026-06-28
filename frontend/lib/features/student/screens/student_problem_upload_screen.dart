@@ -16,10 +16,12 @@ import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/screens/student_ai_tutor_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_edit_screen.dart';
+import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/features/student/utils/student_question_text_util.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/core/widgets/walking_mascot.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class StudentProblemUploadScreen extends ConsumerStatefulWidget {
@@ -56,8 +58,6 @@ class _StudentProblemUploadScreenState
   final List<Uint8List> _problemImages = [];
   String? _selectedSubject;
   bool _submitting = false; // OCR 분석 중(로딩 오버레이 표시)
-  // 분석 스테퍼 시작 단계 — 0: 처음(업로드→OCR→분류), 2: 선택 후(분류만)
-  int _analyzeStartStep = 0;
 
   @override
   void dispose() {
@@ -71,7 +71,7 @@ class _StudentProblemUploadScreenState
     final sheetTheme = baseTheme.copyWith(
       colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
 
     await showModalBottomSheet<void>(
@@ -246,7 +246,15 @@ class _StudentProblemUploadScreenState
     }
 
     try {
-      final files = await _imagePicker.pickMultiImage(imageQuality: 85);
+      // 일부 안드(갤럭시)에서 imageQuality 재인코딩이 고해상도/HEIF에서 실패·OOM 나는 경우가 있어,
+      // 우선 재인코딩으로 시도하고 실패하면 원본으로 한 번 더 시도한다.
+      List<XFile> files;
+      try {
+        files = await _imagePicker.pickMultiImage(imageQuality: 85);
+      } catch (e) {
+        debugPrint('[갤러리] imageQuality 픽 실패, 원본으로 재시도: $e');
+        files = await _imagePicker.pickMultiImage();
+      }
       if (!mounted || files.isEmpty) return;
 
       final picked = files.length > remaining ? files.sublist(0, remaining) : files;
@@ -260,9 +268,10 @@ class _StudentProblemUploadScreenState
       if (files.length > remaining) {
         _showSnack('사진은 최대 $_maxImages장까지만 추가됐어요.');
       }
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[갤러리 다중선택 실패] $e\n$st');
       if (!mounted) return;
-      _showSnack('사진 업로드에 실패했어요. 다시 시도해 주세요.');
+      _showSnack('사진을 불러오지 못했어요: $e');
     }
   }
 
@@ -297,12 +306,16 @@ class _StudentProblemUploadScreenState
   Future<int?> _pickDetectedProblem(List<DetectedProblem> detected) async {
     if (detected.isEmpty) return null;
 
+    // 감지된 문제들의 과목이 둘 이상 섞여 있을 때만 과목 배지 표시(같은 과목이면 숨김).
+    final hasMixedSubjects =
+        detected.map((d) => d.subject).whereType<String>().toSet().length > 1;
+
     final isDark = ref.read(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final sheetTheme = baseTheme.copyWith(
       colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
 
     return showModalBottomSheet<int>(
@@ -375,13 +388,42 @@ class _StudentProblemUploadScreenState
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      '문제 ${i + 1}',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.studentInk,
-                                      ),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          d.problemNumber != null
+                                              ? '${d.problemNumber}번 문제'
+                                              : '문제 ${i + 1}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.studentInk,
+                                          ),
+                                        ),
+                                        if (hasMixedSubjects &&
+                                            d.subject != null) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.studentPoint
+                                                  .withValues(alpha: 0.4),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                            ),
+                                            child: Text(
+                                              subjectLabel(d.subject),
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.studentInk,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
@@ -431,10 +473,7 @@ class _StudentProblemUploadScreenState
       return;
     }
     final repository = ref.read(problemRepositoryProvider);
-    setState(() {
-      _analyzeStartStep = 0; // 처음: 업로드 → OCR → 분류 전체
-      _submitting = true;
-    });
+    setState(() => _submitting = true);
     ProblemCreateResult result;
     try {
       result = await repository.createProblem(
@@ -457,10 +496,7 @@ class _StudentProblemUploadScreenState
       setState(() => _submitting = false); // 선택 시트는 가리지 않음
       final index = await _pickDetectedProblem(result.allDetected);
       if (!mounted || index == null) return;
-      setState(() {
-        _analyzeStartStep = 2; // 선택 후: OCR 끝, 분류만 진행(실측 신호 반영)
-        _submitting = true;
-      });
+      setState(() => _submitting = true);
       try {
         result = await repository.selectProblem(
           detectionId: result.detectionId!,
@@ -590,7 +626,7 @@ class _StudentProblemUploadScreenState
     final theme = baseTheme.copyWith(
       colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
 
     return Theme(
@@ -752,10 +788,10 @@ class _StudentProblemUploadScreenState
             color: Colors.black.withValues(alpha: 0.28),
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 30),
+                padding: const EdgeInsets.fromLTRB(28, 22, 28, 22),
                 decoration: BoxDecoration(
                   color: shell.cardBackground,
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.16),
@@ -766,23 +802,22 @@ class _StudentProblemUploadScreenState
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 분석 중 걷는 마스코트(ocr_walk_1/2.png 번갈아 + 통통)
+                    const WalkingMascot(size: 104),
+                    const SizedBox(height: 12),
                     Text(
                       '문제를 분석하고 있어요',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: shell.titleColor,
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: 232,
-                      child: _AnalyzingProgress(
-                        shell: shell,
-                        startStep: _analyzeStartStep,
-                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '잠시만 기다려 주세요',
+                      style: TextStyle(fontSize: 12.5, color: shell.hintColor),
                     ),
                   ],
                 ),
@@ -980,128 +1015,6 @@ class _StudentProblemUploadScreenState
               ),
             ),
           ),
-      ],
-    );
-  }
-}
-
-/// 분석 진행 단계 시각화(추정 스테퍼).
-/// 백엔드는 OCR+분류를 한 번에 처리해 실시간 신호가 없으므로, 단계별 추정 시간으로 진행한다.
-/// 핵심: 실제 응답(=오버레이 제거) 전까지 **마지막 단계를 '완료'로 만들지 않는다**(거짓 완료 방지).
-class _AnalyzingProgress extends StatefulWidget {
-  const _AnalyzingProgress({required this.shell, this.startStep = 0});
-
-  final ShellTheme shell;
-  final int startStep; // 0: 처음(업로드부터), 2: 선택 후(분류만)
-
-  @override
-  State<_AnalyzingProgress> createState() => _AnalyzingProgressState();
-}
-
-class _AnalyzingProgressState extends State<_AnalyzingProgress> {
-  static const _steps = ['사진 업로드', '문제 글자 인식 (OCR)', 'AI가 과목·유형 분류'];
-  // 단계별 추정 소요(ms) — 튜닝값. OCR이 제일 길다.
-  static const _estMs = [400, 8000, 3500];
-
-  Timer? _timer;
-  int _elapsed = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 200), (_) {
-      if (mounted) setState(() => _elapsed += 200);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  /// 현재 진행 중인 단계. startStep 이전은 이미 완료로 친다.
-  /// 추정 시간이 다 지나도 **마지막 단계에서 멈춰(active 유지)** 거짓 완료를 막는다.
-  int get _activeStep {
-    var acc = 0;
-    for (var i = widget.startStep; i < _estMs.length; i++) {
-      acc += _estMs[i];
-      if (_elapsed < acc) return i;
-    }
-    return _steps.length - 1;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = widget.shell;
-    final active = _activeStep;
-    final showHint = _elapsed >= 12000; // 오래 걸릴 때 안심 문구
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < _steps.length; i++) ...[
-          if (i > 0) const SizedBox(height: 12),
-          _stepRow(
-            shell,
-            label: _steps[i],
-            done: i < widget.startStep || i < active,
-            active: i == active,
-          ),
-        ],
-        if (showHint) ...[
-          const SizedBox(height: 16),
-          Text(
-            '조금만 더 기다려 주세요 🙏',
-            style: TextStyle(fontSize: 12.5, color: shell.hintColor),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _stepRow(ShellTheme shell,
-      {required String label, required bool done, required bool active}) {
-    final Widget icon;
-    if (done) {
-      icon = const Icon(Icons.check_circle_rounded,
-          size: 20, color: AppColors.studentInk);
-    } else if (active) {
-      icon = const SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(
-            strokeWidth: 2.4, color: AppColors.studentInk),
-      );
-    } else {
-      icon = Icon(Icons.radio_button_unchecked_rounded,
-          size: 20, color: shell.hintColor.withValues(alpha: 0.5));
-    }
-
-    final Color textColor;
-    if (done) {
-      textColor = shell.titleColor;
-    } else if (active) {
-      textColor = AppColors.studentInk;
-    } else {
-      textColor = shell.hintColor;
-    }
-
-    return Row(
-      children: [
-        SizedBox(width: 20, height: 20, child: Center(child: icon)),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: (done || active) ? FontWeight.w700 : FontWeight.w500,
-              color: textColor,
-            ),
-          ),
-        ),
       ],
     );
   }

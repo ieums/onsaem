@@ -137,7 +137,7 @@ class _StudentProblemEditScreenState
     final theme = baseTheme.copyWith(
       colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
 
     return Theme(
@@ -191,13 +191,11 @@ class _StudentProblemEditScreenState
                     }),
                   ),
                   const SizedBox(height: 20),
+                  // 난이도는 AI 자동 판정값 고정 — 학생 수정 불가(표시만).
                   _label(shell, '난이도'),
-                  _dropdown(
-                    shell: shell,
-                    value: _difficulty,
-                    labels: difficultyLabels,
-                    hint: '선택 안 함',
-                    onChanged: (v) => setState(() => _difficulty = v),
+                  _readonlyField(
+                    shell,
+                    difficultyLabels[_difficulty] ?? 'AI 자동 판정',
                   ),
                   const SizedBox(height: 20),
                   _label(shell, '출처'),
@@ -483,6 +481,26 @@ class _StudentProblemEditScreenState
             fontWeight: FontWeight.w700,
             color: shell.subtitleColor,
           ),
+        ),
+      );
+
+  /// 읽기 전용 표시 필드(수정 불가 — 예: 난이도).
+  Widget _readonlyField(ShellTheme shell, String text) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+        decoration: BoxDecoration(
+          color: shell.cardBackground.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: shell.cardBorder.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(text,
+                  style: TextStyle(fontSize: 15, color: shell.subtitleColor)),
+            ),
+            Icon(Icons.lock_outline, size: 16, color: shell.hintColor),
+          ],
         ),
       );
 

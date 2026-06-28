@@ -83,8 +83,6 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
               _buildCreditCard(),
               const SizedBox(height: 14),
               _buildSubscriptionCard(),
-              const SizedBox(height: 14),
-              _buildStatsSection(),
               const SizedBox(height: 18),
               _buildSectionTitle('내 활동'),
               const SizedBox(height: 10),
@@ -415,31 +413,6 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
     final l = d.toLocal();
     String two(int n) => n.toString().padLeft(2, '0');
     return '${l.year}.${two(l.month)}.${two(l.day)}';
-  }
-
-  Widget _buildStatsSection() {
-    final reviewCount = ref.watch(myReviewsProvider).valueOrNull?.length;
-    final reportCount = ref.watch(myReportsProvider).valueOrNull?.length;
-    String fmt(int? n) => n == null ? '…' : '$n';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('활동 통계'),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _StudentStatCard(value: fmt(reviewCount), label: '작성 리뷰'),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _StudentStatCard(value: fmt(reportCount), label: '접수 신고'),
-            ),
-          ],
-        ),
-      ],
-    );
   }
 
   Widget _buildSectionTitle(String title) {
@@ -947,51 +920,3 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
   static const _supportEmail = 'ieum.team@gmail.com';
 }
 
-class _StudentStatCard extends StatelessWidget {
-  const _StudentStatCard({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellTheme.of(context);
-    final cardBg = Theme.of(context).brightness == Brightness.dark
-        ? shell.cardBackground
-        : Colors.white;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: shell.cardBorder),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: AppColors.studentInk,
-              height: 1.15,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: shell.hintColor,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}

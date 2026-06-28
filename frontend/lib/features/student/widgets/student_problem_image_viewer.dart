@@ -20,11 +20,13 @@ void showStudentProblemImageViewerUrl(
 }
 
 /// 네트워크 이미지 여러 장 — 좌우 스와이프 갤러리. imageUrls는 이미 절대 URL.
+/// zoomable=false면 확대 없이 좌우로 넘기기만(예: 강사 질문 리스트).
 void showStudentProblemImageGalleryUrls(
   BuildContext context, {
   required List<String> imageUrls,
   int initialIndex = 0,
   String? title,
+  bool zoomable = true,
 }) {
   if (imageUrls.isEmpty) return;
   _showGallery(
@@ -32,6 +34,7 @@ void showStudentProblemImageGalleryUrls(
     images: [for (final u in imageUrls) NetworkImage(u)],
     initialIndex: initialIndex,
     title: title,
+    zoomable: zoomable,
   );
 }
 
@@ -69,6 +72,7 @@ void _showGallery(
   required List<ImageProvider> images,
   required int initialIndex,
   String? title,
+  bool zoomable = true,
 }) {
   showDialog<void>(
     context: context,
@@ -77,6 +81,7 @@ void _showGallery(
       images: images,
       initialIndex: initialIndex.clamp(0, images.length - 1),
       title: title,
+      zoomable: zoomable,
     ),
   );
 }
@@ -86,11 +91,13 @@ class _ImageGalleryDialog extends StatefulWidget {
     required this.images,
     required this.initialIndex,
     this.title,
+    this.zoomable = true,
   });
 
   final List<ImageProvider> images;
   final int initialIndex;
   final String? title;
+  final bool zoomable;
 
   @override
   State<_ImageGalleryDialog> createState() => _ImageGalleryDialogState();
@@ -127,27 +134,30 @@ class _ImageGalleryDialogState extends State<_ImageGalleryDialog> {
               itemCount: count,
               onPageChanged: (i) => setState(() => _index = i),
               itemBuilder: (context, i) {
+                final image = Center(
+                  child: Image(
+                    image: widget.images[i],
+                    fit: BoxFit.contain,
+                    loadingBuilder: (c, child, progress) => progress == null
+                        ? child
+                        : const Center(
+                            child: CircularProgressIndicator(
+                                color: Colors.white),
+                          ),
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.white54,
+                      size: 48,
+                    ),
+                  ),
+                );
+                // zoomable=false면 확대 없이 좌우 스와이프만.
+                if (!widget.zoomable) return image;
                 return InteractiveViewer(
                   minScale: 0.6,
                   maxScale: 4,
                   boundaryMargin: const EdgeInsets.all(48),
-                  child: Center(
-                    child: Image(
-                      image: widget.images[i],
-                      fit: BoxFit.contain,
-                      loadingBuilder: (c, child, progress) => progress == null
-                          ? child
-                          : const Center(
-                              child: CircularProgressIndicator(
-                                  color: Colors.white),
-                            ),
-                      errorBuilder: (_, _, _) => const Icon(
-                        Icons.broken_image_outlined,
-                        color: Colors.white54,
-                        size: 48,
-                      ),
-                    ),
-                  ),
+                  child: image,
                 );
               },
             ),

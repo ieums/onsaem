@@ -9,6 +9,8 @@ import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
 import 'package:ieum/features/matching/providers/matching_provider.dart'
     show MatchingState, matchingProvider, tutorApplicationsProvider;
 import 'package:ieum/features/tutor/screens/tutor_home_screen.dart';
+import 'package:ieum/core/notifications/notification_center.dart';
+import 'package:ieum/features/tutor/providers/tutor_notification_provider.dart';
 import 'package:ieum/features/tutor/screens/tutor_my_page_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_request_list_screen.dart';
 import 'package:ieum/features/tutor/screens/tutor_settlement_screen.dart';
@@ -72,6 +74,12 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
           title: '학생이 선택했어요!',
           body: '신청한 문제를 학생이 선택했어요. 5분 안에 수락해 주세요.',
         );
+        ref.read(tutorNotificationInboxProvider.notifier).add(
+              dedupeKey: 'match-requested-$nextReq',
+              title: '학생이 선택했어요',
+              body: '신청한 문제를 학생이 선택했어요. 5분 안에 수락해 주세요.',
+              kind: NotificationKind.matching,
+            );
         _showMatchRequestedDialog(
           context,
           nextReq,
@@ -84,12 +92,23 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
       }
       if (next.matchCancelledMessage != null &&
           next.matchCancelledMessage != prev?.matchCancelledMessage) {
+        ref.read(tutorNotificationInboxProvider.notifier).add(
+              dedupeKey:
+                  'match-cancelled-${DateTime.now().millisecondsSinceEpoch}',
+              title: '매칭이 취소됐어요',
+              body: next.matchCancelledMessage!,
+              kind: NotificationKind.matching,
+            );
         _showMatchCancelledDialog(context, next.matchCancelledMessage!);
       }
     });
 
     return Theme(
-      data: isDark ? AppTheme.shellDark : AppTheme.shellLight,
+      // 라이트모드 홈 배경에 보라빛 톤. 다크는 공통.
+      data: isDark
+          ? AppTheme.shellDark
+          : AppTheme.shellLight.copyWith(
+              scaffoldBackgroundColor: AppColors.tutorScaffoldLight),
       child: Scaffold(
         body: IndexedStack(index: _index, children: _screens),
         bottomNavigationBar: AppShellTabBar(

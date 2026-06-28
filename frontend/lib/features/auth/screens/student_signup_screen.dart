@@ -309,6 +309,36 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     }
   }
 
+  /// 프로필 이미지 변경 — 기본 이미지 / 갤러리 선택.
+  Future<void> _chooseProfileImage() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_hasProfileImage)
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('기본 이미지 사용'),
+                onTap: () => Navigator.pop(ctx, 'default'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('갤러리에서 선택'),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == 'default') {
+      setState(() => _profileImageBytes = null);
+    } else if (choice == 'gallery') {
+      await _pickProfileImage();
+    }
+  }
+
   Future<void> _submit() async {
     // ── 프로필 수정 모드: 기존 동작 그대로 ──
     if (widget.isEditMode) {
@@ -695,7 +725,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
               clipBehavior: Clip.none,
               children: [
                 GestureDetector(
-                  onTap: _pickProfileImage,
+                  onTap: _chooseProfileImage,
                   behavior: HitTestBehavior.opaque,
                   child: _buildProfileAvatar(context),
                 ),
@@ -703,7 +733,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                   right: 0,
                   bottom: 0,
                   child: GestureDetector(
-                    onTap: _pickProfileImage,
+                    onTap: _chooseProfileImage,
                     behavior: HitTestBehavior.opaque,
                     child: Container(
                       width: _profileAddButtonSize,

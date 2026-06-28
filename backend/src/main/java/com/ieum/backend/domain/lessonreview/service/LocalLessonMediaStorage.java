@@ -39,6 +39,16 @@ public class LocalLessonMediaStorage implements LessonMediaStorage {
         return "local:recordings/" + lessonId;
     }
 
+    @Override
+    public boolean isRecordingAvailable(Long lessonId, String recordingRef) {
+        try {
+            findRecordingFile(lessonId);
+            return true;
+        } catch (IOException e) {
+            return false; // 파일/폴더 아직 없음 — 전사 스킵(에러 아님)
+        }
+    }
+
     /** media/recordings/{lessonId}/ 에서 재생/전사할 파일 1개를 찾는다. */
     private Path findRecordingFile(Long lessonId) throws IOException {
         Path dir = mediaDir.resolve("recordings").resolve(String.valueOf(lessonId));

@@ -7,6 +7,7 @@ import 'package:ieum/features/student/data/models/ai_tutor_message.dart';
 import 'package:ieum/features/student/providers/ai_tutor_provider.dart';
 import 'package:ieum/features/student/providers/payment_provider.dart';
 import 'package:ieum/features/student/utils/coin_shortage.dart';
+import 'package:ieum/features/student/widgets/student_problem_image_viewer.dart';
 import 'package:ieum/core/constants/api_constants.dart';
 
 class StudentAiTutorScreen extends ConsumerStatefulWidget {
@@ -108,7 +109,7 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
       colorScheme:
           baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
 
     final state = ref.watch(aiTutorChatProvider);
@@ -350,43 +351,10 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
 
   void _showImageViewer(List<String> imageUrls) {
     if (imageUrls.isEmpty) return;
-    showDialog(
-      context: context,
-      barrierColor: Colors.black87,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(12),
-        child: Stack(
-          children: [
-            ListView(
-              shrinkWrap: true,
-              children: [
-                for (final u in imageUrls)
-                  InteractiveViewer(
-                    minScale: 0.8,
-                    maxScale: 4,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Image.network(
-                        ApiConstants.resolveImageUrl(u),
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            Positioned(
-              top: 0,
-              right: 0,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                onPressed: () => Navigator.of(ctx).pop(),
-              ),
-            ),
-          ],
-        ),
-      ),
+    // 다른 화면과 동일한 좌우 스와이프 갤러리(확대/페이지 카운터 포함).
+    showStudentProblemImageGalleryUrls(
+      context,
+      imageUrls: [for (final u in imageUrls) ApiConstants.resolveImageUrl(u)],
     );
   }
 

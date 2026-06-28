@@ -53,6 +53,9 @@ public class Problem {
     @Column(length = 500)
     private String summary;
 
+    /** OCR이 인식한 문제 번호(01·02…). 한 이미지에 여러 문제일 때 강사에게 '몇 번' 표시용. 없으면 null. */
+    private Integer problemNumber;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private Subject subject;
@@ -96,7 +99,7 @@ public class Problem {
     @Builder
     public Problem(Long studentId, List<String> imageUrls, List<String> pageTexts,
                    String extractedText,
-                   String summary, Subject subject, String primaryType,
+                   String summary, Integer problemNumber, Subject subject, String primaryType,
                    String secondaryType, Difficulty difficulty,
                    Integer totalDifficultyScore, ExamType examType,
                    String studentDescription) {
@@ -104,6 +107,7 @@ public class Problem {
         this.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
         this.pageTexts = pageTexts != null ? pageTexts : new ArrayList<>();
         this.extractedText = extractedText;
+        this.problemNumber = problemNumber;
         this.summary = summary;
         this.subject = subject;
         this.primaryType = primaryType;
@@ -135,16 +139,23 @@ public class Problem {
      */
     public void reorderPages(List<Integer> newOrder) {
         List<String> reorderedImages = new ArrayList<>(newOrder.size());
-        List<String> reorderedPages = new ArrayList<>(newOrder.size());
         for (int idx : newOrder) {
             reorderedImages.add(imageUrls.get(idx));
-            reorderedPages.add(pageTexts.get(idx));
         }
         imageUrls.clear();
         imageUrls.addAll(reorderedImages);
-        pageTexts.clear();
-        pageTexts.addAll(reorderedPages);
-        this.extractedText = recomposeText(pageTexts);
+
+        // pageTexts가 이미지와 1:1로 있을 때(SINGLE_MULTIPAGE)만 같이 재배치 + 본문 재조합.
+        // MULTI_PROBLEM의 여러 장짜리 한 문제는 pageTexts가 없으므로 이미지 순서만 바꾸고 본문은 그대로 둔다.
+        if (pageTexts != null && pageTexts.size() == newOrder.size()) {
+            List<String> reorderedPages = new ArrayList<>(newOrder.size());
+            for (int idx : newOrder) {
+                reorderedPages.add(pageTexts.get(idx));
+            }
+            pageTexts.clear();
+            pageTexts.addAll(reorderedPages);
+            this.extractedText = recomposeText(pageTexts);
+        }
     }
 
     private static String recomposeText(List<String> pages) {
@@ -157,9 +168,10 @@ public class Problem {
         return sb.toString();
     }
 
-    /** 여러 장 한 문제(SINGLE_MULTIPAGE)로 등록돼 페이지 재정렬이 가능한지. */
+    /** 이미지가 2장 이상이면 페이지(이미지) 순서 재정렬 가능.
+     *  SINGLE_MULTIPAGE(지문 여러 장)뿐 아니라 MULTI_PROBLEM에서 한 문제가 여러 장에 걸친 경우도 포함. */
     public boolean isMultiPage() {
-        return pageTexts != null && pageTexts.size() > 1;
+        return imageUrls != null && imageUrls.size() > 1;
     }
 
     // 문제 해결됨

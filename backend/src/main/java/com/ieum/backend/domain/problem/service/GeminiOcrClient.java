@@ -74,9 +74,17 @@ public class GeminiOcrClient {
               - 문제 번호가 하나뿐이거나, 번호 없이 지문이 이어짐
               - 학생이 페이지를 순서대로 안 올렸을 수 있음 → suggestedOrder로 올바른 순서를 알려줌
 
+              ★ 단, 아래 중 하나라도 해당하면 SINGLE_MULTIPAGE가 아니라 무조건 MULTI_PROBLEM:
+                - 서로 다른 과목이 둘 이상 보임 (예: 국어 + 영어, 수학 + 영어)
+                - 서로 다른 발문/문제 번호가 둘 이상 보임 (예: 01·02 … 또는 독립된 문제들)
+                - 각 장이 서로 독립된 문제로 보임(지문이 이어지지 않음)
+              → SINGLE_MULTIPAGE는 "정말로 한 문제(한 과목·한 발문 세트)가 여러 장에 잘린" 경우에만.
+
             • "MULTI_PROBLEM" = 그 외 전부 (기본값)
               - 서로 다른 문제가 여러 개(번호 01, 02, 03…)
+              - 서로 다른 과목이 섞여 있는 경우
               - 또는 한 장에 한 문제만 있는 단순한 경우
+              - 이 경우 각 문제의 imageIndices로 "그 문제가 몇 번째 장에 있는지"만 정확히 표시.
 
             애매하면 "MULTI_PROBLEM"으로 둡니다. (단일 문제 단일 장도 MULTI_PROBLEM)
 
@@ -92,10 +100,15 @@ public class GeminiOcrClient {
                 {
                   "extractedText": "지문 + 문제 발문 + 선택지 전체",
                   "examCode": "[25002-0021] (보이면 그대로, 없으면 null)",
-                  "problemNumber": 1 (문제 번호, 없으면 null)
+                  "problemNumber": 1 (문제 번호, 없으면 null),
+                  "imageIndices": [0] (이 문제가 보이는 이미지 번호들 = [페이지 N] 라벨의 N-1)
                 }
               ]
             }
+            ★ imageIndices: 각 문제가 "어느 이미지(들)에 있는지"를 정확히. 위 [페이지 N / 총 M] 라벨을 보고 N-1을 배열로.
+              - 한 문제가 한 장에만 있으면 [0] 처럼 1개.
+              - 한 문제가 여러 장에 걸치면(긴 지문 등) [0,1] 처럼 모두 넣어라.
+              - 서로 다른 장의 다른 문제는 imageIndices가 겹치지 않아야 함. 모르면 [0].
 
             (B) mode = "SINGLE_MULTIPAGE" 일 때:
             {
@@ -115,10 +128,21 @@ public class GeminiOcrClient {
             [핵심 원칙] (mode = MULTI_PROBLEM)
             ─────────────────────────────────────────────
 
-            1. 1개 문제 = 1개 detectedText 객체
-               - 묶음 번호 [01~03]이 있고 01, 02, 03번이 같은 지문을 공유하면
-                 → 각 문제마다 별도 객체로 분리 (지문은 객체마다 반복 OK)
-               - 한 문제의 내용이 페이지에 걸쳐 분할되면 → 합쳐서 1개 객체
+            1. "문제"의 정의 — 발문 + (보통)선택지가 있는, 번호 매겨진 질문만
+               - 실제 문제 = 발문(예: "~것은?", "~고르시오", "구하시오")과 보통 선택지(①②③④⑤)를 가진 질문.
+               - "[01~03] 다음 글을 읽고 물음에 답하시오." 같은 안내문, 긴 지문, <보기>는
+                 그 자체로는 문제가 아니다 → 단독 detectedText로 절대 만들지 말 것.
+               - 안내문·지문·<보기>는 그 묶음에 속한 각 "실제 문제" 객체의 extractedText 안에 함께 넣어라(지문 반복 OK).
+               - 1개 실제 문제 = 1개 detectedText. 묶음 [01~03]에서 01·02·03이 지문을 공유하면 각 문제마다 별도 객체.
+               - 한 문제가 페이지에 걸쳐 분할되면 → 합쳐서 1개 객체.
+               - ★ 이미지에 발문/선택지를 가진 "실제 문제"가 하나도 없고 안내문·지문만 보이면,
+                 그걸로 가짜 문제를 만들지 말 것(그 묶음은 detectedTexts에서 제외).
+
+            1-1. problemNumber 규칙 — 매우 중요
+               - problemNumber는 "실제 문제"에 붙은 '단독' 번호만 (예: 1, 2, 19, 34).
+               - "[01~03]", "[01-05]" 처럼 대괄호 안 범위/묶음 표기의 숫자를 problemNumber로 절대 쓰지 말 것.
+                 이건 "어느 문제들이 지문을 공유하는지" 알려주는 범위일 뿐, 문제 번호가 아니다.
+               - 이미지에 단독 문제 번호가 안 보이면 problemNumber = null (범위 표기에서 추측 금지).
 
             2. 보이는 만큼만, 보이는 그대로
                - 이미지에 01, 02만 보이면 → 배열 길이 = 2
@@ -190,7 +214,9 @@ public class GeminiOcrClient {
             [최종 체크]
             ─────────────────────────────────────────────
             ☐ mode를 SINGLE_MULTIPAGE / MULTI_PROBLEM 중 하나로 명시
-            ☐ MULTI_PROBLEM: 보이는 문제 개수와 detectedTexts 배열 길이가 일치
+            ☐ 안내문("다음 글을 읽고 물음에 답하시오")·지문·<보기>만으로 가짜 문제를 만들지 않음
+            ☐ [01~03] 같은 범위/묶음 숫자를 problemNumber로 쓰지 않음(단독 번호만)
+            ☐ MULTI_PROBLEM: 보이는 "실제 문제"(발문+선택지) 개수와 detectedTexts 배열 길이가 일치
             ☐ SINGLE_MULTIPAGE: pages가 업로드 장수와 일치, suggestedOrder에 모든 인덱스 1회씩
             ☐ [25xxx-xxxx] 코드가 이미지에 있으면 examCode에 옮김
             ☐ 영문/한글 동그라미를 옆 글자로 구분
@@ -368,7 +394,8 @@ public class GeminiOcrClient {
             } else {
                 list.add(mapToDetectedText(json));
             }
-            result.setDetectedTexts(list);
+            // 안전망: 지문 안내문/지문만 있는 블록은 "버리지 말고" 실제 문제에 합친다(지문 손실 방지).
+            result.setDetectedTexts(mergePassageOnly(list));
             return result;
 
         } catch (Exception e) {
@@ -376,6 +403,81 @@ public class GeminiOcrClient {
             throw BusinessException.internalError(
                     "문제 인식 결과 처리에 실패했어요. 사진을 더 적게/선명하게 올려 다시 시도해 주세요.", e);
         }
+    }
+
+    /**
+     * 지문/안내문만 있는 블록을 "버리지 않고" 실제 문제에 합친다(지문 손실 방지).
+     * - "…물음에 답하시오" 같은 안내문 + 지문만 있고 발문/선택지 신호가 없는 블록 = 지문 블록.
+     * - 지문 블록의 텍스트를 각 실제 문제 앞에 붙이고, 지문 이미지(장)도 그 문제의 imageIndices에 합친다.
+     *   → 학생이 문제를 선택할 때 지문 페이지가 같이 보존되고(이미지 안 지워짐), 본문에도 지문이 남는다.
+     * - 실제 문제가 하나도 없으면(지문만 업로드) 데이터 손실 방지를 위해 원본 그대로 둔다.
+     */
+    private List<DetectedText> mergePassageOnly(List<DetectedText> list) {
+        List<DetectedText> passages = new ArrayList<>();
+        List<DetectedText> reals = new ArrayList<>();
+        for (DetectedText t : list) {
+            if (isInstructionOnly(t.getExtractedText())) {
+                passages.add(t);
+            } else {
+                reals.add(t);
+            }
+        }
+        if (passages.isEmpty() || reals.isEmpty()) {
+            return list; // 합칠 대상이 없거나 지문만 있음 → 그대로(버리지 않음)
+        }
+
+        // 지문 텍스트/이미지 모으기
+        StringBuilder pb = new StringBuilder();
+        List<Integer> passageImages = new ArrayList<>();
+        for (DetectedText p : passages) {
+            String s = p.getExtractedText() == null ? "" : p.getExtractedText().strip();
+            if (!s.isBlank()) {
+                if (pb.length() > 0) pb.append("\n\n");
+                pb.append(s);
+            }
+            if (p.getImageIndices() != null) {
+                for (Integer idx : p.getImageIndices()) {
+                    if (!passageImages.contains(idx)) passageImages.add(idx);
+                }
+            }
+        }
+        String passageText = pb.toString();
+        String head = passageText.length() > 20 ? passageText.substring(0, 20) : passageText;
+
+        for (DetectedText r : reals) {
+            String body = r.getExtractedText() == null ? "" : r.getExtractedText();
+            // 이미 지문을 포함한 문제면 중복 방지
+            if (!passageText.isBlank() && !body.contains(head)) {
+                r.setExtractedText(passageText + "\n\n" + body);
+            }
+            // 지문 페이지를 이 문제에 포함 → 선택 시 지문 이미지가 보존됨
+            if (!passageImages.isEmpty()) {
+                List<Integer> merged = new ArrayList<>(passageImages);
+                if (r.getImageIndices() != null) {
+                    for (Integer idx : r.getImageIndices()) {
+                        if (!merged.contains(idx)) merged.add(idx);
+                    }
+                }
+                java.util.Collections.sort(merged); // 업로드 순서대로
+                r.setImageIndices(merged);
+            }
+        }
+        log.info("지문 블록 {}개를 실제 문제 {}개에 병합", passages.size(), reals.size());
+        return reals;
+    }
+
+    /** 안내문("물음에 답하시오") 보일러플레이트만 있고, 실제 문제 신호가 하나도 없으면 true. */
+    private boolean isInstructionOnly(String text) {
+        if (text == null || text.isBlank()) return false;
+        String compact = text.replaceAll("\\s+", "");
+        boolean hasInstruction = compact.contains("물음에답하시오");
+        if (!hasInstruction) return false;
+        boolean hasChoice = text.matches("(?s).*[①②③④⑤⑥].*");       // 객관식 선택지
+        boolean hasQuestionMark = text.contains("?") || text.contains("？");
+        boolean hasStem = compact.contains("구하시오") || compact.contains("고르시오")
+                || compact.contains("쓰시오") || compact.contains("서술하시오")
+                || compact.contains("나타내시오") || compact.contains("구하라");
+        return !(hasChoice || hasQuestionMark || hasStem);
     }
 
     private DetectedText mapToDetectedText(JsonNode node) {
@@ -388,6 +490,17 @@ public class GeminiOcrClient {
 
         JsonNode numNode = node.path("problemNumber");
         t.setProblemNumber(numNode.isInt() ? numNode.asInt() : null);
+
+        List<Integer> indices = new ArrayList<>();
+        JsonNode idxArr = node.path("imageIndices");
+        if (idxArr.isArray()) {
+            for (JsonNode n : idxArr) {
+                if (n.isInt()) indices.add(n.asInt());
+            }
+        } else if (node.path("imageIndex").isInt()) {
+            indices.add(node.path("imageIndex").asInt()); // 하위호환(단일)
+        }
+        t.setImageIndices(indices);
 
         return t;
     }

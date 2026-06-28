@@ -41,6 +41,10 @@ public class AiAnalysisResult {
     public static class DetectedProblem {
         private String extractedText;
         private String summary;
+        /** OCR이 인식한 문제 번호(01·02…). 없으면 null. */
+        private Integer problemNumber;
+        /** 이 문제가 걸쳐 있는 업로드 이미지 인덱스들(0-based). 다중 문제 선택 시 이 장들만 저장. */
+        private List<Integer> imageIndices = new ArrayList<>();
         private Subject subject;
         private String primaryType;
         private String secondaryType;

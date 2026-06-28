@@ -76,6 +76,21 @@ public class ProblemService {
                 throw BusinessException.badRequest("이미지에서 문제를 감지하지 못했습니다.");
             }
 
+            // 과목이 3종 이상 섞여 들어오면 OCR/분류 정확도가 급격히 떨어진다(지문·문제 매칭 혼선 등).
+            // 자동 진행하지 말고 학생에게 다시 확인을 요청한다(한두 과목씩 나눠 업로드 유도).
+            // (SINGLE_MULTIPAGE는 한 문제라 해당 없음)
+            if (aiResult.getMode() != OcrResult.OcrMode.SINGLE_MULTIPAGE) {
+                long distinctSubjects = detected.stream()
+                        .map(AiAnalysisResult.DetectedProblem::getSubject)
+                        .filter(s -> s != null && s != Subject.UNKNOWN)
+                        .distinct()
+                        .count();
+                if (distinctSubjects >= 3) {
+                    throw BusinessException.badRequest(
+                            "서로 다른 과목이 3개 이상 감지됐어요. 정확한 분석을 위해 한 번에 한두 과목씩 나눠서 올려 주세요.");
+                }
+            }
+
             // (2) 한 문제 여러 장(SINGLE_MULTIPAGE) → suggestedOrder대로 이미지 재배치 후 단건 등록.
             //     pageTexts를 함께 보관해 이후 드래그 재정렬 시 재OCR 없이 텍스트만 재조합한다.
             if (aiResult.getMode() == OcrResult.OcrMode.SINGLE_MULTIPAGE) {
@@ -94,14 +109,17 @@ public class ProblemService {
                 return ProblemCreateResponse.from(problem, detected.get(0).isClassificationFailed());
             }
 
-            // (b) 여러 개 감지 + 학생이 선택함(레거시 경로) → 선택한 것만 등록
+            // (b) 여러 개 감지 + 학생이 선택함(레거시 경로) → 선택한 문제 + 그 문제 이미지만 등록
             if (selectedIndex != null) {
                 if (selectedIndex < 0 || selectedIndex >= detected.size()) {
                     throw BusinessException.badRequest("올바르지 않은 문제 인덱스입니다: " + selectedIndex);
                 }
-                Problem problem = saveProblem(detected.get(selectedIndex), imageUrls, List.of(),
+                AiAnalysisResult.DetectedProblem chosen = detected.get(selectedIndex);
+                List<String> kept = keptImagesFor(imageUrls, chosen.getImageIndices());
+                Problem problem = saveProblem(chosen, kept, List.of(),
                         request.getStudentId(), request.getSubject(), request.getStudentDescription());
-                return ProblemCreateResponse.from(problem, detected.get(selectedIndex).isClassificationFailed());
+                deleteUnkept(imageUrls, kept); // 다른 문제의 장은 고아 → 삭제
+                return ProblemCreateResponse.from(problem, chosen.isClassificationFailed());
             }
 
             // (c) 여러 개 감지 + 선택 안 함 → 결과를 캐시하고 detectionId 반환.
@@ -132,10 +150,42 @@ public class ProblemService {
         }
 
         // 다중 감지(선택) 경로는 항상 MULTI_PROBLEM이므로 pageTexts 없음.
-        Problem problem = saveProblem(entry.detected().get(idx), entry.imageUrls(), List.of(),
+        // 선택한 문제가 있는 이미지만 저장하고, 나머지 장은 삭제(고아 방지).
+        AiAnalysisResult.DetectedProblem chosen = entry.detected().get(idx);
+        List<String> kept = keptImagesFor(entry.imageUrls(), chosen.getImageIndices());
+        Problem problem = saveProblem(chosen, kept, List.of(),
                 request.getStudentId(), request.getSubject(), request.getStudentDescription());
         detectionCache.remove(request.getDetectionId());
-        return ProblemCreateResponse.from(problem, entry.detected().get(idx).isClassificationFailed());
+        deleteUnkept(entry.imageUrls(), kept); // 저장 성공 후 다른 문제 장 삭제
+        return ProblemCreateResponse.from(problem, chosen.isClassificationFailed());
+    }
+
+    /**
+     * imageIndices로 그 문제가 걸친 이미지들만 고른다(삭제는 안 함). 업로드 순서 유지.
+     * 비었거나, 범위 밖 인덱스가 하나라도 있거나, 이미지가 1장뿐이면 안전하게 전부 유지(이미지 손실 방지).
+     */
+    private List<String> keptImagesFor(List<String> allUrls, List<Integer> imageIndices) {
+        if (imageIndices == null || imageIndices.isEmpty() || allUrls.size() <= 1) {
+            return allUrls;
+        }
+        for (Integer idx : imageIndices) {
+            if (idx == null || idx < 0 || idx >= allUrls.size()) {
+                return allUrls; // 신뢰 못 하면 전부 유지
+            }
+        }
+        // 업로드 순서대로, 중복 제거하여 선택 이미지만
+        return allUrls.stream()
+                .filter(u -> imageIndices.stream().anyMatch(i -> allUrls.get(i).equals(u)))
+                .distinct()
+                .toList();
+    }
+
+    /** allUrls 중 kept에 없는 이미지(선택 안 된 다른 문제의 장)를 삭제한다(best-effort). */
+    private void deleteUnkept(List<String> allUrls, List<String> kept) {
+        List<String> others = allUrls.stream().filter(u -> !kept.contains(u)).toList();
+        if (!others.isEmpty()) {
+            imageStorageService.deleteAll(others);
+        }
     }
 
     /**
@@ -190,6 +240,7 @@ public class ProblemService {
                 .pageTexts(pageTexts != null ? new java.util.ArrayList<>(pageTexts) : new java.util.ArrayList<>())
                 .extractedText(dp.getExtractedText())
                 .summary(dp.getSummary())
+                .problemNumber(dp.getProblemNumber())
                 .subject(subject)
                 .primaryType(dp.getPrimaryType())
                 .secondaryType(dp.getSecondaryType())
