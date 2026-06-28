@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
 import 'package:ieum/features/matching/providers/matching_provider.dart'
     show MatchingState, matchingProvider, tutorApplicationsProvider;
@@ -129,9 +131,20 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
       barrierDismissible: false,
       builder: (dialogContext) {
         _matchDialogContext = dialogContext;
+        final shell = ShellTheme.of(dialogContext);
         return AlertDialog(
-          title:
-              const Text('매칭 요청', style: TextStyle(fontWeight: FontWeight.w800)),
+          backgroundColor: shell.cardBackground,
+          surfaceTintColor: Colors.transparent,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(
+            '매칭 요청',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: shell.titleColor,
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,8 +153,13 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
                 message.isNotEmpty
                     ? message
                     : '학생과 연결됐어요.\n지금 바로 수업을 시작할까요?',
+                style: TextStyle(
+                  fontSize: 14.5,
+                  height: 1.45,
+                  color: shell.subtitleColor,
+                ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               // 5분 카운트다운 — 0이 되면 자동으로 닫힘(서버 CONFIRMING 타임아웃과 동일).
               _MatchCountdown(
                 duration: const Duration(minutes: 5),
@@ -153,16 +171,23 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
               ),
             ],
           ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('거절'),
+              style:
+                  TextButton.styleFrom(foregroundColor: AppColors.primaryBlue),
+              child: const Text('거절',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primaryBlue,
                 foregroundColor:
                     isDark ? AppColors.shellOnSurfaceLight : Colors.white,
+                shape: const StadiumBorder(),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
               ),
               onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('수락',
@@ -197,27 +222,20 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
     if (nav.canPop()) nav.pop();
   }
 
-  void _showMatchCancelledDialog(BuildContext context, String message) {
-    showDialog<void>(
+  Future<void> _showMatchCancelledDialog(
+      BuildContext context, String message) async {
+    final ok = await showConfirmDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('매칭 취소',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Text(message),
-        actions: [
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-            ),
-            onPressed: () {
-              Navigator.of(context).pop();
-              ref.read(matchingProvider.notifier).clearMatchCancelled();
-            },
-            child: const Text('확인'),
-          ),
-        ],
-      ),
+      title: '매칭 취소',
+      message: message,
+      cancelText: null,
+      confirmText: '확인',
+      isTutor: true,
     );
+    // 원본과 동일하게 '확인'을 눌렀을 때만 상태를 비운다(바깥 탭으로 닫으면 유지).
+    if (ok && mounted) {
+      ref.read(matchingProvider.notifier).clearMatchCancelled();
+    }
   }
 }
 

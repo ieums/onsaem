@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
@@ -79,25 +80,15 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
   }
 
   Future<void> _confirmClose(BuildContext context) async {
-    final ok = await showDialog<bool>(
+    final ok = await showConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('대화 종료'),
-        content: const Text('이 AI 튜터 대화를 종료할까요?\n종료하면 더 이상 질문할 수 없어요.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('종료'),
-          ),
-        ],
-      ),
+      title: '대화 종료',
+      message: '이 AI 튜터 대화를 종료할까요?\n종료하면 더 이상 질문할 수 없어요.',
+      cancelText: '취소',
+      confirmText: '종료',
+      isDanger: true,
     );
-    if (ok != true) return;
+    if (!ok) return;
     final closed = await ref.read(aiTutorChatProvider.notifier).close();
     if (closed && mounted) Navigator.of(context).pop();
   }

@@ -12,7 +12,7 @@ class MatchingStompService {
     int tutorId,
     void Function(int problemId) onProblemMatched, {
     void Function(int problemId, int tutorId, String message)? onMatchRequested,
-    void Function(String message)? onMatchCancelled,
+    void Function(int problemId, String message)? onMatchCancelled,
     void Function(int problemId)? onNewProblem,
     List<int> matchingProblemIds = const [],
     void Function(int problemId, String channelName, List<String> imageUrls, String? subject, String? tutorProfileImageUrl, String? studentProfileImageUrl)? onMatched,
@@ -40,7 +40,10 @@ class MatchingStompService {
                     json['message'] as String,
                   );
                 } else if (type == 'MATCH_CANCELLED') {
-                  onMatchCancelled?.call(json['message'] as String);
+                  onMatchCancelled?.call(
+                    json['problemId'] as int,
+                    json['message'] as String? ?? '',
+                  );
                 }
               } catch (_) {}
             },

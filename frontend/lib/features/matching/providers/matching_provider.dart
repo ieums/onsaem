@@ -122,8 +122,9 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
     );
   }
 
-  void onMatchCancelled(String message) {
+  void onMatchCancelled(int problemId, String message) {
     // 학생과 동일하게 요청도 비워서, 화면이 열려있는 매칭 요청 다이얼로그를 닫을 수 있게 한다.
+    // (problemId는 신청리스트 provider에서 항목 제거에 쓰이며, 여기 탐색리스트에는 영향 없음)
     state = state.copyWith(
       matchCancelledMessage: message,
       matchRequestedProblemId: null,
@@ -218,6 +219,8 @@ class TutorApplicationsNotifier
         _tutorId,
         (problemId) => _removeByProblemId(problemId),
         matchingProblemIds: matchingIds,
+        // 상대(학생)가 거절/취소하면 해당 문제를 신청리스트에서 즉시 제거.
+        onMatchCancelled: (problemId, _) => _removeByProblemId(problemId),
         onMatched: (problemId, channelName, imageUrls, subject, tutorProfileImageUrl, studentProfileImageUrl) {
           _removeByProblemId(problemId);
           if (channelName.isNotEmpty) {

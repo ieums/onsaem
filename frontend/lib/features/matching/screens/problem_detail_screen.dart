@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/api_constants.dart';
@@ -49,28 +50,15 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
 
   /// 오프라인 상태에서 신청 시도 시 안내. '온라인 전환' 누르면 켜고 바로 신청.
   Future<void> _showOfflineDialog() async {
-    final goOnline = await showDialog<bool>(
+    final goOnline = await showConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('오프라인 상태예요',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: const Text(
-            '온라인으로 전환해야 학생이 선택할 수 있어요.\n지금 온라인으로 전환할까요?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('닫기'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.primaryBlue),
-            child: const Text('온라인으로 전환',
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+      title: '오프라인 상태예요',
+      message: '온라인으로 전환해야 학생이 선택할 수 있어요.\n지금 온라인으로 전환할까요?',
+      cancelText: '닫기',
+      confirmText: '온라인으로 전환',
+      isTutor: true,
     );
-    if (goOnline != true || !mounted) return;
+    if (!goOnline || !mounted) return;
     await ref.read(tutorAvailabilityProvider.notifier).toggle(true);
     if (!mounted) return;
     await _apply();

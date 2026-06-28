@@ -1,35 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 
-/// 서버 연결 상태 팝업 (닫기 가능)
+/// 서버 연결 상태 팝업 (닫기 가능). 공통 confirm 다이얼로그(단일 버튼)로 통일.
 Future<void> showServerHealthDialog(
   BuildContext context, {
   required bool isSuccess,
   required String message,
-}) {
-  return showDialog<void>(
+}) async {
+  await showConfirmDialog(
     context: context,
-    barrierDismissible: true,
-    builder: (ctx) => AlertDialog(
-      title: Row(
-        children: [
-          Icon(
-            isSuccess ? Icons.check_circle_outline : Icons.error_outline,
-            color: isSuccess ? Colors.green : Colors.red,
-          ),
-          const SizedBox(width: 8),
-          Text(isSuccess ? '서버 연결 성공' : '서버 연결 실패'),
-        ],
-      ),
-      content: SelectableText(
-        isSuccess ? '서버 연결 상태: $message' : '서버 연결 실패: $message',
-        style: const TextStyle(fontSize: 15, height: 1.4),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('닫기'),
-        ),
-      ],
-    ),
+    title: isSuccess ? '서버 연결 성공' : '서버 연결 실패',
+    message: isSuccess ? '서버 연결 상태: $message' : '서버 연결 실패: $message',
+    cancelText: null,
+    confirmText: '닫기',
   );
 }

@@ -57,6 +57,7 @@ public class MatchingNotificationService {
         );
     }
 
+    /** 수업 시작 → 학생 화면 '수업 중' 표시(선택 차단). (온/오프 토글과 구분됨) */
     public void notifyTutorUnavailable(Long problemId, Long tutorId) {
         messagingTemplate.convertAndSend(
                 "/topic/matching/" + problemId,
@@ -64,10 +65,27 @@ public class MatchingNotificationService {
         );
     }
 
+    /** 수업 종료 → '수업 중' 해제. */
     public void notifyTutorAvailable(Long problemId, Long tutorId) {
         messagingTemplate.convertAndSend(
                 "/topic/matching/" + problemId,
                 Map.of("type", "TUTOR_AVAILABLE", "tutorId", tutorId, "problemId", problemId)
+        );
+    }
+
+    /** 강사가 온라인 전환 → 학생 화면 온라인 배지. (수업중 여부와 별개) */
+    public void notifyTutorOnline(Long problemId, Long tutorId) {
+        messagingTemplate.convertAndSend(
+                "/topic/matching/" + problemId,
+                Map.of("type", "TUTOR_ONLINE", "tutorId", tutorId, "problemId", problemId)
+        );
+    }
+
+    /** 강사가 오프라인 전환 → 학생 화면 오프라인 배지. */
+    public void notifyTutorOffline(Long problemId, Long tutorId) {
+        messagingTemplate.convertAndSend(
+                "/topic/matching/" + problemId,
+                Map.of("type", "TUTOR_OFFLINE", "tutorId", tutorId, "problemId", problemId)
         );
     }
 
@@ -142,8 +160,8 @@ public class MatchingNotificationService {
         }
 
         messagingTemplate.convertAndSend("/topic/tutor/" + tutorId,
-                Map.of("type", "MATCH_CANCELLED", "problemId", problemId, "message", tutorMsg));
+                Map.of("type", "MATCH_CANCELLED", "problemId", problemId, "tutorId", tutorId, "message", tutorMsg));
         messagingTemplate.convertAndSend("/topic/student/" + studentId,
-                Map.of("type", "MATCH_CANCELLED", "problemId", problemId, "message", studentMsg));
+                Map.of("type", "MATCH_CANCELLED", "problemId", problemId, "tutorId", tutorId, "message", studentMsg));
     }
 }

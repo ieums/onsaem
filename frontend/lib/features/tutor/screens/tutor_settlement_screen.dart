@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/theme/app_colors.dart';
@@ -1613,73 +1614,19 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
         .fold<int>(0, (sum, r) => sum + r.tutorAmount);
 
     // 확인 다이얼로그
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text(
-          '일괄 출금 요청',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '총 $withdrawableCount건의 정산을\n일괄 출금 요청합니다.',
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.primaryBlue.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '출금 합계',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatWon(withdrawableAmount),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primaryBlue,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-            ),
-            child: const Text('출금 요청'),
-          ),
-        ],
-      ),
+      title: '일괄 출금 요청',
+      message: '총 $withdrawableCount건의 정산을\n일괄 출금 요청합니다.',
+      cancelText: '취소',
+      confirmText: '출금 요청',
+      isTutor: true,
+      highlightLabel: '출금 합계',
+      highlightValue: formatWon(withdrawableAmount),
+      highlightStyle: ConfirmHighlightStyle.outline,
     );
 
-      if (confirmed != true) return;
+      if (!confirmed) return;
 
       final tutorId = ref.read(currentUserProvider)?.id;
       if (tutorId == null) {

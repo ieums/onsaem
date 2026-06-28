@@ -237,9 +237,11 @@ class StudentMatchingSessionNotifier
         if (state == null) return;
         state = state!.copyWith(matchRequestedTutorId: tutorId);
       },
-      onMatchCancelled: (msg) {
+      onMatchCancelled: (tutorId, msg) {
         if (state == null) return;
-        final cancelledTutorId = state!.matchRequestedTutorId;
+        // 제거할 강사: 서버 메시지의 tutorId 우선, 없으면 로컬 캐시(matchRequestedTutorId) 폴백.
+        // (수락 후엔 matchRequestedTutorId가 null이라 메시지 tutorId가 있어야 정확히 제거됨)
+        final cancelledTutorId = tutorId ?? state!.matchRequestedTutorId;
         state = state!.copyWith(
           matchCancelledMessage: msg,
           matchRequestedTutorId: null,
@@ -268,8 +270,12 @@ class StudentMatchingSessionNotifier
           studentProfileImageUrl: studentProfileImageUrl,
         );
       },
-      onTutorUnavailable: (id) => _updateApplicantAvailability(id, false),
-      onTutorAvailable: (id) => _updateApplicantAvailability(id, true),
+      // 수업 시작/종료 → '수업 중'(isInLesson) 갱신. (카드가 읽는 필드)
+      onTutorUnavailable: (id) => _setApplicantInLesson(id, true),
+      onTutorAvailable: (id) => _setApplicantInLesson(id, false),
+      // 온/오프 토글 → 온라인 배지(isOnline) 갱신.
+      onTutorOnline: (id) => _setApplicantOnline(id, true),
+      onTutorOffline: (id) => _setApplicantOnline(id, false),
     );
   }
 
@@ -328,12 +334,23 @@ class StudentMatchingSessionNotifier
     state = state!.copyWith(matchCancelledMessage: null);
   }
 
-  void _updateApplicantAvailability(int tutorId, bool available) {
+  // 라이브로 '수업 중' 상태 갱신 — 카드는 isInLesson을 읽어 배지/선택차단을 결정한다.
+  void _setApplicantInLesson(int tutorId, bool inLesson) {
     if (state == null) return;
     state = state!.copyWith(
       applicants: state!.applicants
           .map((a) =>
-              a.tutorId == tutorId ? a.copyWith(isAvailable: available) : a)
+              a.tutorId == tutorId ? a.copyWith(isInLesson: inLesson) : a)
+          .toList(),
+    );
+  }
+
+  // 라이브로 온라인/오프라인 갱신 — 카드는 isOnline으로 배지를 표시한다.
+  void _setApplicantOnline(int tutorId, bool online) {
+    if (state == null) return;
+    state = state!.copyWith(
+      applicants: state!.applicants
+          .map((a) => a.tutorId == tutorId ? a.copyWith(isOnline: online) : a)
           .toList(),
     );
   }

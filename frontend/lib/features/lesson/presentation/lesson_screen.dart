@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -916,26 +917,16 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   }
 
   Future<void> _confirmComplete() async {
-    final confirmed = await showDialog<bool>(
+    final ok = await showConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('수업 완료'),
-        content: const Text('수업을 종료하시겠습니까?\n녹화가 저장됩니다.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.buttonDanger),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('완료', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+      title: '수업 완료',
+      message: '수업을 종료하시겠습니까?\n녹화가 저장됩니다.',
+      cancelText: '취소',
+      confirmText: '완료',
+      isDanger: true,
+      isTutor: true,
     );
-    if (confirmed == true) {
+    if (ok) {
       await ref.read(lessonProvider.notifier).completeLesson();
     }
   }

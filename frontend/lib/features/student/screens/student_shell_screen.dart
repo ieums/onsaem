@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/providers/student_applicant_watcher.dart';
@@ -147,31 +149,56 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
       barrierDismissible: false,
       builder: (dialogContext) {
         _matchDialogContext = dialogContext;
+        final shell = ShellTheme.of(dialogContext);
         return Theme(
           data: theme,
-          // 뒤로가기로 닫혀서 매칭 요청을 놓치는 일이 없게 막는다(수락/거절만 가능).
-          // 강사 취소/타임아웃 시엔 _dismissMatchDialog가 Navigator.pop으로 직접 닫으므로 영향 없음.
+          // 뒤로가기로 닫혀 매칭 요청을 놓치지 않도록 막는다(수락/거절만 가능).
+          // 강사 취소/타임아웃 시엔 _dismissMatchDialog가 Navigator.pop으로 직접 닫는다.
           child: PopScope(
             canPop: false,
             child: AlertDialog(
-              title: const Text('매칭 요청',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-              content: const Text('선택하신 강사님과 연결됐어요.\n지금 바로 수업을 시작할까요?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('거절'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.studentPoint,
-                      foregroundColor:
-                          isDark ? AppColors.shellOnSurfaceLight : Colors.white),
-                  child: const Text('수락',
-                      style: TextStyle(fontWeight: FontWeight.w800)),
-                ),
-              ],
+            backgroundColor: shell.cardBackground,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18)),
+            title: Text(
+              '매칭 요청',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: shell.titleColor,
+              ),
+            ),
+            content: Text(
+              '선택하신 강사님과 연결됐어요.\n지금 바로 수업을 시작할까요?',
+              style: TextStyle(
+                fontSize: 14.5,
+                height: 1.45,
+                color: shell.subtitleColor,
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                style: TextButton.styleFrom(
+                    foregroundColor: AppColors.studentPoint),
+                child: const Text('거절',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.studentPoint,
+                    foregroundColor:
+                        isDark ? AppColors.shellOnSurfaceLight : Colors.white,
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 22, vertical: 11)),
+                child: const Text('수락',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ],
             ),
           ),
         );
@@ -206,24 +233,12 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
   /// 매칭 취소 안내 다이얼로그(강사 화면과 동일 디자인).
   Future<void> _showMatchCancelledDialog(
       BuildContext context, WidgetRef ref, String message) async {
-    await showDialog<void>(
+    await showConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('매칭 취소',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Text(message),
-        actions: [
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.studentPoint,
-              foregroundColor: AppColors.studentInk,
-            ),
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('확인',
-                style: TextStyle(fontWeight: FontWeight.w800)),
-          ),
-        ],
-      ),
+      title: '매칭 취소',
+      message: message,
+      cancelText: null,
+      confirmText: '확인',
     );
     ref
         .read(studentMatchingSessionProvider.notifier)
@@ -231,40 +246,17 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
   }
 
   Future<void> _showExtendDialog(BuildContext context, WidgetRef ref) async {
-    final isDark = ref.read(shellDarkModeProvider);
-    final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
-    final theme = baseTheme.copyWith(
-      colorScheme:
-          baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
-    );
-
-    final extended = await showDialog<bool>(
+    final extended = await showConfirmDialog(
       context: context,
+      title: '탐색 종료 임박',
+      message: '강사 탐색 시간이 거의 다 됐어요.\n하루 더 연장하시겠습니까?',
+      cancelText: '탐색 취소',
+      confirmText: '하루 연장',
       barrierDismissible: false,
-      builder: (dialogContext) => Theme(
-        data: theme,
-        child: AlertDialog(
-          title: const Text('탐색 종료 임박', style: TextStyle(fontWeight: FontWeight.w800)),
-          content: const Text('강사 탐색 시간이 거의 다 됐어요. 하루 더 연장하시겠습니까?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('탐색 취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.studentPoint,
-                  foregroundColor: isDark ? AppColors.shellOnSurfaceLight : Colors.white),
-              child: const Text('하루 연장', style: TextStyle(fontWeight: FontWeight.w800)),
-            ),
-          ],
-        ),
-      ),
     );
 
     if (!mounted) return;
-    if (extended == true) {
+    if (extended) {
       await ref.read(studentMatchingSessionProvider.notifier).extendSearch();
     } else {
       await ref.read(studentMatchingSessionProvider.notifier).cancelMatching();

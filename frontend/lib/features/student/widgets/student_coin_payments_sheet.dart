@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
@@ -56,21 +57,15 @@ class _CoinPaymentsSheetState extends ConsumerState<_CoinPaymentsSheet> {
   bool _busy = false;
 
   Future<void> _refund(PaymentInfo p) async {
-    final ok = await showDialog<bool>(
+    final ok = await showConfirmDialog(
       context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('충전 환불'),
-        content: Text(
-            '${_won(p.amount)}원 결제를 환불할까요?\n충전됐던 코인이 회수돼요.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
-          TextButton(
-              onPressed: () => Navigator.pop(c, true), child: const Text('환불')),
-        ],
-      ),
+      title: '충전 환불',
+      message: '${_won(p.amount)}원 결제를 환불할까요?\n충전됐던 코인이 회수돼요.',
+      cancelText: '취소',
+      confirmText: '환불',
+      isDanger: true,
     );
-    if (ok != true) return;
+    if (!ok) return;
     setState(() => _busy = true);
     try {
       await ref.read(paymentRepositoryProvider).refundCoinPayment(p.id);

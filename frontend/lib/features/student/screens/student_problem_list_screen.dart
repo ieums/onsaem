@@ -6,6 +6,7 @@ import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:ieum/features/matching/repositories/matching_repository.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
@@ -141,25 +142,15 @@ class StudentProblemListScreen extends ConsumerWidget {
 
   Future<void> _confirmDelete(
       BuildContext context, WidgetRef ref, int problemId) async {
-    final ok = await showDialog<bool>(
+    final ok = await showConfirmDialog(
       context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('질문 삭제'),
-        content: const Text('이 질문을 삭제할까요? 삭제하면 되돌릴 수 없어요.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('취소')),
-          TextButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('삭제',
-                style: TextStyle(
-                    color: AppColors.logoutRed, fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
+      title: '질문 삭제',
+      message: '이 질문을 삭제할까요? 삭제하면 되돌릴 수 없어요.',
+      cancelText: '취소',
+      confirmText: '삭제',
+      isDanger: true,
     );
-    if (ok != true) return;
+    if (!ok) return;
     try {
       await ref.read(problemRepositoryProvider).cancelProblem(problemId);
       ref.invalidate(studentProblemsProvider);

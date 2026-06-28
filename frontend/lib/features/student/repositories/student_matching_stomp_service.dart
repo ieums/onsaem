@@ -14,12 +14,14 @@ class StudentMatchingStompService {
     void Function(int problemId)? onTutorApplied,
     void Function(int tutorId)? onTutorCancelled,
     void Function(int problemId, int tutorId, String message)? onMatchRequested,
-    void Function(String message)? onMatchCancelled,
+    void Function(int? tutorId, String message)? onMatchCancelled,
     void Function()? onSearchExpiringSoon,
     void Function()? onSearchExpired,
     void Function(String channelName, List<String> imageUrls, String? subject, String? tutorProfileImageUrl, String? studentProfileImageUrl)? onMatched,
-    void Function(int tutorId)? onTutorUnavailable,
-    void Function(int tutorId)? onTutorAvailable,
+    void Function(int tutorId)? onTutorUnavailable, // 수업 시작 → 수업중
+    void Function(int tutorId)? onTutorAvailable, // 수업 종료 → 수업중 해제
+    void Function(int tutorId)? onTutorOnline, // 온라인 토글
+    void Function(int tutorId)? onTutorOffline, // 오프라인 토글
   }) {
     _stomp = StompClient(
       config: StompConfig(
@@ -45,7 +47,10 @@ class StudentMatchingStompService {
                       json['message'] as String? ?? '',
                     );
                   case 'MATCH_CANCELLED':
-                    onMatchCancelled?.call(json['message'] as String? ?? '');
+                    onMatchCancelled?.call(
+                      json['tutorId'] as int?,
+                      json['message'] as String? ?? '',
+                    );
                   case 'SEARCH_EXPIRING_SOON':
                     onSearchExpiringSoon?.call();
                   case 'SEARCH_EXPIRED':
@@ -77,6 +82,10 @@ class StudentMatchingStompService {
                     onTutorUnavailable?.call(json['tutorId'] as int);
                   case 'TUTOR_AVAILABLE':
                     onTutorAvailable?.call(json['tutorId'] as int);
+                  case 'TUTOR_ONLINE':
+                    onTutorOnline?.call(json['tutorId'] as int);
+                  case 'TUTOR_OFFLINE':
+                    onTutorOffline?.call(json['tutorId'] as int);
                 }
               } catch (_) {}
             },
