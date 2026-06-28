@@ -42,11 +42,13 @@ public class TutorService {
         List<MatchingApplication> pendingApps =
                 matchingApplicationRepository.findByTutorIdAndStatus(tutorId, ApplicationStatus.PENDING);
 
+        // 온/오프 토글은 '수업 중'(TUTOR_UNAVAILABLE/AVAILABLE)과 구분되는 전용 이벤트로 보낸다.
+        // (학생 화면에서 온라인 배지 ↔ 수업중 배지가 서로 덮어쓰지 않도록)
         for (MatchingApplication app : pendingApps) {
             if (available) {
-                notificationService.notifyTutorAvailable(app.getProblemId(), tutorId);
+                notificationService.notifyTutorOnline(app.getProblemId(), tutorId);
             } else {
-                notificationService.notifyTutorUnavailable(app.getProblemId(), tutorId);
+                notificationService.notifyTutorOffline(app.getProblemId(), tutorId);
             }
         }
     }

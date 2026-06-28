@@ -51,7 +51,9 @@ class ApplicantModel {
       lessonCount: json['lessonCount'] as int? ?? 0,
       bio: json['bio'] as String?,
       profileImageUrl: json['profileImageUrl'] as String?,
+      // 백엔드가 항상 online(=강사 isAvailable)을 내려줌. 누락 시에만 온라인으로 가정.
       isOnline: json['online'] as bool? ?? true,
+      // isAvailable은 UI 미사용(카드는 isOnline/isInLesson만 읽음). 라이브 갱신도 그 둘만 건드린다.
       isAvailable: true,
       avgResponseMinutes: json['avgResponseMinutes'] as int? ?? 0,
       subjects: (json['subjects'] as List<dynamic>? ?? []).cast<String>(),
