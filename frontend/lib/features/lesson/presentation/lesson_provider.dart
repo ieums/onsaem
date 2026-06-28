@@ -23,6 +23,11 @@ const _maxUndoHistory = 50;
 const _kDefaultImageWidth = 400.0;
 const _kDefaultImageHeight = 300.0;
 
+/// 녹화봇(recorder.html)의 고정 RTC uid — recorder.html의 RECORDER_RTC_UID와 동일.
+/// 녹화봇은 같은 채널에 들어오지만 비디오를 publish하지 않으므로, 원격 유저 추적에서
+/// 제외해 강사 캠 uid를 덮어쓰지 않게 한다. (recorder.html은 절대 건드리지 않음)
+const kRecorderRtcUid = 1234567;
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 @immutable
@@ -301,9 +306,12 @@ class LessonNotifier extends StateNotifier<LessonState> {
               debugPrint('[Agora] onError: $err / $msg');
             },
             onUserJoined: (connection, remoteUid, elapsed) {
+              // 녹화봇(비디오 미발행)은 무시 — 강사 캠 uid를 덮어쓰지 않게 한다.
+              if (remoteUid == kRecorderRtcUid) return;
               state = state.copyWith(remoteUid: remoteUid);
             },
             onUserOffline: (connection, remoteUid, reason) {
+              if (remoteUid == kRecorderRtcUid) return;
               if (state.remoteUid == remoteUid) {
                 state = state.copyWith(remoteUid: null);
               }
@@ -318,7 +326,10 @@ class LessonNotifier extends StateNotifier<LessonState> {
         await _engine!.enableAudio();
         await _engine!.muteLocalAudioStream(false);
         await _engine!.enableVideo();
-        await _engine!.enableLocalVideo(isTutor);
+        // 비디오 모듈만 켠다(원격 영상 구독/렌더용). 로컬 카메라 캡처는 입장 시 완전 OFF —
+        // 강사가 toggleCamera()로 켤 때 enableLocalVideo(true)로 처음 활성화된다.
+        // (카메라 권한은 위 게이트에서 이미 받아둬 토글 시 팝업 없이 매끄럽게 켜짐)
+        await _engine!.enableLocalVideo(false);
 
         await _engine!.joinChannel(
           token: tokenResp.token,
@@ -387,28 +398,31 @@ class LessonNotifier extends StateNotifier<LessonState> {
     }
   }
 
-  // ─── 카메라 토글 (후일 디벨롭용) ─────────────────────────────────────────────
+  // ─── 카메라 토글 ────────────────────────────────────────────────────────────
+  // 입장 시엔 OFF(join 옵션 publishCameraTrack:false). 강사가 토글로 켜고 끈다.
+  // 표준 카메라(publishCameraTrack)만 사용 — pushVideoFrame/커스텀 비디오 소스 부활 금지.
+  // 녹화(recorder.html)는 비디오를 구독/렌더하지 않으므로 캠은 녹화에 안 들어간다.
 
-  // Future<void> toggleCamera() async {
-  //   if (_engine == null) return;
-  //   final next = !state.localCameraEnabled;
-  //   await _engine!.enableLocalVideo(next);
-  //   await _engine!.updateChannelMediaOptions(
-  //     ChannelMediaOptions(publishCameraTrack: next),
-  //   );
-  //   if (next) await _engine!.startPreview();
-  //   state = state.copyWith(localCameraEnabled: next);
-  //   final channelName = state.channelName;
-  //   if (channelName != null) {
-  //     _repo.sendDraw(
-  //       channelName,
-  //       DrawEvent(
-  //         senderId: _repo.sessionId,
-  //         type: next ? DrawType.cameraOn : DrawType.cameraOff,
-  //       ),
-  //     );
-  //   }
-  // }
+  Future<void> toggleCamera() async {
+    if (_engine == null) return;
+    final next = !state.localCameraEnabled;
+    await _engine!.enableLocalVideo(next);
+    await _engine!.updateChannelMediaOptions(
+      ChannelMediaOptions(publishCameraTrack: next),
+    );
+    if (next) await _engine!.startPreview();
+    state = state.copyWith(localCameraEnabled: next);
+    final channelName = state.channelName;
+    if (channelName != null) {
+      _repo.sendDraw(
+        channelName,
+        DrawEvent(
+          senderId: _repo.sessionId,
+          type: next ? DrawType.cameraOn : DrawType.cameraOff,
+        ),
+      );
+    }
+  }
 
   // ─── 마이크 토글 ────────────────────────────────────────────────────────────
 

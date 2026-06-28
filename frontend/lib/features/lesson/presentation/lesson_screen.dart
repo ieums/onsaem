@@ -259,6 +259,14 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   // ─── 카메라 분할 비율 ────────────────────────────────────────────────────────
   double _cameraRatio = 0.25;
 
+  // ─── 카메라 VideoViewController 캐시 ──────────────────────────────────────────
+  // 리사이즈 setState로 rebuild돼도 컨트롤러를 유지해 원격/로컬 뷰 재셋업(깜빡임)을 막는다.
+  // uid/channel이 바뀔 때만 재생성.
+  VideoViewController? _localCamController;
+  VideoViewController? _remoteCamController;
+  int? _remoteCamUid;
+  String? _remoteCamChannel;
+
   // ─── 이미지 편집 모드 상태 ────────────────────────────────────────────────────
   double _imageBaseX = 0;
   double _imageBaseY = 0;
@@ -824,17 +832,17 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             shell: shell,
             onTap: () => notifier.toggleMic(),
           ),
-          // if (state.isTutor) ...[
-          //   const SizedBox(width: 8),
-          //   _ControlBtn(
-          //     icon: state.localCameraEnabled
-          //         ? Icons.videocam_outlined
-          //         : Icons.videocam_off_outlined,
-          //     active: state.localCameraEnabled,
-          //     shell: shell,
-          //     onTap: () => notifier.toggleCamera(),
-          //   ),
-          // ],
+          if (state.isTutor) ...[
+            const SizedBox(width: 8),
+            _ControlBtn(
+              icon: state.localCameraEnabled
+                  ? Icons.videocam_outlined
+                  : Icons.videocam_off_outlined,
+              active: state.localCameraEnabled,
+              shell: shell,
+              onTap: () => notifier.toggleCamera(),
+            ),
+          ],
         ],
       ),
     );
@@ -849,30 +857,16 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
 
     if (state.isTutor) {
       cameraView = engine != null
-          ? AgoraVideoView(
-              controller: VideoViewController(
-                rtcEngine: engine,
-                canvas: const VideoCanvas(
-                  uid: 0,
-                  renderMode: RenderModeType.renderModeHidden,
-                ),
-              ),
-            )
+          ? AgoraVideoView(controller: _localCameraController(engine))
           : const SizedBox.shrink();
     } else {
-      final remoteUid = state.remoteUid;
+      // 강사 캠 = 항상 강사 agoraUid(= state.tutorId). onUserJoined가 마지막에 준
+      // remoteUid(녹화봇일 수 있음)에 의존하지 않아 검은화면을 막는다.
+      final tutorUid = state.tutorId;
       final channelName = state.channelName;
-      cameraView = (engine != null && remoteUid != null && channelName != null)
+      cameraView = (engine != null && tutorUid != null && channelName != null)
           ? AgoraVideoView(
-              controller: VideoViewController.remote(
-                rtcEngine: engine,
-                canvas: VideoCanvas(
-                  uid: remoteUid,
-                  renderMode: RenderModeType.renderModeHidden,
-                  sourceType: VideoSourceType.videoSourceCamera,
-                ),
-                connection: RtcConnection(channelId: channelName),
-              ),
+              controller: _remoteCameraController(engine, tutorUid, channelName),
             )
           : const Center(
               child: Icon(Icons.videocam_off, color: Colors.white54, size: 40),
@@ -880,6 +874,38 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     }
 
     return Container(color: Colors.black, child: cameraView);
+  }
+
+  // 강사 로컬뷰 컨트롤러 — 한 번만 생성해 재사용(uid:0 고정).
+  VideoViewController _localCameraController(RtcEngine engine) {
+    return _localCamController ??= VideoViewController(
+      rtcEngine: engine,
+      canvas: const VideoCanvas(
+        uid: 0,
+        renderMode: RenderModeType.renderModeHidden,
+      ),
+    );
+  }
+
+  // 학생→강사 원격 컨트롤러 — uid/channel이 바뀔 때만 재생성(리사이즈엔 재사용).
+  VideoViewController _remoteCameraController(
+      RtcEngine engine, int uid, String channelName) {
+    if (_remoteCamController == null ||
+        _remoteCamUid != uid ||
+        _remoteCamChannel != channelName) {
+      _remoteCamController = VideoViewController.remote(
+        rtcEngine: engine,
+        canvas: VideoCanvas(
+          uid: uid,
+          renderMode: RenderModeType.renderModeHidden,
+          sourceType: VideoSourceType.videoSourceCamera,
+        ),
+        connection: RtcConnection(channelId: channelName),
+      );
+      _remoteCamUid = uid;
+      _remoteCamChannel = channelName;
+    }
+    return _remoteCamController!;
   }
 
   Widget _buildDragHandle(double totalHeight, ShellTheme shell) {
