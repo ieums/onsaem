@@ -75,6 +75,22 @@ public class LessonQueryRepository {
                 """;
         return jdbcTemplate.query(sql, this::mapRow, studentId);
     }
+    /** COMPLETED인데 recording_url이 아직 없고 전사도 안 된 강의 — mp4 재탐색 대상. */
+    public List<Long> findCompletedLessonIdsWithoutRecordingUrl() {
+        String sql = """
+            SELECT l.id FROM lessons l
+            WHERE l.status = 'COMPLETED'
+              AND (l.recording_url IS NULL OR l.recording_url = '')
+              AND NOT EXISTS (
+                  SELECT 1 FROM lesson_transcript t
+                  WHERE t.lesson_id = l.id AND t.status = 'COMPLETED')
+            """;
+        return jdbcTemplate.queryForList(sql, Long.class);
+    }
+
+    public void updateRecordingUrl(Long lessonId, String recordingUrl) {
+        jdbcTemplate.update("UPDATE lessons SET recording_url = ? WHERE id = ?", recordingUrl, lessonId);
+    }
 
     private LessonInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
         return new LessonInfo(
