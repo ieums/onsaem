@@ -71,7 +71,18 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  # 앱 아이콘 생성기 — assets/images/app_icon.png(1024x1024)를 넣고
+  #   dart run flutter_launcher_icons
+  # 실행하면 iOS/Android 아이콘이 한 번에 생성된다.
+  flutter_launcher_icons: ^0.14.1
 
+# 앱 아이콘(#6) 설정. image_path 파일을 넣은 뒤 위 명령으로 생성.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/images/app_icon.png"
+  min_sdk_android: 21
 
 
 # For information on the generic Dart part of this file, see the
@@ -88,6 +99,7 @@ flutter:
   assets:
     - assets/icons/
     - assets/sounds/
+    - assets/images/
 
   fonts:
     - family: Pretendard

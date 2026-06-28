@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/student/widgets/student_problem_image_viewer.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/matching/models/searching_problem_model.dart';
@@ -75,13 +76,21 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellTheme.of(context);
-    final isOnline = ref.watch(tutorAvailabilityProvider);
-    final problem = widget.problem;
-    // 오프라인이어도 버튼은 눌리게 해서 안내 다이얼로그를 띄운다.
-    final canTapApply = !problem.alreadyApplied && !_isApplying;
+    // 단독 라우트라 부모 shell 테마를 못 받으므로, 여기서 직접 다크/라이트 테마를 감싼다.
+    final isDark = ref.watch(shellDarkModeProvider);
+    final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
+    return Theme(
+      data: baseTheme.copyWith(
+        colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.primaryBlue),
+      ),
+      child: Builder(builder: (context) {
+        final shell = ShellTheme.of(context);
+        final isOnline = ref.watch(tutorAvailabilityProvider);
+        final problem = widget.problem;
+        // 오프라인이어도 버튼은 눌리게 해서 안내 다이얼로그를 띄운다.
+        final canTapApply = !problem.alreadyApplied && !_isApplying;
 
-    return Scaffold(
+        return Scaffold(
       backgroundColor: shell.scaffoldBackground,
       appBar: AppBar(
         backgroundColor: shell.scaffoldBackground,
@@ -110,22 +119,37 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
               _buildImageArea(problem, shell),
               const SizedBox(height: 20),
 
-              // 요약
-              if (problem.summary != null && problem.summary!.isNotEmpty) ...[
+              // ① 요약 = 문제 제목처럼 맨 위 (한 줄)
+              if (_oneLine(problem.summary).isNotEmpty) ...[
                 Text(
-                  problem.summary!,
+                  _oneLine(problem.summary),
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
                     color: shell.titleColor,
                   ),
                 ),
+                const SizedBox(height: 14),
+              ],
+
+              // ② 학생이 고른 문제 = 실제 추출된 문제 내용(원문)
+              if ((problem.extractedText ?? '').trim().isNotEmpty) ...[
+                _buildSelectedProblemCard(problem, shell),
                 const SizedBox(height: 16),
               ],
 
-              // 상세 정보
+              // ③ 상세 정보(유형/난이도/시험유형)
               _buildInfoCard(problem, shell),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
+
+              // ④ 학생이 직접 쓴 설명(어려운 점 등) — 유형 아래, 있을 때만
+              if ((problem.studentDescription ?? '').trim().isNotEmpty) ...[
+                _buildStudentNote(problem.studentDescription!.trim(), shell),
+                const SizedBox(height: 16),
+              ],
+
+              const SizedBox(height: 16),
 
               // 버튼
               Row(
@@ -189,7 +213,135 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
           ),
         ),
       ),
+        );
+      }),
     );
+  }
+
+  Widget _buildSelectedProblemCard(
+      SearchingProblemModel problem, ShellTheme shell) {
+    // 배지: '학생이 고른 문제 · 34번 · 영어'
+    final label = StringBuffer('학생이 고른 문제');
+    if (problem.problemNumber != null) {
+      label.write(' · ${problem.problemNumber}번');
+    }
+    final subj = problem.subjectLabel;
+    if (subj != '-') label.write(' · $subj');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: shell.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primaryBlue, width: 1.4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.primaryBlue.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              label.toString(),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primaryBlue,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _problemBody(problem.extractedText ?? '', shell),
+        ],
+      ),
+    );
+  }
+
+  /// OCR 본문 보기 좋게: 문장 중간에 박힌 줄바꿈은 이어 붙이고,
+  /// 문단 구분(빈 줄)과 선택지(①②③④⑤)만 줄을 살린다.
+  Widget _problemBody(String raw, ShellTheme shell) {
+    return Text(
+      _reflow(raw),
+      style: TextStyle(
+        fontSize: 14,
+        height: 1.6,
+        color: shell.titleColor,
+      ),
+    );
+  }
+
+
+  /// OCR 원문 reflow: 문단(빈 줄)은 보존, 문단 내부의 단순 줄바꿈은 공백으로 이어 붙여
+  /// 문장 중간이 끊겨 보이는 걸 막고, 선택지(①②③④⑤)는 한 줄씩 보이게 한다.
+  String _reflow(String raw) {
+    final normalized = raw.replaceAll('\\n', '\n').replaceAll('\r', '');
+    final paragraphs = normalized.split(RegExp(r'\n[ \t]*\n+'));
+    var s = paragraphs
+        .map((p) =>
+            p.replaceAll('\n', ' ').replaceAll(RegExp(r'[ \t]+'), ' ').trim())
+        .where((p) => p.isNotEmpty)
+        .join('\n\n');
+    s = s.replaceAllMapped(
+      RegExp(r' *([①②③④⑤⑥⑦⑧⑨⑩])'),
+      (m) => '\n${m[1]}',
+    );
+    return s.trim();
+  }
+
+  /// 학생이 직접 쓴 설명(어려운 점 등) 카드.
+  Widget _buildStudentNote(String note, ShellTheme shell) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: shell.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: shell.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.edit_note_rounded, size: 16, color: shell.hintColor),
+              const SizedBox(width: 4),
+              Text(
+                '학생이 남긴 설명',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: shell.hintColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            note,
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.5,
+              color: shell.titleColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 리터럴 "\n"·중복 공백을 제거해 한 줄로(요약 제목용).
+  String _oneLine(String? raw) {
+    if (raw == null) return '';
+    return raw
+        .replaceAll('\\n', ' ')
+        .replaceAll('\n', ' ')
+        .replaceAll('\r', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   Widget _buildImageArea(SearchingProblemModel problem, ShellTheme shell) {
@@ -294,7 +446,7 @@ class _ImagePagerState extends State<_ImagePager> {
   Widget build(BuildContext context) {
     final urls = widget.urls;
     if (urls.length == 1) {
-      return SizedBox(height: _height, child: _buildImage(context, urls.first));
+      return SizedBox(height: _height, child: _buildImage(context, urls.first, 0));
     }
     return Column(
       children: [
@@ -306,7 +458,7 @@ class _ImagePagerState extends State<_ImagePager> {
                 controller: _controller,
                 itemCount: urls.length,
                 onPageChanged: (i) => setState(() => _page = i),
-                itemBuilder: (_, i) => _buildImage(context, urls[i]),
+                itemBuilder: (_, i) => _buildImage(context, urls[i], i),
               ),
               Positioned(
                 top: 8,
@@ -350,11 +502,16 @@ class _ImagePagerState extends State<_ImagePager> {
     );
   }
 
-  Widget _buildImage(BuildContext context, String url) {
+  Widget _buildImage(BuildContext context, String url, int index) {
     final resolved = ApiConstants.resolveImageUrl(url);
     return GestureDetector(
-      onTap: () =>
-          showStudentProblemImageViewerUrl(context, imageUrl: resolved),
+      onTap: () => showStudentProblemImageGalleryUrls(
+        context,
+        imageUrls: [
+          for (final u in widget.urls) ApiConstants.resolveImageUrl(u),
+        ],
+        initialIndex: index,
+      ),
       child: Stack(
         children: [
           Positioned.fill(

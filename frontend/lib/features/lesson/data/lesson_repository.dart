@@ -72,6 +72,21 @@ class LessonRepository {
         response.data['data'] as Map<String, dynamic>);
   }
 
+  /// 강의 연장 — 10/20/30분(추가 코인 hold). 잔액 부족이면 hold 없이
+  /// extended=false + shortfallCoin을 반환(프론트가 충전 후 재시도).
+  Future<ExtendLessonResult> extendLesson({
+    required int lessonId,
+    required int studentId,
+    required int minutes,
+  }) async {
+    final response = await _dio.post('/lesson/$lessonId/extend', queryParameters: {
+      'studentId': studentId,
+      'minutes': minutes,
+    });
+    return ExtendLessonResult.fromJson(
+        response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<void> completeLesson(int lessonId, {String? recordingUrl}) async {
     await _dio.post(
       '/lesson/$lessonId/complete',

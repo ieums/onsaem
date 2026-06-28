@@ -67,7 +67,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => showStudentNotificationDialog(context),
+            onTap: () => showStudentNotificationDialog(context, ref),
             borderRadius: BorderRadius.circular(12),
             child: Container(
               width: 44,
@@ -93,7 +93,8 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                         width: 6,
                         height: 6,
                         decoration: const BoxDecoration(
-                          color: AppColors.logoutRed,
+                          // 학생 고유색(연두 계열 잉크)
+                          color: AppColors.studentInk,
                           shape: BoxShape.circle,
                         ),
                       ),

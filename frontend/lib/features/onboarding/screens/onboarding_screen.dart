@@ -58,15 +58,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: GestureDetector(
         onTap: _goToLogin,
         behavior: HitTestBehavior.opaque,
-        child: const SafeArea(
+        child: SafeArea(
           child: Center(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(height: 120),
-                  Text(
+                  // 로고 — assets/images/logo.png 에 파일을 넣으면 표시.
+                  // 아직 없으면 기존처럼 빈 여백(120)으로 폴백(빌드 안 깨짐).
+                  Image.asset(
+                    'assets/images/logo.png',
+                    height: 120,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const SizedBox(height: 120),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
                     '온샘',
                     textAlign: TextAlign.center,
                     style: TextStyle(

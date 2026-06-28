@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/auth/data/auth_repository.dart';
 import 'package:ieum/features/auth/utils/password_rules.dart';
 
@@ -124,85 +126,102 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: AppColors.textPrimary,
-        title: const Text('비밀번호 재설정',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-          children: [
-            Text(
-              _step == 1
-                  ? '가입한 이메일로 인증 코드를 보내드려요.'
-                  : '메일로 받은 6자리 코드와 새 비밀번호를 입력해 주세요.',
-              style: const TextStyle(
-                  fontSize: 14, color: AppColors.textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              '소셜(카카오·구글) 계정은 비밀번호가 없어 재설정 대상이 아니에요.',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 24),
-            _label('이메일'),
-            _field(
-              _email,
-              'you@example.com',
-              keyboard: TextInputType.emailAddress,
-              enabled: _step == 1 && widget.initialEmail == null,
-            ),
-            if (_step == 2) ...[
-              const SizedBox(height: 20),
-              _label('인증 코드 (6자리)'),
-              Row(
-                children: [
-                  Expanded(
-                    child: _field(
-                      _code,
-                      '000000',
-                      keyboard: TextInputType.number,
-                      maxLength: 6,
-                      formatters: [FilteringTextInputFormatter.digitsOnly],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    height: 52,
-                    child: OutlinedButton(
-                      onPressed: _busy ? null : _sendCode,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _accent,
-                        side: BorderSide(color: _accent),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+    final isDark = ref.watch(shellDarkModeProvider);
+    final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
+    final theme = baseTheme.copyWith(
+      colorScheme: baseTheme.colorScheme.copyWith(primary: _accent),
+      scaffoldBackgroundColor:
+          isDark ? AppColors.shellScaffoldDark : Colors.white,
+    );
+    return Theme(
+      data: theme,
+      child: Builder(builder: (context) {
+        final shell = ShellTheme.of(context);
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          appBar: AppBar(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            elevation: 0,
+            foregroundColor: shell.titleColor,
+            title: Text('비밀번호 재설정',
+                style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: shell.titleColor)),
+          ),
+          body: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+              children: [
+                Text(
+                  _step == 1
+                      ? '가입한 이메일로 인증 코드를 보내드려요.'
+                      : '메일로 받은 6자리 코드와 새 비밀번호를 입력해 주세요.',
+                  style: TextStyle(
+                      fontSize: 14, color: shell.subtitleColor, height: 1.45),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '소셜(카카오·구글) 계정은 비밀번호가 없어 재설정 대상이 아니에요.',
+                  style: TextStyle(fontSize: 12, color: shell.hintColor),
+                ),
+                const SizedBox(height: 24),
+                _label(shell, '이메일'),
+                _field(
+                  shell,
+                  _email,
+                  'you@example.com',
+                  keyboard: TextInputType.emailAddress,
+                  enabled: _step == 1 && widget.initialEmail == null,
+                ),
+                if (_step == 2) ...[
+                  const SizedBox(height: 20),
+                  _label(shell, '인증 코드 (6자리)'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _field(
+                          shell,
+                          _code,
+                          '000000',
+                          keyboard: TextInputType.number,
+                          maxLength: 6,
+                          formatters: [FilteringTextInputFormatter.digitsOnly],
                         ),
                       ),
-                      child: const Text('재전송',
-                          style: TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w700)),
-                    ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        height: 52,
+                        child: OutlinedButton(
+                          onPressed: _busy ? null : _sendCode,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _accent,
+                            side: BorderSide(color: _accent),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text('재전송',
+                              style: TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _label('새 비밀번호'),
-              _field(_password, '새 비밀번호', obscure: _obscure, toggleObscure: true),
-              const SizedBox(height: 10),
-              PasswordRulesChecklist(
-                password: _password.text,
-                accent: _accent,
-                compact: true,
-              ),
-              const SizedBox(height: 20),
-              _label('새 비밀번호 확인'),
-              _field(_confirm, '새 비밀번호 확인', obscure: _obscure),
+                  const SizedBox(height: 20),
+                  _label(shell, '새 비밀번호'),
+                  _field(shell, _password, '새 비밀번호',
+                      obscure: _obscure, toggleObscure: true),
+                  const SizedBox(height: 10),
+                  PasswordRulesChecklist(
+                    password: _password.text,
+                    accent: _accent,
+                    compact: true,
+                  ),
+                  const SizedBox(height: 20),
+                  _label(shell, '새 비밀번호 확인'),
+                  _field(shell, _confirm, '새 비밀번호 확인', obscure: _obscure),
               if (_confirm.text.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Row(
@@ -257,22 +276,25 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
                             fontSize: 16, fontWeight: FontWeight.w800)),
               ),
             ),
-          ],
-        ),
-      ),
-    );
+                ],
+              ),
+            ),
+          );
+        }),
+      );
   }
 
-  Widget _label(String t) => Padding(
+  Widget _label(ShellTheme shell, String t) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(t,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary)),
+                color: shell.subtitleColor)),
       );
 
   Widget _field(
+    ShellTheme shell,
     TextEditingController c,
     String hint, {
     TextInputType? keyboard,
@@ -284,7 +306,7 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
   }) {
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFFE2E5EC)),
+      borderSide: BorderSide(color: shell.cardBorder.withValues(alpha: 0.6)),
     );
     return TextField(
       controller: c,
@@ -293,13 +315,15 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
       enabled: enabled,
       maxLength: maxLength,
       inputFormatters: formatters,
-      style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
+      style: TextStyle(fontSize: 15, color: shell.titleColor),
       decoration: InputDecoration(
         counterText: '',
         filled: true,
-        fillColor: enabled ? const Color(0xFFF7F8FB) : const Color(0xFFEDEFF3),
+        fillColor: enabled
+            ? shell.cardBackground
+            : shell.cardBackground.withValues(alpha: 0.5),
         hintText: hint,
-        hintStyle: const TextStyle(color: AppColors.textSecondary),
+        hintStyle: TextStyle(color: shell.hintColor),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: border,
@@ -314,7 +338,7 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
                 icon: Icon(
                     _obscure ? Icons.visibility_off : Icons.visibility,
                     size: 20,
-                    color: AppColors.textSecondary),
+                    color: shell.hintColor),
                 onPressed: () => setState(() => _obscure = !_obscure),
               )
             : null,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/student/screens/student_report_screen.dart';
 
 /// 강사가 강의 종료 후 보는 완료 화면. (강사는 별점 리뷰 없음 — 완료 안내 + 신고만)
@@ -35,9 +36,21 @@ class TutorLessonCompleteScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      body: SafeArea(
+    // 단독 라우트라 부모 shell 테마를 못 받으므로 직접 다크/라이트 테마로 감싼다.
+    final isDark = ref.watch(shellDarkModeProvider);
+    final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
+    final theme = baseTheme.copyWith(
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.primaryBlue),
+      scaffoldBackgroundColor:
+          isDark ? AppColors.shellScaffoldDark : AppColors.tutorScaffoldLight,
+    );
+    return Theme(
+      data: theme,
+      child: Builder(builder: (context) {
+        final scheme = Theme.of(context).colorScheme;
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: Column(
@@ -104,6 +117,8 @@ class TutorLessonCompleteScreen extends ConsumerWidget {
           ),
         ),
       ),
+        );
+      }),
     );
   }
 }

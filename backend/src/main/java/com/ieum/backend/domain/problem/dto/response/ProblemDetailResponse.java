@@ -32,6 +32,8 @@ public class ProblemDetailResponse {
     private String studentDescription;
     private LocalDateTime createdAt;
     private LocalDateTime resolvedAt;
+    /** (2) 여러 장 한 문제 → 페이지 순서 재정렬 가능 여부. */
+    private boolean multiPage;
 
     public static ProblemDetailResponse from(Problem problem) {
         return ProblemDetailResponse.builder()
@@ -50,6 +52,7 @@ public class ProblemDetailResponse {
                 .studentDescription(problem.getStudentDescription())
                 .createdAt(problem.getCreatedAt())
                 .resolvedAt(problem.getResolvedAt())
+                .multiPage(problem.isMultiPage())
                 .build();
     }
 }

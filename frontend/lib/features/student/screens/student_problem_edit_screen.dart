@@ -8,6 +8,7 @@ import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/features/student/utils/problem_type_registry.dart';
+import 'package:ieum/features/student/widgets/student_problem_image_viewer.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
 
 /// 분류/내용 수정 화면. PATCH /problems/{id}/classification.
@@ -31,6 +32,32 @@ class _StudentProblemEditScreenState
   String? _secondaryType;
   bool _saving = false;
 
+  // (2) 여러 장 한 문제 — 페이지 순서 재정렬용 상태.
+  // _pageUrls = 현재 서버에 저장된 순서(기준선), _order = 그 위에 얹힌 사용자 드래그 순열.
+  late List<String> _pageUrls;
+  late List<int> _order;
+  bool _savingOrder = false;
+
+  // 비-multiPage(여러 장 일반) 미리보기 캐러셀 상태.
+  final PageController _previewController = PageController();
+  int _previewPage = 0;
+
+  @override
+  void dispose() {
+    _previewController.dispose();
+    super.dispose();
+  }
+
+  bool get _isMultiPage =>
+      widget.problem.multiPage && widget.problem.imageUrls.length > 1;
+
+  bool get _orderChanged {
+    for (var i = 0; i < _order.length; i++) {
+      if (_order[i] != i) return true;
+    }
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +72,37 @@ class _StudentProblemEditScreenState
         secondaryTypesFor(_primaryType).contains(p.secondaryType)
             ? p.secondaryType
             : null;
+
+    _pageUrls = List<String>.of(p.imageUrls);
+    _order = List<int>.generate(_pageUrls.length, (i) => i);
+  }
+
+  Future<void> _saveOrder() async {
+    setState(() => _savingOrder = true);
+    try {
+      final newUrls = await ref.read(problemRepositoryProvider).reorderPages(
+            problemId: widget.problem.problemId,
+            order: _order,
+          );
+      if (!mounted) return;
+      setState(() {
+        // 서버 반영 순서를 새 기준선으로 — 이후 재정렬도 올바른 인덱스로 계산되게.
+        _pageUrls = newUrls.isNotEmpty
+            ? newUrls
+            : [for (final i in _order) _pageUrls[i]];
+        _order = List<int>.generate(_pageUrls.length, (i) => i);
+        _savingOrder = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('페이지 순서를 변경했어요.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _savingOrder = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('순서 변경에 실패했어요. 잠시 후 다시 시도해 주세요.')),
+      );
+    }
   }
 
   Future<void> _save() async {
@@ -79,7 +137,7 @@ class _StudentProblemEditScreenState
     final theme = baseTheme.copyWith(
       colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
 
     return Theme(
@@ -97,23 +155,11 @@ class _StudentProblemEditScreenState
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 children: [
-                  if (p.imageUrls.isNotEmpty) ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: AspectRatio(
-                        aspectRatio: 16 / 10,
-                        child: Image.network(
-                          ApiConstants.resolveImageUrl(p.imageUrls.first),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: shell.detailBackground,
-                            alignment: Alignment.center,
-                            child: Icon(Icons.image_not_supported_outlined,
-                                color: shell.hintColor),
-                          ),
-                        ),
-                      ),
-                    ),
+                  if (_isMultiPage) ...[
+                    _pageReorderSection(shell),
+                    const SizedBox(height: 20),
+                  ] else if (p.imageUrls.isNotEmpty) ...[
+                    _previewCarousel(shell, p.imageUrls),
                     const SizedBox(height: 16),
                   ],
                   Text(
@@ -145,13 +191,11 @@ class _StudentProblemEditScreenState
                     }),
                   ),
                   const SizedBox(height: 20),
+                  // 난이도는 AI 자동 판정값 고정 — 학생 수정 불가(표시만).
                   _label(shell, '난이도'),
-                  _dropdown(
-                    shell: shell,
-                    value: _difficulty,
-                    labels: difficultyLabels,
-                    hint: '선택 안 함',
-                    onChanged: (v) => setState(() => _difficulty = v),
+                  _readonlyField(
+                    shell,
+                    difficultyLabels[_difficulty] ?? 'AI 자동 판정',
                   ),
                   const SizedBox(height: 20),
                   _label(shell, '출처'),
@@ -225,6 +269,209 @@ class _StudentProblemEditScreenState
     );
   }
 
+  /// 비-multiPage 미리보기 — 여러 장이면 좌우로 넘기고, 탭하면 전체화면 갤러리(좌우 스와이프+확대).
+  Widget _previewCarousel(ShellTheme shell, List<String> urls) {
+    void openGallery(int index) => showStudentProblemImageGalleryUrls(
+          context,
+          imageUrls: [
+            for (final u in urls) ApiConstants.resolveImageUrl(u),
+          ],
+          initialIndex: index,
+        );
+
+    Widget tile(int i) => GestureDetector(
+          onTap: () => openGallery(i),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              ApiConstants.resolveImageUrl(urls[i]),
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
+                color: shell.detailBackground,
+                alignment: Alignment.center,
+                child: Icon(Icons.image_not_supported_outlined,
+                    color: shell.hintColor),
+              ),
+            ),
+          ),
+        );
+
+    if (urls.length == 1) {
+      return AspectRatio(aspectRatio: 16 / 10, child: tile(0));
+    }
+
+    return Column(
+      children: [
+        AspectRatio(
+          aspectRatio: 16 / 10,
+          child: PageView.builder(
+            controller: _previewController,
+            itemCount: urls.length,
+            onPageChanged: (i) => setState(() => _previewPage = i),
+            itemBuilder: (_, i) => tile(i),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < urls.length; i++)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: i == _previewPage ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color:
+                      i == _previewPage ? AppColors.studentInk : shell.cardBorder,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// (2) 여러 장 한 문제의 페이지 순서 재정렬 섹션. 끌어서 순서를 바꾸고 '이 순서로 저장'.
+  Widget _pageReorderSection(ShellTheme shell) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '페이지 순서',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: shell.titleColor,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '여러 장이 한 문제로 인식됐어요. 순서가 어긋났다면 끌어서 바로잡아 주세요.',
+          style: TextStyle(fontSize: 13, color: shell.hintColor),
+        ),
+        const SizedBox(height: 12),
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _order.length,
+          onReorder: (oldIndex, newIndex) {
+            setState(() {
+              if (newIndex > oldIndex) newIndex -= 1;
+              final item = _order.removeAt(oldIndex);
+              _order.insert(newIndex, item);
+            });
+          },
+          itemBuilder: (context, i) {
+            final url = _pageUrls[_order[i]];
+            return Container(
+              key: ValueKey('page_${_order[i]}'),
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: shell.cardBackground,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: shell.cardBorder),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 26,
+                    height: 26,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.studentPoint.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${i + 1}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.studentInk,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: () => showStudentProblemImageGalleryUrls(
+                      context,
+                      imageUrls: [
+                        for (final o in _order)
+                          ApiConstants.resolveImageUrl(_pageUrls[o]),
+                      ],
+                      initialIndex: i,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 52,
+                        height: 52,
+                        child: Image.network(
+                          ApiConstants.resolveImageUrl(url),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            color: shell.detailBackground,
+                            alignment: Alignment.center,
+                            child: Icon(Icons.image_not_supported_outlined,
+                                size: 20, color: shell.hintColor),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '${i + 1}페이지',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: shell.titleColor,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.drag_handle, color: shell.hintColor),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 46,
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: (_orderChanged && !_savingOrder) ? _saveOrder : null,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.studentInk,
+              side: BorderSide(
+                color: _orderChanged
+                    ? AppColors.studentInk
+                    : shell.cardBorder,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: _savingOrder
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  )
+                : const Icon(Icons.check, size: 18),
+            label: const Text(
+              '이 순서로 저장',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _label(ShellTheme shell, String text) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(
@@ -234,6 +481,26 @@ class _StudentProblemEditScreenState
             fontWeight: FontWeight.w700,
             color: shell.subtitleColor,
           ),
+        ),
+      );
+
+  /// 읽기 전용 표시 필드(수정 불가 — 예: 난이도).
+  Widget _readonlyField(ShellTheme shell, String text) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+        decoration: BoxDecoration(
+          color: shell.cardBackground.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: shell.cardBorder.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(text,
+                  style: TextStyle(fontSize: 15, color: shell.subtitleColor)),
+            ),
+            Icon(Icons.lock_outline, size: 16, color: shell.hintColor),
+          ],
         ),
       );
 

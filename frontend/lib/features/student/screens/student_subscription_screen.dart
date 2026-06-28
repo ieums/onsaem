@@ -127,7 +127,7 @@ class _StudentSubscriptionScreenState
     final theme = baseTheme.copyWith(
       colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
     final subAsync = ref.watch(mySubscriptionProvider);
     final plansAsync = ref.watch(subscriptionPlansProvider);

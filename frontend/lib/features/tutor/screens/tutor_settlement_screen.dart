@@ -206,10 +206,28 @@ class TutorSettlementScreen extends ConsumerStatefulWidget {
       _TutorSettlementScreenState();
 }
 
-class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
+class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
+    with SingleTickerProviderStateMixin {
   /// 포인트 컬러(#BFA2DB)와 어울리는 입금(녹색)·출금(붉은) 톤
   static const _incomeColor = AppColors.incomeGreen;
   static const _expenseColor = Color(0xFFD46878);
+
+  late final TabController _tabController;
+
+  /// 출금 요청 진행 중(연타 방지) — true면 모든 출금 버튼 비활성.
+  bool _withdrawBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   ColorScheme _scheme(BuildContext context) => Theme.of(context).colorScheme;
 
@@ -475,26 +493,80 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
   }
 
   Widget _buildContent(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    // 공통(출금카드·요약·저번달·차트)은 탭 위에 고정 노출, 그 아래 정산내역/정산관리만 탭으로 분리.
+    return NestedScrollView(
+      headerSliverBuilder: (context, _) => [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 16),
+                _buildWithdrawCard(context),
+                const SizedBox(height: 12),
+                _buildSummaryCard(context),
+                const SizedBox(height: 12),
+                _buildLastMonthCard(context),
+                const SizedBox(height: 20),
+                _buildChartSection(context),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _PinnedTabBarDelegate(
+            tabBar: _buildSettlementTabBar(context),
+            background: bg,
+          ),
+        ),
+      ],
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          _buildHeader(context),
-          const SizedBox(height: 16),
-          _buildWithdrawCard(context),
-          const SizedBox(height: 12),
-          _buildSummaryCard(context),
-          const SizedBox(height: 12),
-          _buildLastMonthCard(context),
-          const SizedBox(height: 20),
-          _buildChartSection(context),
-          const SizedBox(height: 24),
-          _buildHistorySection(context),
-          const SizedBox(height: 24),
-          _buildSettlementRecordsSection(context),
+          _buildHistoryListTab(context),
+          _buildRecordsListTab(context),
         ],
       ),
+    );
+  }
+
+  Widget _buildSettlementTabBar(BuildContext context) {
+    final scheme = _scheme(context);
+    return TabBar(
+      controller: _tabController,
+      indicatorColor: AppColors.primaryBlue,
+      indicatorWeight: 3,
+      labelColor: scheme.onSurface,
+      unselectedLabelColor: scheme.onSurfaceVariant,
+      labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+      unselectedLabelStyle:
+          const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+      dividerColor: Theme.of(context).dividerColor,
+      tabs: const [
+        Tab(text: '정산내역'),
+        Tab(text: '정산관리'),
+      ],
+    );
+  }
+
+  /// 정산내역 탭 — 거래 내역 목록만(공통 요약/차트는 위 고정 영역).
+  Widget _buildHistoryListTab(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      child: _buildHistorySection(context),
+    );
+  }
+
+  /// 정산관리 탭 — 정산 건별 출금 요청 목록만(출금 카드는 위 고정 영역).
+  Widget _buildRecordsListTab(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      child: _buildSettlementRecordsSection(context),
     );
   }
 
@@ -1428,10 +1500,10 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
 
   Widget _buildWithdrawCard(BuildContext context) {
     final withdrawableCount = _records
-        .where((r) => r.status == SettlementStatus.calculated)
+        .where((r) => r.isWithdrawable)
         .length;
     final withdrawableAmount = _records
-        .where((r) => r.status == SettlementStatus.calculated)
+        .where((r) => r.isWithdrawable)
         .fold<int>(0, (sum, r) => sum + r.tutorAmount);
 
     return Container(
@@ -1504,7 +1576,9 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: withdrawableCount > 0 ? _onBulkWithdraw : null,
+              onPressed: (withdrawableCount > 0 && !_withdrawBusy)
+                  ? _onBulkWithdraw
+                  : null,
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: AppColors.primaryBlue,
@@ -1534,10 +1608,10 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
 
   Future<void> _onBulkWithdraw() async {
     final withdrawableCount = _records
-        .where((r) => r.status == SettlementStatus.calculated)
+        .where((r) => r.isWithdrawable)
         .length;
     final withdrawableAmount = _records
-        .where((r) => r.status == SettlementStatus.calculated)
+        .where((r) => r.isWithdrawable)
         .fold<int>(0, (sum, r) => sum + r.tutorAmount);
 
     // 확인 다이얼로그
@@ -1611,6 +1685,8 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
 
     final tutorId = ref.read(currentUserProvider)?.id;
     if (tutorId == null) return;
+    if (_withdrawBusy) return; // 진행 중이면 무시(연타 방지)
+    setState(() => _withdrawBusy = true);
     try {
       final result = await ref
           .read(settlementRepositoryProvider)
@@ -1632,6 +1708,8 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
           SnackBar(content: Text('출금 요청 실패: $error')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _withdrawBusy = false);
     }
   }
 
@@ -1905,15 +1983,6 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '정산 내역',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 10),
         Row(
           children: [
             _buildPeriodChip('전체', _historyFilter == _HistoryFilter.all, () {
@@ -2077,15 +2146,6 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '정산 관리',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 10),
         if (records.isEmpty)
           Text(
             '정산 건이 없습니다.',
@@ -2165,12 +2225,29 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
               ),
             ],
           ),
+          if (record.reportPending) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(Icons.gavel_outlined,
+                    size: 15, color: _expenseColor),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '신고 처리 중이라 출금이 보류됐어요. 처리 완료 후 출금할 수 있어요.',
+                    style: TextStyle(fontSize: 12, color: _expenseColor),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (record.isWithdrawable) ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () => _onRequestWithdraw(record.id),
+                onPressed:
+                    _withdrawBusy ? null : () => _onRequestWithdraw(record.id),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primaryBlue,
                   side: const BorderSide(color: AppColors.primaryBlue),
@@ -2194,6 +2271,8 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
   Future<void> _onRequestWithdraw(int settlementId) async {
     final tutorId = ref.read(currentUserProvider)?.id;
     if (tutorId == null) return;
+    if (_withdrawBusy) return; // 진행 중이면 무시(연타 방지)
+    setState(() => _withdrawBusy = true);
     try {
       await ref
           .read(settlementRepositoryProvider)
@@ -2210,6 +2289,32 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen> {
           SnackBar(content: Text('출금 요청에 실패했습니다: $error')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _withdrawBusy = false);
     }
   }
+}
+
+/// NestedScrollView 헤더에서 스크롤해도 고정되는 탭바.
+class _PinnedTabBarDelegate extends SliverPersistentHeaderDelegate {
+  _PinnedTabBarDelegate({required this.tabBar, required this.background});
+
+  final Widget tabBar;
+  final Color background;
+
+  static const double _height = 48;
+
+  @override
+  double get minExtent => _height;
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Material(color: background, child: tabBar);
+  }
+
+  @override
+  bool shouldRebuild(covariant _PinnedTabBarDelegate old) =>
+      old.tabBar != tabBar || old.background != background;
 }

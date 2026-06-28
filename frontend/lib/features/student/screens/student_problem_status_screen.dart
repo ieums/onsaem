@@ -158,7 +158,7 @@ class _StudentProblemStatusScreenState
       colorScheme:
           baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
 
     return Theme(

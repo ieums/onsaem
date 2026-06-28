@@ -5,6 +5,7 @@ class ProblemCreateResult {
   const ProblemCreateResult({
     required this.needsSelection,
     this.needsClassification = false,
+    this.multiPage = false,
     this.detectionId,
     this.id,
     this.studentId,
@@ -22,6 +23,7 @@ class ProblemCreateResult {
 
   final bool needsSelection;
   final bool needsClassification; // 분류 API 실패 → 분류 수정 화면으로 유도
+  final bool multiPage; // 여러 장 한 문제 → 수정 화면에서 페이지 순서 재정렬 노출
   final String? detectionId; // 선택 시 /problems/select에 전달 (재OCR 방지)
   final int? id;
   final int? studentId;
@@ -45,6 +47,7 @@ class ProblemCreateResult {
     return ProblemCreateResult(
       needsSelection: json['needsSelection'] as bool? ?? false,
       needsClassification: json['needsClassification'] as bool? ?? false,
+      multiPage: json['multiPage'] as bool? ?? false,
       detectionId: json['detectionId'] as String?,
       id: json['id'] as int?,
       studentId: json['studentId'] as int?,
@@ -73,12 +76,14 @@ class DetectedProblem {
     this.extractedText,
     this.subject,
     this.difficulty,
+    this.problemNumber,
   });
 
   final String? summary;
   final String? extractedText;
   final String? subject;
   final String? difficulty;
+  final int? problemNumber; // OCR 인식 문제 번호(있으면 'N번' 표시)
 
   factory DetectedProblem.fromJson(Map<String, dynamic> json) {
     return DetectedProblem(
@@ -86,18 +91,27 @@ class DetectedProblem {
       extractedText: json['extractedText'] as String?,
       subject: json['subject'] as String?,
       difficulty: json['difficulty'] as String?,
+      problemNumber: json['problemNumber'] as int?,
     );
   }
 
   /// 목록에 보여줄 미리보기 텍스트.
+  /// summary 우선. 리터럴 "\n"·중복 공백을 정리해 한 줄로 깔끔하게 보여준다.
   String get preview {
-    final s = summary?.trim();
-    if (s != null && s.isNotEmpty) return s;
-    final t = extractedText?.trim();
-    if (t != null && t.isNotEmpty) {
-      return t.length > 60 ? '${t.substring(0, 60)}…' : t;
-    }
+    final s = _oneLine(summary);
+    if (s.isNotEmpty) return s;
+    final t = _oneLine(extractedText);
+    if (t.isNotEmpty) return t.length > 60 ? '${t.substring(0, 60)}…' : t;
     return '문제 내용 미리보기 없음';
+  }
+
+  static String _oneLine(String? raw) {
+    if (raw == null) return '';
+    return raw
+        .replaceAll('\\n', ' ')
+        .replaceAll('\n', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 }
 
@@ -117,6 +131,7 @@ class StudentProblemModel {
     required this.createdAt,
     this.imageUrls = const [],
     this.applicantCount = 0,
+    this.multiPage = false,
   });
 
   final int problemId;
@@ -132,6 +147,7 @@ class StudentProblemModel {
   final DateTime createdAt;
   final List<String> imageUrls;
   final int applicantCount;
+  final bool multiPage; // 여러 장 한 문제 → 페이지 순서 재정렬 가능
 
   factory StudentProblemModel.fromJson(Map<String, dynamic> json) {
     return StudentProblemModel(
@@ -150,6 +166,7 @@ class StudentProblemModel {
       createdAt: DateTime.parse(json['createdAt'] as String),
       imageUrls: List<String>.from(json['imageUrls'] as List? ?? const []),
       applicantCount: json['applicantCount'] as int? ?? 0,
+      multiPage: json['multiPage'] as bool? ?? false,
     );
   }
 
@@ -169,6 +186,7 @@ class StudentProblemModel {
       searching: false,
       createdAt: r.createdAt ?? DateTime.now(),
       imageUrls: r.imageUrls,
+      multiPage: r.multiPage,
     );
   }
 }

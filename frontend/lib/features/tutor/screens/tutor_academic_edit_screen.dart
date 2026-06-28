@@ -91,7 +91,7 @@ class _TutorAcademicEditScreenState
     final theme =
         (isDark ? AppTheme.shellDark : AppTheme.shellLight).copyWith(
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.tutorScaffoldLight,
     );
     return Theme(
       data: theme,

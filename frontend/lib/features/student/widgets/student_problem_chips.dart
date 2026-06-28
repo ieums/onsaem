@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/subject_colors.dart';
 import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 
 /// 옅은 채움 + 진한 글씨 칩(학생 컬러 규칙).
@@ -31,14 +32,32 @@ class ProblemChip extends StatelessWidget {
   }
 }
 
-/// 과목 칩(학생 진한 연두).
+/// 과목 칩(과목별 고유색 — 강사 화면과 동일한 팔레트 사용).
 class ProblemSubjectChip extends StatelessWidget {
   const ProblemSubjectChip({super.key, required this.subject});
   final String? subject;
 
   @override
-  Widget build(BuildContext context) =>
-      ProblemChip(text: subjectLabel(subject), color: AppColors.studentInk);
+  Widget build(BuildContext context) {
+    final label = subjectLabel(subject);
+    final (text, bg) =
+        SubjectColors.badgeColors(label, Theme.of(context).brightness);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: text,
+        ),
+      ),
+    );
+  }
 }
 
 /// 상태 칩(상태별 색).

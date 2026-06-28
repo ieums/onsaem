@@ -37,6 +37,7 @@ class SettlementResponse {
     required this.status,
     required this.createdAt,
     this.transferredAt,
+    this.reportPending = false,
   });
 
   final int id;
@@ -54,7 +55,12 @@ class SettlementResponse {
   /// 송금 완료 시점. TRANSFERRED 전에는 null.
   final DateTime? transferredAt;
 
-  bool get isWithdrawable => status == SettlementStatus.calculated;
+  /// 그 강의에 처리 중인 신고가 있어 출금이 보류된 상태.
+  final bool reportPending;
+
+  /// 출금 가능: 계산 완료 + 신고 보류 아님.
+  bool get isWithdrawable =>
+      status == SettlementStatus.calculated && !reportPending;
 
   factory SettlementResponse.fromJson(Map<String, dynamic> json) {
     return SettlementResponse(
@@ -70,6 +76,7 @@ class SettlementResponse {
       transferredAt: json['transferredAt'] == null
           ? null
           : DateTime.parse(json['transferredAt'] as String),
+      reportPending: json['reportPending'] as bool? ?? false,
     );
   }
 }

@@ -34,7 +34,9 @@ import 'package:ieum/features/auth/data/auth_models.dart';
 
 final appRouter = GoRouter(
   navigatorKey: GlobalKey<NavigatorState>(),
-  initialLocation: '/login',
+  // 앱 시작 시 온보딩(스플래시)부터. 3초 후 로그인으로 이동하고,
+  // 이미 로그인된 사용자는 로그인 화면 진입 즉시 redirect로 역할별 홈으로 보내진다.
+  initialLocation: RoutePaths.onboarding,
     redirect: (context, state) {
     final container = ProviderScope.containerOf(context);
     final user = container.read(currentUserProvider);

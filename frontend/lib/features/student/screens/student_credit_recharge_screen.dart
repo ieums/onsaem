@@ -87,7 +87,7 @@ class _StudentCreditRechargeScreenState
     final theme = baseTheme.copyWith(
       colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
       scaffoldBackgroundColor:
-          isDark ? AppColors.shellScaffoldDark : Colors.white,
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
     final balanceAsync = ref.watch(coinBalanceProvider);
     final packagesAsync = ref.watch(coinPackagesProvider);

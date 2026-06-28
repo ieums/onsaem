@@ -1,6 +1,7 @@
 package com.ieum.backend.domain.problem.controller;
 
 import com.ieum.backend.domain.problem.dto.request.ClassificationUpdateRequest;
+import com.ieum.backend.domain.problem.dto.request.PageOrderUpdateRequest;
 import com.ieum.backend.domain.problem.dto.request.ProblemCreateRequest;
 import com.ieum.backend.domain.problem.dto.request.ProblemSelectRequest;
 import com.ieum.backend.domain.problem.dto.response.ProblemCreateResponse;
@@ -85,6 +86,20 @@ public class ProblemController {
             @RequestBody @Valid ClassificationUpdateRequest request) {
 
         return ApiResponse.ok("분류가 수정되었습니다.", problemService.updateClassification(id, request));
+    }
+
+    /**
+     * (2) 여러 장 한 문제의 페이지 순서 재정렬
+     * PATCH /api/v1/problems/{id}/page-order
+     * body: { "order": [2, 0, 1] }  // 현재 인덱스의 순열
+     */
+    @PatchMapping("/{id}/page-order")
+    public ApiResponse<ProblemDetailResponse> reorderPages(
+            @PathVariable Long id,
+            @RequestBody @Valid PageOrderUpdateRequest request) {
+
+        return ApiResponse.ok("페이지 순서를 변경했습니다.",
+                problemService.reorderPages(id, request.getOrder()));
     }
 
     /**

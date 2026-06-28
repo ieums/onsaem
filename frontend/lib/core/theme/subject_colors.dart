@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// 과목 배지 색 (라이트/다크)
-abstract final class TutorSubjectColors {
+/// 과목 배지 색(라이트/다크). 학생·강사 공용 — 한 곳에서 관리해 과목별 색을 통일한다.
+abstract final class SubjectColors {
   static const _themes = <String, _SubjectPalette>{
     '국어': _SubjectPalette(
       lightText: Color(0xFFE57373),

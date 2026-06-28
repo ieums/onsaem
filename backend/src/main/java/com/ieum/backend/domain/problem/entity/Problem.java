@@ -33,11 +33,28 @@ public class Problem {
     @OrderColumn(name = "page_order")
     private List<String> imageUrls = new ArrayList<>();
 
+    /**
+     * (2) 한 문제 여러 장(SINGLE_MULTIPAGE)일 때, imageUrls와 같은 순서의 장별 텍스트.
+     * 드래그 재정렬 시 재OCR 없이 이 텍스트를 새 순서로 재조합해 extractedText를 갱신한다.
+     * MULTI_PROBLEM(일반 등록)에서는 비어 있다 → 재정렬 미지원.
+     */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "problem_page_texts",
+            joinColumns = @JoinColumn(name = "problem_id")
+    )
+    @Column(name = "page_text", columnDefinition = "TEXT")
+    @OrderColumn(name = "page_order")
+    private List<String> pageTexts = new ArrayList<>();
+
     @Column(columnDefinition = "TEXT")
     private String extractedText;
 
     @Column(length = 500)
     private String summary;
+
+    /** OCR이 인식한 문제 번호(01·02…). 한 이미지에 여러 문제일 때 강사에게 '몇 번' 표시용. 없으면 null. */
+    private Integer problemNumber;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
@@ -80,14 +97,17 @@ public class Problem {
     private boolean expiringSoonNotified = false;
 
     @Builder
-    public Problem(Long studentId, List<String> imageUrls, String extractedText,
-                   String summary, Subject subject, String primaryType,
+    public Problem(Long studentId, List<String> imageUrls, List<String> pageTexts,
+                   String extractedText,
+                   String summary, Integer problemNumber, Subject subject, String primaryType,
                    String secondaryType, Difficulty difficulty,
                    Integer totalDifficultyScore, ExamType examType,
                    String studentDescription) {
         this.studentId = studentId;
         this.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
+        this.pageTexts = pageTexts != null ? pageTexts : new ArrayList<>();
         this.extractedText = extractedText;
+        this.problemNumber = problemNumber;
         this.summary = summary;
         this.subject = subject;
         this.primaryType = primaryType;
@@ -109,6 +129,49 @@ public class Problem {
         if (secondaryType != null) this.secondaryType = secondaryType;
         if (difficulty != null) this.difficulty = difficulty;
         if (examType != null) this.examType = examType;
+    }
+
+    /**
+     * (2) 여러 장 한 문제의 페이지 순서 재정렬.
+     * newOrder는 현재 인덱스의 순열(예: [2,0,1]). imageUrls/pageTexts를 같은 순서로 재배치하고
+     * extractedText를 새 순서의 pageTexts로 재조합한다(재OCR 없음).
+     * 컬렉션 참조를 유지하려 in-place(clear+addAll)로 갱신한다.
+     */
+    public void reorderPages(List<Integer> newOrder) {
+        List<String> reorderedImages = new ArrayList<>(newOrder.size());
+        for (int idx : newOrder) {
+            reorderedImages.add(imageUrls.get(idx));
+        }
+        imageUrls.clear();
+        imageUrls.addAll(reorderedImages);
+
+        // pageTexts가 이미지와 1:1로 있을 때(SINGLE_MULTIPAGE)만 같이 재배치 + 본문 재조합.
+        // MULTI_PROBLEM의 여러 장짜리 한 문제는 pageTexts가 없으므로 이미지 순서만 바꾸고 본문은 그대로 둔다.
+        if (pageTexts != null && pageTexts.size() == newOrder.size()) {
+            List<String> reorderedPages = new ArrayList<>(newOrder.size());
+            for (int idx : newOrder) {
+                reorderedPages.add(pageTexts.get(idx));
+            }
+            pageTexts.clear();
+            pageTexts.addAll(reorderedPages);
+            this.extractedText = recomposeText(pageTexts);
+        }
+    }
+
+    private static String recomposeText(List<String> pages) {
+        StringBuilder sb = new StringBuilder();
+        for (String t : pages) {
+            if (t == null || t.isBlank()) continue;
+            if (sb.length() > 0) sb.append("\n\n");
+            sb.append(t.strip());
+        }
+        return sb.toString();
+    }
+
+    /** 이미지가 2장 이상이면 페이지(이미지) 순서 재정렬 가능.
+     *  SINGLE_MULTIPAGE(지문 여러 장)뿐 아니라 MULTI_PROBLEM에서 한 문제가 여러 장에 걸친 경우도 포함. */
+    public boolean isMultiPage() {
+        return imageUrls != null && imageUrls.size() > 1;
     }
 
     // 문제 해결됨

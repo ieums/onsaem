@@ -13,6 +13,8 @@ class SignupRoleScreen extends StatelessWidget {
   static const _backgroundColor = Color(0xFFF8F9FD);
   static const _titleColor = Color(0xFF1A1D26);
   static const _subtitleColor = Color(0xFF6B7280);
+  // 학생 카드 강조색(연두) — 테두리·제목 글씨에 사용. 기존 진한 녹색 대신 밝은 연두로.
+  static const _studentAccent = Color(0xFFD2E096);
 
   @override
   Widget build(BuildContext context) {
@@ -38,9 +40,11 @@ class SignupRoleScreen extends StatelessWidget {
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    // 가운데 정렬이라 위 공백이 너무 컸음 → 위쪽 정렬로 올림.
+                    mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                          const SizedBox(height: 8),
                           const Text(
                             '회원가입',
                             textAlign: TextAlign.center,
@@ -61,10 +65,11 @@ class SignupRoleScreen extends StatelessWidget {
                               height: 1.4,
                             ),
                           ),
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 32),
                           _RoleCard(
                             iconBackgroundColor: AppColors.roleStudentAccent,
-                            borderColor: AppColors.roleStudentBorder,
+                            borderColor: _studentAccent,
+                            titleColor: _studentAccent,
                             leadingIcon: const Icon(
                               Icons.school_rounded,
                               color: Colors.white,
@@ -176,6 +181,7 @@ class _RoleCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.onTap,
+    this.titleColor = const Color(0xFF1A1D26),
   });
 
   final Color iconBackgroundColor;
@@ -184,6 +190,7 @@ class _RoleCard extends StatelessWidget {
   final String title;
   final String description;
   final VoidCallback onTap;
+  final Color titleColor;
 
   @override
   Widget build(BuildContext context) {
@@ -219,10 +226,10 @@ class _RoleCard extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A1D26),
+                          color: titleColor,
                         ),
                       ),
                       const SizedBox(height: 6),

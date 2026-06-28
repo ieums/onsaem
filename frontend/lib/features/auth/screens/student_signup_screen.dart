@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/core/widgets/profile_image.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/auth/data/auth_controller.dart';
@@ -305,6 +306,36 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('앱을 완전히 종료한 뒤 다시 실행해 주세요.')),
       );
+    }
+  }
+
+  /// 프로필 이미지 변경 — 기본 이미지 / 갤러리 선택.
+  Future<void> _chooseProfileImage() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_hasProfileImage)
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('기본 이미지 사용'),
+                onTap: () => Navigator.pop(ctx, 'default'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('갤러리에서 선택'),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == 'default') {
+      setState(() => _profileImageBytes = null);
+    } else if (choice == 'gallery') {
+      await _pickProfileImage();
     }
   }
 
@@ -694,7 +725,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
               clipBehavior: Clip.none,
               children: [
                 GestureDetector(
-                  onTap: _pickProfileImage,
+                  onTap: _chooseProfileImage,
                   behavior: HitTestBehavior.opaque,
                   child: _buildProfileAvatar(context),
                 ),
@@ -702,7 +733,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                   right: 0,
                   bottom: 0,
                   child: GestureDetector(
-                    onTap: _pickProfileImage,
+                    onTap: _chooseProfileImage,
                     behavior: HitTestBehavior.opaque,
                     child: Container(
                       width: _profileAddButtonSize,
@@ -757,14 +788,10 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                 height: _profileSize,
                 fit: BoxFit.cover,
               )
-            : Center(
-                child: Icon(
-                  Icons.person,
-                  size: 48,
-                  color: _isShellThemed
-                      ? _textHint(context)
-                      : Colors.white,
-                ),
+            : DefaultProfileImage(
+                role: ProfileRole.student,
+                size: _profileSize,
+                iconColor: _isShellThemed ? _textHint(context) : Colors.white,
               ),
       ),
     );

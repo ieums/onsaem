@@ -282,7 +282,7 @@ class _TutorRequestListScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TutorRequestProblemThumbnail(
-                imageUrl: app.imageUrls.firstOrNull,
+                imageUrls: app.imageUrls,
                 title: _cardTitle(app),
               ),
               const SizedBox(width: 12),

@@ -7,6 +7,8 @@ import 'package:ieum/features/matching/models/searching_problem_model.dart';
 import 'package:ieum/features/matching/providers/matching_provider.dart'
     show matchingProvider, tutorApplicationsProvider;
 import 'package:ieum/features/tutor/providers/tutor_availability_provider.dart';
+import 'package:ieum/features/tutor/providers/tutor_notification_provider.dart';
+import 'package:ieum/features/tutor/widgets/tutor_notification_dialog.dart';
 import 'package:ieum/features/tutor/widgets/tutor_request_problem_image.dart';
 import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
 
@@ -82,13 +84,20 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '강사 홈',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: shell.titleColor,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '강사 홈',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: shell.titleColor,
+                      ),
+                    ),
+                  ),
+                  _buildNotificationBell(shell),
+                ],
               ),
               const SizedBox(height: 16),
               _buildOnlineStatusCard(),
@@ -158,6 +167,51 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
               ),
             ],
           ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 학생 홈 알림 버튼과 동일한 모양 — 테두리 박스 + 안읽음 빨간 점.
+  Widget _buildNotificationBell(ShellTheme shell) {
+    final hasUnread = ref.watch(tutorUnreadCountProvider) > 0;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => showTutorNotificationDialog(context, ref),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: shell.cardBorder),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                Icons.notifications_none_rounded,
+                color: shell.titleColor,
+                size: 22,
+              ),
+              if (hasUnread)
+                Positioned(
+                  top: 9,
+                  right: 10,
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      // 강사 고유색(보라 계열 primary)
+                      color: AppColors.primaryBlue,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
@@ -339,20 +393,23 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
 
   Widget _buildQuestionCard(SearchingProblemModel problem) {
     final shell = ShellTheme.of(context);
+    final category = _cardTitle(problem);
+    final desc = (problem.studentDescription ?? '').trim();
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: shell.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    // 학생 홈처럼 카드 전체를 눌러 상세로 진입(+ 오른쪽 ›). 신청은 상세화면에서.
+    return Material(
+      color: shell.cardBackground,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _navigateToDetail(problem),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               TutorRequestProblemThumbnail(
-                imageUrl: problem.imageUrls.firstOrNull,
+                imageUrls: problem.imageUrls,
                 title: _cardTitle(problem),
               ),
               const SizedBox(width: 12),
@@ -360,16 +417,24 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 과목 · 대분류 · 소분류 → 키워드 칩으로
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
+                    // 과목 배지 + 대/소분류(독서 · 과학기술) 한 줄
+                    Row(
                       children: [
                         TutorSubjectBadge(subject: problem.subjectLabel),
-                        if ((problem.primaryType ?? '').isNotEmpty)
-                          _keywordChip(problem.primaryType!, shell),
-                        if ((problem.secondaryType ?? '').isNotEmpty)
-                          _keywordChip(problem.secondaryType!, shell),
+                        if (category.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              category,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: shell.hintColor,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -387,11 +452,11 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    // 부가 = 학생이 입력한 설명(description) — 있을 때만
-                    if ((problem.studentDescription ?? '').trim().isNotEmpty) ...[
+                    // 학생이 직접 쓴 설명(어려운 점 등) — 있을 때만
+                    if (desc.isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Text(
-                        problem.studentDescription!.trim(),
+                        desc,
                         style: TextStyle(
                           fontSize: 13,
                           color: shell.hintColor,
@@ -409,11 +474,11 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right, size: 22, color: shell.hintColor),
             ],
           ),
-          const SizedBox(height: 14),
-          _buildActionButtons(problem),
-        ],
+        ),
       ),
     );
   }
@@ -424,47 +489,5 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
     if (primary.isEmpty) return secondary;
     if (secondary.isEmpty) return primary;
     return '$primary · $secondary';
-  }
-
-  /// 대분류·소분류 키워드 칩 (과목 뱃지와 함께 Wrap에 나열).
-  Widget _keywordChip(String text, ShellTheme shell) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: shell.hintColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: shell.titleColor,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButtons(SearchingProblemModel problem) {
-    // 목록 카드에서는 '자세히'만. 신청은 상세화면에서 문제를 확인한 뒤 하도록 한다.
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: () => _navigateToDetail(problem),
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primaryBlue,
-          foregroundColor: AppColors.onPrimaryFill(Theme.of(context).brightness),
-          elevation: 0,
-          minimumSize: const Size.fromHeight(44),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: const Text(
-          '자세히',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
   }
 }

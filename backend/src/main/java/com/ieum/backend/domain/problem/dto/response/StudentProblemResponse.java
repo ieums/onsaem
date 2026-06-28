@@ -30,6 +30,8 @@ public class StudentProblemResponse {
     private LocalDateTime createdAt;
     private List<String> imageUrls;
     private int applicantCount;
+    /** (2) 여러 장 한 문제로 등록돼 페이지 순서 재정렬이 가능한지. */
+    private boolean multiPage;
 
     public static StudentProblemResponse from(Problem problem, int applicantCount) {
         return StudentProblemResponse.builder()
@@ -46,6 +48,7 @@ public class StudentProblemResponse {
                 .createdAt(problem.getCreatedAt())
                 .imageUrls(problem.getImageUrls())
                 .applicantCount(applicantCount)
+                .multiPage(problem.isMultiPage())
                 .build();
     }
 }
