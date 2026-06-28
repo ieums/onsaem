@@ -11,6 +11,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -98,8 +101,21 @@ public class SubscriptionService {
         Subscription subscription = subscriptionRepository.findByStudentIdAndActiveTrue(studentId)
                 .orElseThrow(() -> BusinessException.notFound("활성 구독이 없습니다."));
 
-        subscription.cancel();
+        subscription.cancel(); // 자동갱신만 OFF — endDate까지 이용 유지(즉시 사라지지 않음)
         return SubscriptionResponse.from(subscription);
+    }
+
+    /**
+     * 기간이 끝난(endDate 경과) 활성 구독을 만료 처리 — 스케줄러가 주기 호출.
+     * active=false + 활성 슬롯 해제(재구독 가능). 해지(autoRenew OFF)한 구독은 여기서 자연 만료된다.
+     * TODO: PG 자동결제 연동 시 autoRenew=true는 만료 대신 renew()+재결제로 분기.
+     */
+    @Transactional
+    public int expireDueSubscriptions() {
+        List<Subscription> due =
+                subscriptionRepository.findByActiveTrueAndEndDateLessThanEqual(LocalDate.now());
+        due.forEach(Subscription::expire);
+        return due.size();
     }
     /**
      * 자동갱신 토글

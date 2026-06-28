@@ -36,7 +36,7 @@ class _StudentTutorProfileScreenState
   ThemeData _buildTheme(bool isDark) {
     final base = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     return base.copyWith(
-      colorScheme: base.colorScheme.copyWith(primary: AppColors.studentInk),
+      colorScheme: base.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
@@ -78,7 +78,7 @@ class _StudentTutorProfileScreenState
             loading: () => Scaffold(
               appBar: StudentFlowAppBar(title: '강사 프로필'),
               body: const Center(
-                child: CircularProgressIndicator(color: AppColors.studentInk),
+                child: CircularProgressIndicator(color: AppColors.studentPoint),
               ),
             ),
             error: (_, _) => Scaffold(
@@ -151,7 +151,7 @@ class _StudentTutorProfileScreenState
                     onPressed: _selectTutor,
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.studentPoint,
-                      foregroundColor: AppColors.studentInk,
+                      foregroundColor: Colors.black, // 연두 버튼 위 글씨는 검정
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -424,7 +424,7 @@ class _OnlineStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(99),
         border: Border.all(
           color: isOnline
-              ? AppColors.studentInk.withValues(alpha: 0.5)
+              ? AppColors.studentPoint.withValues(alpha: 0.8)
               : Colors.grey.withValues(alpha: 0.4),
         ),
       ),
@@ -433,7 +433,7 @@ class _OnlineStatusBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: isOnline ? AppColors.studentInk : Colors.grey,
+          color: isOnline ? Colors.black : Colors.grey,
         ),
       ),
     );
@@ -469,7 +469,7 @@ class _SegmentTab extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: selected ? AppColors.studentInk : shell.hintColor,
+                color: selected ? shell.titleColor : shell.hintColor,
               ),
             ),
           ),

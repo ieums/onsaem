@@ -85,11 +85,10 @@ public class Subscription {
         this.autoRenew = autoRenew;
     }
 
-    // 구독 취소(즉시 종료) — 활성 해제 + 자동갱신 OFF + 활성 슬롯(파생 컬럼) 비움(재구독 가능)
+    // 구독 해지 — 자동갱신만 끄고 남은 기간(endDate)까지는 이용 유지(바로 사라지지 않음).
+    // 실제 비활성화/슬롯 해제는 endDate 경과 시 expire()(스케줄러)가 처리한다.
     public void cancel() {
-        this.active = false;
         this.autoRenew = false;
-        this.activeStudentId = null;
     }
 
     // 구독 만료

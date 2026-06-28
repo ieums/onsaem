@@ -60,7 +60,7 @@ class StudentPrimaryGradientButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: enabled
-                ? [AppColors.studentInk, AppColors.primaryBlue]
+                ? [AppColors.studentPoint, AppColors.primaryBlue]
                 : [
                     AppColors.studentPoint.withValues(alpha: 0.45),
                     AppColors.primaryBlue.withValues(alpha: 0.45),
@@ -173,6 +173,7 @@ class StudentTutorCompactCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = emphasized
         ? AppColors.studentPoint.withValues(alpha: 0.45)
         : shell.cardBorder;
@@ -251,7 +252,7 @@ class StudentTutorCompactCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.studentInk,
+                              color: AppColors.studentPoint,
                             ),
                           ),
                         ),
@@ -261,17 +262,15 @@ class StudentTutorCompactCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              FilledButton(
+              OutlinedButton(
                 onPressed: tutor.isInLesson ? null : onSelect,
-                style: FilledButton.styleFrom(
-                  backgroundColor: tutor.isInLesson
-                      ? Colors.grey.withValues(alpha: 0.3)
-                      : AppColors.studentPoint,
-                  foregroundColor: tutor.isInLesson
-                      ? Colors.grey
-                      : AppColors.studentInk,
-                  disabledBackgroundColor:
-                      Colors.grey.withValues(alpha: 0.3),
+                // 강사찾기와 동일: 라이트=흰 배경+검정, 다크=검정 배경+연두, 보더=연두.
+                style: OutlinedButton.styleFrom(
+                  backgroundColor:
+                      isDark ? AppColors.shellSurfaceDark : Colors.white,
+                  foregroundColor:
+                      isDark ? AppColors.studentPoint : Colors.black,
+                  side: const BorderSide(color: AppColors.studentPoint),
                   disabledForegroundColor: Colors.grey,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -358,7 +357,7 @@ class _OnlineBadge extends StatelessWidget {
             : Colors.grey.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(99),
         border: Border.all(
-          color: isOnline ? AppColors.studentInk : Colors.grey,
+          color: isOnline ? AppColors.studentPoint : Colors.grey,
         ),
       ),
       child: Text(
@@ -366,7 +365,7 @@ class _OnlineBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w800,
-          color: isOnline ? AppColors.studentInk : Colors.grey,
+          color: isOnline ? AppColors.studentPoint : Colors.grey,
         ),
       ),
     );

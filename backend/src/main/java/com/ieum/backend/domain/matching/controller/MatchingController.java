@@ -6,6 +6,7 @@ import com.ieum.backend.domain.matching.dto.request.MatchingCancelConfirmRequest
 import com.ieum.backend.domain.matching.dto.request.MatchingConfirmRequest;
 import com.ieum.backend.domain.matching.dto.request.MatchingStartRequest;
 import com.ieum.backend.domain.matching.dto.response.ApplicantResponse;
+import com.ieum.backend.domain.matching.dto.response.PendingConfirmResponse;
 import com.ieum.backend.domain.matching.dto.response.TutorApplicationResponse;
 import com.ieum.backend.domain.matching.service.MatchingService;
 import com.ieum.backend.global.response.ApiResponse;
@@ -90,6 +91,12 @@ public class MatchingController {
             @RequestParam Long tutorId) {
         matchingService.rejectProblem(problemId, tutorId);
         return ApiResponse.ok("문제를 거절했습니다", null);
+    }
+
+    /** 학생이 놓친 매칭 수락 요청 복구용 — 없으면 data=null. */
+    @GetMapping("/student/{studentId}/pending-confirm")
+    public ApiResponse<PendingConfirmResponse> getPendingConfirm(@PathVariable Long studentId) {
+        return ApiResponse.ok(matchingService.getPendingConfirm(studentId));
     }
 
     @GetMapping("/tutor/{tutorId}/applications")

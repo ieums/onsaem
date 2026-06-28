@@ -71,7 +71,7 @@ class _StudentProfileEditScreenState
         data: Theme.of(context).copyWith(
           colorScheme: Theme.of(context)
               .colorScheme
-              .copyWith(primary: AppColors.studentInk),
+              .copyWith(primary: AppColors.studentPoint),
         ),
         child: child!,
       ),
@@ -196,7 +196,7 @@ class _StudentProfileEditScreenState
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
@@ -213,7 +213,7 @@ class _StudentProfileEditScreenState
             ),
             body: _loading
                 ? const Center(
-                    child: CircularProgressIndicator(color: AppColors.studentInk),
+                    child: CircularProgressIndicator(color: AppColors.studentPoint),
                   )
                 : SafeArea(
                     child: ListView(
@@ -252,7 +252,7 @@ class _StudentProfileEditScreenState
                             onPressed: _saving ? null : _save,
                             style: FilledButton.styleFrom(
                               backgroundColor: AppColors.studentPoint,
-                              foregroundColor: AppColors.studentInk,
+                              foregroundColor: Colors.black, // 연두 위 글씨 검정
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -262,7 +262,7 @@ class _StudentProfileEditScreenState
                                     width: 22,
                                     height: 22,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2.4, color: Colors.white),
+                                        strokeWidth: 2.4, color: Colors.black),
                                   )
                                 : const Text('저장',
                                     style: TextStyle(
@@ -294,13 +294,13 @@ class _StudentProfileEditScreenState
                 resolved != null ? NetworkImage(resolved) : null,
             child: _uploadingImage
                 ? const CircularProgressIndicator(
-                    color: AppColors.studentInk, strokeWidth: 2.6)
+                    color: AppColors.studentPoint, strokeWidth: 2.6)
                 : (resolved == null
                     ? const ClipOval(
                         child: DefaultProfileImage(
                           role: ProfileRole.student,
                           size: 96,
-                          iconColor: AppColors.studentInk,
+                          iconColor: AppColors.studentPoint,
                         ),
                       )
                     : null),
@@ -309,7 +309,7 @@ class _StudentProfileEditScreenState
             right: 0,
             bottom: 0,
             child: Material(
-              color: AppColors.studentInk,
+              color: AppColors.studentPoint,
               shape: const CircleBorder(),
               child: InkWell(
                 customBorder: const CircleBorder(),
@@ -317,7 +317,7 @@ class _StudentProfileEditScreenState
                 child: const Padding(
                   padding: EdgeInsets.all(7),
                   child: Icon(Icons.camera_alt_rounded,
-                      size: 16, color: Colors.white),
+                      size: 16, color: Colors.black),
                 ),
               ),
             ),
@@ -387,7 +387,7 @@ class _StudentProfileEditScreenState
         enabledBorder: border,
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.studentInk, width: 1.6),
+          borderSide: const BorderSide(color: AppColors.studentPoint, width: 1.6),
         ),
       ),
     );

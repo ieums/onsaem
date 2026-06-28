@@ -227,6 +227,7 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
       decoration: BoxDecoration(
         color: shell.cardBackground,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primaryBlue), // 테두리 특징색
       ),
       child: Column(
         children: [

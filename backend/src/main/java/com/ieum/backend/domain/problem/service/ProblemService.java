@@ -41,6 +41,7 @@ public class ProblemService {
     private final ImageStorageService imageStorageService;
     private final GeminiClient geminiClient;
     private final DetectionCache detectionCache;
+    private final ProblemPersistence problemPersistence;
 
     /** 학생 1명이 동시에 등록(탐색 중)할 수 있는 질문 수 상한. */
     private static final int MAX_ACTIVE_PROBLEMS = 3;
@@ -210,9 +211,6 @@ public class ProblemService {
     private Problem saveProblem(AiAnalysisResult.DetectedProblem dp, List<String> imageUrls,
                                 List<String> pageTexts,
                                 Long studentId, Subject chosenSubject, String studentDescription) {
-        // 실제 등록 직전 재확인(선택 경로 포함, 동시 등록 경합 방어).
-        assertUnderActiveLimit(studentId);
-
         // (3) 글 없는/너무 짧은 이미지 차단 — OCR이 의미 있는 문제 글을 못 뽑았으면 등록 거부.
         String text = dp.getExtractedText() == null ? "" : dp.getExtractedText().strip();
         if (text.length() < MIN_PROBLEM_TEXT_LEN) {
@@ -250,7 +248,8 @@ public class ProblemService {
                 .studentDescription(studentDescription)
                 .build();
 
-        return problemRepository.save(problem);
+        // 등록 직전 개수 확인 + INSERT를 한 트랜잭션에서 원자적으로(동시 업로드 경합 방어).
+        return problemPersistence.saveUnderActiveLimit(problem, studentId, MAX_ACTIVE_PROBLEMS);
     }
 
     /**
@@ -367,8 +366,10 @@ public class ProblemService {
      * 학생 문제 목록 조회
      */
     public List<StudentProblemResponse> getStudentProblems(Long studentId) {
+        // 마이페이지 '내 질문'은 상태와 무관하게 전부 노출(매칭 대기/완료/만료/취소…) — 최신순.
+        // 상태 키워드(칩)로 구분하므로 모든 상태를 그대로 보여준다.
         List<ApplicationStatus> countStatuses = List.of(ApplicationStatus.PENDING, ApplicationStatus.UNAVAILABLE);
-        return problemRepository.findAllByStudentIdAndStatus(studentId, ProblemStatus.PENDING).stream()
+        return problemRepository.findAllByStudentIdOrderByCreatedAtDesc(studentId).stream()
                 .map(problem -> {
                     int count = matchingApplicationRepository.countByProblemIdAndStatusIn(problem.getId(), countStatuses);
                     return StudentProblemResponse.from(problem, count);
@@ -396,8 +397,8 @@ public class ProblemService {
         // 모든 강사의 '새 질문 리스트'에서 즉시 사라지도록 브로드캐스트(미신청 강사 포함).
         notificationService.notifyProblemRemoved(id);
 
-        // (1)A 즉시 삭제 — 취소된 문제 이미지는 더 이상 안 쓰이므로 정리(best-effort).
-        // 취소 문제는 학생 목록(PENDING만)에도 안 보이므로 안전.
+        // 즉시 삭제 — 취소된 문제 이미지는 더 이상 안 쓰이므로 정리(best-effort).
+        // 취소(CANCELED) 질문은 학생 '내 질문' 목록(FE)에서 숨기므로 깨진 썸네일이 노출되지 않는다.
         imageStorageService.deleteAll(problem.getImageUrls());
     }
 }

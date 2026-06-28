@@ -5,6 +5,7 @@ import 'package:ieum/features/matching/repositories/matching_repository.dart';
 import 'package:ieum/features/student/models/applicant_model.dart';
 import 'package:ieum/features/student/models/student_lesson_pricing.dart';
 import 'package:ieum/features/student/models/student_tutor_profile.dart';
+import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/providers/student_notification_provider.dart';
 import 'package:ieum/features/student/repositories/student_matching_stomp_service.dart';
 
@@ -179,6 +180,25 @@ class StudentMatchingSessionNotifier
     _connectStomp(studentId, problemId);
   }
 
+  /// 앱 재실행 후 놓친 매칭 수락 복구 — 세션을 다시 연결하고 수락/거절 다이얼로그를 띄운다.
+  /// (resumeMatching으로 STOMP를 살려야 수락 시 onMatched를 받아 강의실로 이동된다)
+  Future<void> restorePendingConfirm({
+    required int problemId,
+    required int studentId,
+    required String subject,
+    required String questionSummary,
+    required int tutorId,
+  }) async {
+    await resumeMatching(
+      problemId: problemId,
+      studentId: studentId,
+      subject: subject,
+      questionSummary: questionSummary,
+    );
+    if (state == null) return;
+    state = state!.copyWith(matchRequestedTutorId: tutorId);
+  }
+
   void _connectStomp(int studentId, int problemId) {
     _stomp.connect(
       studentId,
@@ -193,6 +213,8 @@ class StudentMatchingSessionNotifier
               ? StudentMatchingSessionStatus.selectingTutor
               : StudentMatchingSessionStatus.matching,
         );
+        // 홈/목록의 '지원 강사 N명'도 실시간 반영(세션이 떠 있는 동안).
+        _ref.invalidate(studentProblemsProvider);
         // 첫 강사 신청 시 알림함 + 배너 (강사가 신청했어요 → 선택하세요)
         if (!hadApplicants && list.isNotEmpty) {
           await _ref
@@ -209,6 +231,7 @@ class StudentMatchingSessionNotifier
           applicants:
               state!.applicants.where((a) => a.tutorId != tutorId).toList(),
         );
+        _ref.invalidate(studentProblemsProvider);
       },
       onMatchRequested: (_, tutorId, msg) {
         if (state == null) return;
@@ -274,7 +297,19 @@ class StudentMatchingSessionNotifier
   Future<void> cancelConfirm(int tutorId) async {
     if (state == null) return;
     await _repo.cancelConfirmStudent(state!.problemId, tutorId);
-    state = state!.copyWith(matchRequestedTutorId: null);
+    // 거절하면 그 강사는 목록에서 빼고, 다시 강사 선택 화면으로 돌아간다(남은 강사 선택 가능).
+    final remaining =
+        state!.applicants.where((a) => a.tutorId != tutorId).toList();
+    state = state!.copyWith(
+      matchRequestedTutorId: null,
+      selectedTutorId: null,
+      status: remaining.isNotEmpty
+          ? StudentMatchingSessionStatus.selectingTutor
+          : StudentMatchingSessionStatus.matching,
+      applicants: remaining,
+    );
+    // 홈/목록의 지원 강사 수도 갱신.
+    _ref.invalidate(studentProblemsProvider);
   }
 
   Future<void> cancelMatching() async {

@@ -19,5 +19,10 @@ portone:
   api-base-url: https://api.portone.io
   verification-enabled: ${PORTONE_VERIFY:false}
 
+# 녹화 사용(prod) — S3 자격증명이 있을 때만 켤 것. 로컬은 기본 false.
+agora:
+  recording:
+    enabled: ${AGORA_RECORDING_ENABLED:true}
+
 jwt:
   secret: ${JWT_SECRET}

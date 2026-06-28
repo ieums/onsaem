@@ -62,6 +62,10 @@ public class AgoraRecordingService {
     @Value("${spring.cloud.aws.credentials.secret-key}")
     private String awsSecretKey;
 
+    // 녹화 사용 여부. 로컬은 기본 false(S3 없음) → 녹화/폴링 전부 생략. prod yml에서 true로.
+    @Value("${agora.recording.enabled:false}")
+    private boolean recordingEnabled;
+
     public AgoraRecordingService(AgoraConfig agoraConfig, RestClient.Builder builder) {
         this.agoraConfig = agoraConfig;
         this.restClient = builder.build();
@@ -75,6 +79,12 @@ public class AgoraRecordingService {
      */
     public RecordingStartResponseDto startRecording(Lesson lesson) {
         String channelName = lesson.getChannelName();
+
+        // 녹화 비활성(로컬 등) → Agora/S3 호출 없이 무해하게 반환.
+        if (!recordingEnabled) {
+            log.info("[Agora] 녹화 비활성(agora.recording.enabled=false) — 시작 생략 lessonId={}", lesson.getId());
+            return new RecordingStartResponseDto(lesson.getId(), "", "", channelName);
+        }
 
         // web 모드는 RTC 채널을 구독하지 않으므로 녹화봇 RTC 토큰이 필요 없다.
         String resourceId = acquireResource(channelName);
@@ -90,6 +100,10 @@ public class AgoraRecordingService {
      * (트랜잭션은 호출자가 관리)
      */
     public RecordingStopResponseDto stopRecording(Lesson lesson) {
+        // 녹화 비활성 또는 시작된 녹화가 없으면 무해하게 반환(에러 X).
+        if (!recordingEnabled) {
+            return new RecordingStopResponseDto(lesson.getId(), "", "disabled");
+        }
         log.info("[Agora] stopRecording 호출됨 - lessonId={}, resourceId={}, sid={}", lesson.getId(), lesson.getResourceId(), lesson.getRecordingSid());
         String resourceId = lesson.getResourceId();
         String sid = lesson.getRecordingSid();
@@ -116,6 +130,7 @@ public class AgoraRecordingService {
     @Async
     @Transactional
     public void stopRecordingAsync(Long lessonId) {
+        if (!recordingEnabled) return; // 녹화 비활성 → S3 폴링 자체를 안 함(로컬 에러 도배 방지)
         log.info("[Agora][비동기] S3 폴링 시작 - lessonId={}", lessonId);
         String recordingUrl = findRecordingFromS3(lessonId);
         if (!recordingUrl.isEmpty()) {
@@ -327,7 +342,17 @@ public class AgoraRecordingService {
                 log.warn("[Agora] S3 폴링 인터럽트 - lessonId={}", lessonId);
                 break;
             } catch (Exception e) {
-                log.error("[Agora] S3 ListObjects 실패 (시도 {}/{}) - prefix={}, error={}", attempt, maxAttempts, prefix, e.getMessage());
+                // 인증/권한 오류(403/401)는 재시도해도 절대 성공하지 않음(잘못된 AWS 키 등)
+                // → 60회 도배하지 말고 한 번만 경고하고 중단(녹화 조회 건너뜀).
+                if (e instanceof software.amazon.awssdk.awscore.exception.AwsServiceException ase
+                        && (ase.statusCode() == 403 || ase.statusCode() == 401)) {
+                    log.warn("[Agora] S3 자격증명/권한 오류로 녹화 조회를 중단합니다 — lessonId={}. "
+                            + "AWS 키 설정을 확인하세요(로컬은 녹화 미사용일 수 있음).", lessonId);
+                    break;
+                }
+                // 그 외(일시적 오류 등)는 기존대로 재시도 (로그는 warn으로 톤다운)
+                log.warn("[Agora] S3 ListObjects 실패 (시도 {}/{}) - prefix={}, error={}",
+                        attempt, maxAttempts, prefix, e.getMessage());
                 if (attempt < maxAttempts) {
                     try { Thread.sleep(10000); } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();

@@ -165,8 +165,17 @@ public class LessonSummaryService {
     private String fetchAsDataUri(String imageUrl) {
         try {
             byte[] bytes;
-            try (var in = new java.net.URL(imageUrl).openStream()) {
-                bytes = in.readAllBytes();
+            if (imageUrl.startsWith("/")) {
+                // 로컬 상대경로(/uploads/xxx.jpg) → 디스크(uploads/)에서 직접 읽음. (prod는 http(s) URL)
+                String rel = imageUrl.startsWith("/uploads/")
+                        ? imageUrl.substring("/uploads/".length())
+                        : imageUrl.replaceFirst("^/+", "");
+                bytes = java.nio.file.Files.readAllBytes(
+                        java.nio.file.Paths.get("uploads").resolve(rel));
+            } else {
+                try (var in = new java.net.URL(imageUrl).openStream()) {
+                    bytes = in.readAllBytes();
+                }
             }
             String lower = imageUrl.toLowerCase();
             String mime = lower.endsWith(".png") ? "image/png"

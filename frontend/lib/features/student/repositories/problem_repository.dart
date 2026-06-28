@@ -48,16 +48,36 @@ class ProblemRepository {
       ),
     });
 
-    // OCR + AI 분류(+재시도)는 30초를 넘길 수 있어 이 요청만 타임아웃을 길게 둔다.
+    // OCR + AI 분류(+재시도)는 시간이 걸린다. 서버 분석 마감(150초)보다 충분히 길게 둬서
+    // "FE는 타임아웃인데 서버는 저장" 불일치를 막는다(서버가 성공/실패를 먼저 응답).
+    // Idempotency-Key: 같은 업로드(같은 이미지+학생)면 같은 키 → 중복 등록 차단.
     final res = await _dio.post(
       '/problems',
       data: form,
       options: Options(
         sendTimeout: const Duration(minutes: 1),
-        receiveTimeout: const Duration(minutes: 2),
+        receiveTimeout: const Duration(minutes: 4),
+        headers: {
+          'Idempotency-Key': _idempotencyKey(studentId, images, subject),
+        },
       ),
     );
     return ProblemCreateResult.fromJson(res.data['data'] as Map<String, dynamic>);
+  }
+
+  /// 같은 업로드(학생·과목·이미지 내용)면 항상 같은 키를 만든다(내용 기반 멱등 키).
+  /// 전체 바이트 대신 길이 + 표본 바이트로 가볍게 식별한다(10분 중복 차단 용도라 충돌 위험 낮음).
+  String _idempotencyKey(int studentId, List<Uint8List> images, String? subject) {
+    final b = StringBuffer('$studentId|${subject ?? ''}|');
+    for (final img in images) {
+      final n = img.length;
+      b.write(n);
+      if (n > 0) {
+        b.write(':${img[0]},${img[n ~/ 2]},${img[n - 1]}');
+      }
+      b.write('|');
+    }
+    return b.toString().hashCode.toUnsigned(32).toRadixString(16);
   }
 
   /// 여러 문제 감지 후 선택 확정 (재OCR/재업로드 없음). 1차 응답의 detectionId 사용.

@@ -8,6 +8,7 @@ import com.ieum.backend.domain.problem.dto.response.ProblemCreateResponse;
 import com.ieum.backend.domain.problem.dto.response.ProblemDetailResponse;
 import com.ieum.backend.domain.problem.dto.response.SearchingProblemResponse;
 import com.ieum.backend.domain.problem.dto.response.StudentProblemResponse;
+import com.ieum.backend.domain.problem.service.ProblemIdempotencyService;
 import com.ieum.backend.domain.problem.service.ProblemService;
 import com.ieum.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -24,19 +25,25 @@ import java.util.List;
 public class ProblemController {
 
     private final ProblemService problemService;
+    private final ProblemIdempotencyService idempotencyService;
 
     /**
      * 문제 등록 (이미지 1~N장)
      * multipart/form-data
      *   - images: List<MultipartFile>
      *   - data:   ProblemCreateRequest (JSON)
+     *
+     * Idempotency-Key 헤더(선택): 같은 키의 재요청은 처음 결과를 그대로 반환해 중복 등록을 막는다.
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<ProblemCreateResponse> createProblem(
             @RequestPart("images") List<MultipartFile> images,
-            @RequestPart("data") @Valid ProblemCreateRequest request) {
+            @RequestPart("data") @Valid ProblemCreateRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
 
-        return ApiResponse.ok("문제가 등록되었습니다.", problemService.createProblem(images, request));
+        ProblemCreateResponse result = idempotencyService.execute(
+                idempotencyKey, () -> problemService.createProblem(images, request));
+        return ApiResponse.ok("문제가 등록되었습니다.", result);
     }
 
     /**

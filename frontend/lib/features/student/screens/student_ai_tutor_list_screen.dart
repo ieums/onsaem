@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
@@ -23,6 +24,7 @@ class StudentAiTutorListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shell = ShellTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final async = ref.watch(studentProblemsProvider);
 
     return ColoredBox(
@@ -60,9 +62,10 @@ class StudentAiTutorListScreen extends ConsumerWidget {
                   label: const Text('새 문제 등록하기',
                       style: TextStyle(fontWeight: FontWeight.w700)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.studentInk,
-                    side: BorderSide(
-                        color: AppColors.studentInk.withValues(alpha: 0.5)),
+                    backgroundColor: shell.cardBackground, // 내부 흰색(라이트)/표면(다크)
+                    // 다크모드에선 글씨·아이콘을 특징색으로(라이트는 검정).
+                    foregroundColor: isDark ? AppColors.studentPoint : Colors.black,
+                    side: const BorderSide(color: AppColors.studentPoint),
                     minimumSize: const Size.fromHeight(46),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -73,13 +76,13 @@ class StudentAiTutorListScreen extends ConsumerWidget {
             ),
             Expanded(
               child: RefreshIndicator(
-                color: AppColors.studentInk,
+                color: AppColors.studentPoint,
                 onRefresh: () async =>
                     ref.refresh(studentProblemsProvider.future),
                 child: async.when(
                   loading: () => const Center(
                     child: CircularProgressIndicator(
-                        color: AppColors.studentInk),
+                        color: AppColors.studentPoint),
                   ),
                   error: (e, _) => _MessageState(
                     shell: shell,
@@ -87,12 +90,19 @@ class StudentAiTutorListScreen extends ConsumerWidget {
                     title: '목록을 불러오지 못했어요',
                     subtitle: '잠시 후 다시 시도해 주세요.',
                   ),
-                  data: (items) {
+                  data: (all) {
+                    // AI 튜터로 물어볼 수 있는 문제만: 매칭완료·풀이완료(=복습에서 질문)·취소됨은 제외.
+                    final items = all
+                        .where((p) =>
+                            p.status != 'MATCHED' &&
+                            p.status != 'RESOLVED' &&
+                            p.status != 'CANCELED')
+                        .toList();
                     if (items.isEmpty) {
                       return _MessageState(
                         shell: shell,
                         icon: Icons.assignment_outlined,
-                        title: '등록한 문제가 없어요',
+                        title: '질문할 문제가 없어요',
                         subtitle: '문제 사진을 올리면 AI 튜터에게 질문할 수 있어요.',
                       );
                     }
@@ -140,56 +150,80 @@ class _ProblemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 한 줄로 얇게: 썸네일 + (과목·날짜 / 요약) + AI 아이콘.
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: shell.cardBackground,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: shell.cardBorder.withValues(alpha: 0.4)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                ProblemSubjectChip(subject: item.subject),
-                const SizedBox(width: 8),
-                ProblemStatusChip(status: item.status),
-                const Spacer(),
-                Icon(Icons.smart_toy_outlined,
-                    color: AppColors.studentInk, size: 20),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              (item.summary?.trim().isNotEmpty ?? false)
-                  ? item.summary!.trim()
-                  : '문제 요약 없음',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: shell.titleColor,
-                height: 1.3,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: item.imageUrls.isNotEmpty
+                    ? Image.network(
+                        ApiConstants.resolveImageUrl(item.imageUrls.first),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _thumb(),
+                      )
+                    : _thumb(),
               ),
             ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                _formatDate(item.createdAt),
-                style: TextStyle(fontSize: 12.5, color: shell.hintColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      ProblemSubjectChip(subject: item.subject),
+                      const Spacer(),
+                      Text(
+                        _formatDate(item.createdAt),
+                        style:
+                            TextStyle(fontSize: 11.5, color: shell.hintColor),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    (item.summary?.trim().isNotEmpty ?? false)
+                        ? item.summary!.trim()
+                        : '문제 요약 없음',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: shell.titleColor,
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(width: 8),
+            const Icon(Icons.smart_toy_outlined,
+                color: AppColors.studentPoint, size: 20),
           ],
         ),
       ),
     );
   }
+
+  Widget _thumb() => Container(
+        color: shell.cardBorder.withValues(alpha: 0.3),
+        alignment: Alignment.center,
+        child: Icon(Icons.image_outlined, color: shell.hintColor, size: 22),
+      );
 
   static String _formatDate(DateTime d) {
     final l = d.toLocal();

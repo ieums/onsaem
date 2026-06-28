@@ -20,7 +20,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -36,9 +38,16 @@ public class SettlementService {
     private static final List<ReportStatus> OPEN_REPORTS =
             List.of(ReportStatus.PENDING, ReportStatus.REVIEWING);
 
-    /** 그 강의에 처리 중(PENDING/REVIEWING)인 신고가 있는지 — 있으면 출금 보류. */
+    /** 그 강의에 처리 중(PENDING/REVIEWING)인 신고가 있는지 — 있으면 출금 보류. (단건용) */
     private boolean hasOpenReport(Long lessonId) {
         return reportRepository.existsByLessonIdAndStatusIn(lessonId, OPEN_REPORTS);
+    }
+
+    /** 여러 정산의 강의들 중 '열린 신고'가 있는 lessonId 집합을 한 번에 조회(N+1 제거). */
+    private Set<Long> openReportLessonIds(List<Settlement> settlements) {
+        List<Long> lessonIds = settlements.stream().map(Settlement::getLessonId).toList();
+        if (lessonIds.isEmpty()) return Set.of();
+        return new HashSet<>(reportRepository.findLessonIdsWithStatusIn(lessonIds, OPEN_REPORTS));
     }
 
     /**
@@ -60,11 +69,19 @@ public class SettlementService {
                     throw BusinessException.conflict("이미 정산된 강의입니다. settlementId: " + existing.getId());
                 });
 
-        SettlementPolicy.Distribution dist = SettlementPolicy.distribute(request.getTotalCoin());
+        // 정산 금액은 요청값이 아니라 '강의의 실제 코인(coinCost)'을 권위로 삼는다.
+        // (요청 totalCoin을 신뢰하면 외부에서 임의 금액으로 정산을 만들 수 있음 — 위조 방지)
+        Integer coinCost = lesson.getCoinCost();
+        if (coinCost == null || coinCost <= 0) {
+            throw BusinessException.badRequest(
+                    "정산할 코인 금액이 없습니다(과금 강의가 아님). lessonId: " + request.getLessonId());
+        }
+
+        SettlementPolicy.Distribution dist = SettlementPolicy.distribute(coinCost);
         Settlement settlement = Settlement.builder()
                 .tutorId(tutorId)
                 .lessonId(request.getLessonId())
-                .totalCoin(request.getTotalCoin())
+                .totalCoin(coinCost)
                 .platformFeeCoin(dist.platformFeeCoin())
                 .tutorCoin(dist.tutorCoin())
                 .tutorAmount(dist.tutorAmount())
@@ -84,12 +101,13 @@ public class SettlementService {
      * 강사별 정산 내역 조회
      */
     public List<SettlementResponse> getByTutor(Long tutorId) {
-        return settlementRepository.findByTutorIdOrderByCreatedAtDesc(tutorId)
-                .stream()
-                // CALCULATED인데 신고 처리 중이면 reportPending=true → 프론트가 '신고 처리 중' 표시 + 출금 비활성
+        List<Settlement> all = settlementRepository.findByTutorIdOrderByCreatedAtDesc(tutorId);
+        Set<Long> openReports = openReportLessonIds(all); // 신고 조회 1회(N+1 제거)
+        // CALCULATED인데 신고 처리 중이면 reportPending=true → 프론트가 '신고 처리 중' 표시 + 출금 비활성
+        return all.stream()
                 .map(s -> SettlementResponse.from(s,
                         s.getStatus() == SettlementStatus.CALCULATED
-                                && hasOpenReport(s.getLessonId())))
+                                && openReports.contains(s.getLessonId())))
                 .toList();
     }
 
@@ -106,9 +124,13 @@ public class SettlementService {
     /**
      * 정산 상세 단건 조회
      */
-    public SettlementResponse getDetail(Long settlementId) {
+    public SettlementResponse getDetail(Long settlementId, Long tutorId) {
         Settlement settlement = settlementRepository.findById(settlementId)
                 .orElseThrow(() -> BusinessException.notFound("정산 정보를 찾을 수 없습니다."));
+        // 본인 정산만 열람 가능(IDOR 방지)
+        if (!settlement.getTutorId().equals(tutorId)) {
+            throw BusinessException.forbidden("본인의 정산만 조회할 수 있습니다.");
+        }
         return SettlementResponse.from(settlement);
     }
 
@@ -119,10 +141,10 @@ public class SettlementService {
         SettlementRepository.SettlementAggregate agg = settlementRepository.aggregateByTutor(tutorId);
         return new SettlementSummaryResponse(
                 tutorId,
-                agg.getTotalAmount().intValue(),
-                agg.getTransferredAmount().intValue(),
-                agg.getPendingAmount().intValue(),
-                agg.getSettlementCount().intValue()
+                agg.getTotalAmount(),
+                agg.getTransferredAmount(),
+                agg.getPendingAmount(),
+                agg.getSettlementCount()
         );
     }
 
@@ -170,9 +192,10 @@ public class SettlementService {
                         tutorId, SettlementStatus.CALCULATED
                 );
 
-        // 신고 처리 중인 강의의 정산은 제외(출금 보류). 나머지만 일괄 출금.
+        // 신고 처리 중인 강의의 정산은 제외(출금 보류). 나머지만 일괄 출금. (신고 조회 1회)
+        Set<Long> openReports = openReportLessonIds(calculatedAll);
         List<Settlement> calculated = calculatedAll.stream()
-                .filter(s -> !hasOpenReport(s.getLessonId()))
+                .filter(s -> !openReports.contains(s.getLessonId()))
                 .toList();
 
         if (calculated.isEmpty()) {
@@ -231,7 +254,23 @@ public class SettlementService {
         Settlement settlement = settlementRepository.findById(settlementId)
                 .orElseThrow(() -> BusinessException.notFound("정산 정보를 찾을 수 없습니다."));
 
+        // 송금 대기(PENDING)만 실패 처리 가능 — 이미 송금 완료된 건을 FAILED로 뒤집지 못하게.
+        if (settlement.getStatus() != SettlementStatus.PENDING) {
+            throw BusinessException.conflict("출금 대기 상태가 아닙니다. 현재 상태: " + settlement.getStatus());
+        }
         settlement.markFailed();
+        return SettlementResponse.from(settlement);
+    }
+
+    /**
+     * 송금 실패분 재시도 (관리자) — FAILED → CALCULATED.
+     * 실패한 정산을 다시 출금 요청 가능한 상태로 되돌린다(영구 정체 방지).
+     */
+    @Transactional
+    public SettlementResponse retryWithdraw(Long settlementId) {
+        Settlement settlement = settlementRepository.findById(settlementId)
+                .orElseThrow(() -> BusinessException.notFound("정산 정보를 찾을 수 없습니다."));
+        settlement.retryAfterFailure();
         return SettlementResponse.from(settlement);
     }
 

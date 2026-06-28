@@ -6,6 +6,8 @@ import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
+import 'package:ieum/features/student/providers/problem_provider.dart';
+import 'package:ieum/features/student/providers/student_applicant_watcher.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/routes/app_router.dart';
 import 'package:ieum/features/student/providers/student_shell_tab_provider.dart';
@@ -72,6 +74,8 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
       // 상대(강사)가 취소/거절했거나 타임아웃되면 요청이 사라진다 → 열려있는 다이얼로그 닫기.
       if (prevTutorId != null && nextTutorId == null) {
         _dismissMatchDialog();
+        // 수락/거절·취소로 요청이 끝났으니 홈 복구 배너도 갱신(사라지게).
+        ref.invalidate(pendingConfirmProvider);
       }
 
       final prevMsg = prev?.matchCancelledMessage;
@@ -103,11 +107,15 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
       }
     });
 
+    // 로그인 동안 '지원 강사 수' 실시간 워처를 살려둔다(모든 대기 문제 대상).
+    ref.watch(studentApplicantWatcherProvider);
+
     final tabIndex = ref.watch(studentShellTabIndexProvider);
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+      // 탭 선택색 등은 primary를 따름 → 학생 강조색(studentPoint)로 통일.
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor: isDark
           ? AppColors.shellScaffoldDark
           : AppColors.studentScaffoldLight,
@@ -144,7 +152,11 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
         final shell = ShellTheme.of(dialogContext);
         return Theme(
           data: theme,
-          child: AlertDialog(
+          // 뒤로가기로 닫혀 매칭 요청을 놓치지 않도록 막는다(수락/거절만 가능).
+          // 강사 취소/타임아웃 시엔 _dismissMatchDialog가 Navigator.pop으로 직접 닫는다.
+          child: PopScope(
+            canPop: false,
+            child: AlertDialog(
             backgroundColor: shell.cardBackground,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
@@ -187,6 +199,7 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
                     style: TextStyle(fontWeight: FontWeight.w800)),
               ),
             ],
+            ),
           ),
         );
       },

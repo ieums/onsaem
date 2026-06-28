@@ -11,6 +11,7 @@ import 'package:ieum/features/matching/models/searching_problem_model.dart';
 import 'package:ieum/features/matching/providers/matching_provider.dart';
 import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/features/tutor/providers/tutor_availability_provider.dart';
+import 'package:ieum/features/tutor/widgets/tutor_action_button_style.dart';
 
 class ProblemDetailScreen extends ConsumerStatefulWidget {
   const ProblemDetailScreen({super.key, required this.problem});
@@ -24,6 +25,7 @@ class ProblemDetailScreen extends ConsumerStatefulWidget {
 
 class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
   bool _isApplying = false;
+  bool _problemExpanded = false; // 학생이 고른 문제 글 펼침 여부
 
   Future<void> _apply() async {
     setState(() => _isApplying = true);
@@ -139,59 +141,50 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
 
               const SizedBox(height: 16),
 
-              // 버튼
+              // 버튼 — 신청: 통일 아웃라인(테두리만 특징색+흰/다크 배경). 넘기기: 가볍게(텍스트 버튼).
               Row(
                 children: [
                   Expanded(
-                    child: FilledButton(
+                    flex: 2,
+                    child: OutlinedButton(
                       onPressed: !canTapApply
                           ? null
                           : (isOnline ? _apply : _showOfflineDialog),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primaryBlue,
-                        disabledBackgroundColor:
-                            AppColors.primaryBlue.withValues(alpha: 0.4),
-                        minimumSize: const Size.fromHeight(52),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+                      style: tutorOutlinedButtonStyle(isDark, radius: 12,
+                          minimumSize: const Size.fromHeight(52)),
                       child: _isApplying
                           ? const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: AppColors.primaryBlue,
                               ),
                             )
                           : Text(
                               problem.alreadyApplied ? '이미 신청됨' : '신청',
                               style: const TextStyle(
                                 fontSize: 15,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => context.pop(problem.problemId),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: shell.titleColor,
-                        minimumSize: const Size.fromHeight(52),
-                        side: BorderSide(color: shell.borderColor, width: 1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        problem.alreadyApplied ? '닫기' : '넘기기',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
+                  const SizedBox(width: 8),
+                  // 넘기기: 보더 없이 가벼운 텍스트 버튼.
+                  TextButton(
+                    onPressed: () => context.pop(problem.problemId),
+                    style: TextButton.styleFrom(
+                      foregroundColor: shell.hintColor,
+                      // Size.fromHeight는 width=무한대 → Row에서 크래시. 높이만 고정.
+                      minimumSize: const Size(0, 52),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    child: Text(
+                      problem.alreadyApplied ? '닫기' : '넘기기',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -251,14 +244,46 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
 
   /// OCR 본문 보기 좋게: 문장 중간에 박힌 줄바꿈은 이어 붙이고,
   /// 문단 구분(빈 줄)과 선택지(①②③④⑤)만 줄을 살린다.
+  /// 길면 기본은 접힌 상태(5줄) + '더 보기/접기' 토글.
   Widget _problemBody(String raw, ShellTheme shell) {
-    return Text(
-      _reflow(raw),
-      style: TextStyle(
-        fontSize: 14,
-        height: 1.6,
-        color: shell.titleColor,
-      ),
+    final text = _reflow(raw);
+    // 대략적인 길이 기준 — 충분히 길 때만 토글 노출.
+    final isLong = text.length > 160;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          text,
+          textAlign: TextAlign.left,
+          maxLines: (!isLong || _problemExpanded) ? null : 5,
+          overflow: (!isLong || _problemExpanded)
+              ? TextOverflow.visible
+              : TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 15,
+            height: 1.6,
+            fontWeight: FontWeight.w600, // 학생 문제 상세처럼 진하게
+            color: shell.titleColor,
+          ),
+        ),
+        if (isLong)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () =>
+                  setState(() => _problemExpanded = !_problemExpanded),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primaryBlue,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(_problemExpanded ? '접기' : '더 보기',
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700)),
+            ),
+          ),
+      ],
     );
   }
 
@@ -336,7 +361,11 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
     if (problem.imageUrls.isEmpty) {
       return _imagePlaceholder(shell);
     }
-    return _ImagePager(urls: problem.imageUrls, shell: shell);
+    // SingleChildScrollView+Column(가로 느슨)에서 단일 이미지 Stack이 0폭으로 찌부되는 걸 방지.
+    return SizedBox(
+      width: double.infinity,
+      child: _ImagePager(urls: problem.imageUrls, shell: shell),
+    );
   }
 
   Widget _imagePlaceholder(dynamic shell) {
@@ -505,15 +534,19 @@ class _ImagePagerState extends State<_ImagePager> {
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                resolved,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: widget.shell.detailBackground,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.image_not_supported_outlined,
-                    color: widget.shell.hintColor,
+              // 학생 문제 상세와 동일: 잘리지 않게 contain + 여백은 배경색으로.
+              child: Container(
+                color: widget.shell.cardBackground,
+                child: Image.network(
+                  resolved,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => Container(
+                    color: widget.shell.detailBackground,
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      color: widget.shell.hintColor,
+                    ),
                   ),
                 ),
               ),
