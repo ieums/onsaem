@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
@@ -74,20 +75,15 @@ class _StudentSubscriptionScreenState
   Future<void> _cancel() async {
     final studentId = ref.read(currentUserProvider)?.id;
     if (studentId == null) return;
-    final ok = await showDialog<bool>(
+    final ok = await showConfirmDialog(
       context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('구독 해지'),
-        content: const Text('정말 구독을 해지할까요? 해지하면 AI 튜터 이용이 바로 중단돼요.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
-          TextButton(
-              onPressed: () => Navigator.pop(c, true), child: const Text('해지')),
-        ],
-      ),
+      title: '구독 해지',
+      message: '정말 구독을 해지할까요?\n해지하면 AI 튜터 이용이 바로 중단돼요.',
+      cancelText: '취소',
+      confirmText: '해지',
+      isDanger: true,
     );
-    if (ok != true) return;
+    if (!ok) return;
     setState(() => _busy = true);
     try {
       await ref.read(paymentRepositoryProvider).cancelSubscription(studentId);
