@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/core/utils/phone_input_formatter.dart';
 import 'package:ieum/core/widgets/profile_image.dart';
 import 'package:ieum/features/student/providers/mypage_provider.dart';
 
@@ -50,7 +52,7 @@ class _TutorProfileEditScreenState
       final me = await ref.read(mypageRepositoryProvider).getMe();
       _name.text = (me['name'] as String?) ?? '';
       _email = (me['email'] as String?) ?? '';
-      _phone.text = (me['phone'] as String?) ?? '';
+      _phone.text = formatPhoneNumber((me['phone'] as String?) ?? '');
       _bio.text = (me['bio'] as String?) ?? '';
       _imageUrl = me['profileImageUrl'] as String?;
       final subjects = (me['subjects'] as List?)?.cast<String>() ?? [];
@@ -213,7 +215,8 @@ class _TutorProfileEditScreenState
                       const SizedBox(height: 20),
                       _label(shell, '전화번호'),
                       _field(shell, _phone, '010-0000-0000',
-                          keyboard: TextInputType.phone),
+                          keyboard: TextInputType.phone,
+                          inputFormatters: const [PhoneInputFormatter()]),
                       const SizedBox(height: 20),
                       _label(shell, '이메일 (변경 불가)'),
                       _readonlyBox(shell,
@@ -374,6 +377,7 @@ class _TutorProfileEditScreenState
     String hint, {
     TextInputType? keyboard,
     int maxLines = 1,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
@@ -384,6 +388,7 @@ class _TutorProfileEditScreenState
       controller: c,
       keyboardType: keyboard,
       maxLines: maxLines,
+      inputFormatters: inputFormatters,
       style: TextStyle(fontSize: 15, color: shell.titleColor),
       decoration: InputDecoration(
         filled: true,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ieum/core/constants/api_constants.dart';
@@ -6,6 +7,8 @@ import 'package:ieum/core/widgets/profile_image.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/core/utils/phone_input_formatter.dart';
+import 'package:ieum/core/widgets/role_date_picker.dart';
 import 'package:ieum/features/student/providers/mypage_provider.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
 
@@ -40,7 +43,7 @@ class _StudentProfileEditScreenState
       final me = await ref.read(mypageRepositoryProvider).getMe();
       _name.text = (me['name'] as String?) ?? '';
       _email = (me['email'] as String?) ?? '';
-      _phone.text = (me['phone'] as String?) ?? '';
+      _phone.text = formatPhoneNumber((me['phone'] as String?) ?? '');
       _imageUrl = (me['profileImageUrl'] as String?);
       final birth = me['birthDate'] as String?;
       if (birth != null && birth.isNotEmpty) {
@@ -61,20 +64,13 @@ class _StudentProfileEditScreenState
 
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await showRoleDatePicker(
       context: context,
+      roleColor: AppColors.studentPoint,
       initialDate: _birthDate ?? DateTime(now.year - 16, 1, 1),
       firstDate: DateTime(1940),
       lastDate: now,
-      helpText: '생년월일 선택',
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context)
-              .colorScheme
-              .copyWith(primary: AppColors.studentPoint),
-        ),
-        child: child!,
-      ),
+      title: '생년월일',
     );
     if (picked != null) setState(() => _birthDate = picked);
   }
@@ -226,7 +222,8 @@ class _StudentProfileEditScreenState
                         const SizedBox(height: 20),
                         _label(shell, '전화번호'),
                         _field(shell, _phone, '010-0000-0000',
-                            keyboard: TextInputType.phone),
+                            keyboard: TextInputType.phone,
+                            inputFormatters: const [PhoneInputFormatter()]),
                         const SizedBox(height: 20),
                         _label(shell, '생년월일'),
                         _buildBirthField(shell),
@@ -367,7 +364,7 @@ class _StudentProfileEditScreenState
       );
 
   Widget _field(ShellTheme shell, TextEditingController c, String hint,
-      {TextInputType? keyboard}) {
+      {TextInputType? keyboard, List<TextInputFormatter>? inputFormatters}) {
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
       borderSide: BorderSide(color: shell.cardBorder.withValues(alpha: 0.5)),
@@ -375,6 +372,7 @@ class _StudentProfileEditScreenState
     return TextField(
       controller: c,
       keyboardType: keyboard,
+      inputFormatters: inputFormatters,
       style: TextStyle(fontSize: 15, color: shell.titleColor),
       decoration: InputDecoration(
         filled: true,
