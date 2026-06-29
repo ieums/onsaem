@@ -41,6 +41,9 @@ class _StudentReviewDetailScreenState
 
   VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
+  bool _videoLoading = false;
+  String? _videoError;
+  bool _videoExpanded = true;
   String? _pdfLocalPath;
   bool _isPdfLoading = false;
   String? _pdfError;
@@ -67,22 +70,141 @@ class _StudentReviewDetailScreenState
   }
 
   Future<void> _initVideo(String url) async {
-  // 녹음은 인증+소유권 체크 엔드포인트(local)라 JWT를 함께 보낸다.
-  // (prod의 presigned S3 URL은 헤더가 있어도 무시되므로 안전)
-  final token = await tokenStorage.readAccessToken();
-  _videoPlayerController = VideoPlayerController.networkUrl(
-    Uri.parse(url),
-    httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : const {},
-  );
-  await _videoPlayerController!.initialize();
-  _chewieController = ChewieController(
-    videoPlayerController: _videoPlayerController!,
-    aspectRatio: 16 / 9,
-    autoPlay: false,
-    looping: false,
-  );
-  if (mounted) setState(() {});
-}
+    setState(() {
+      _videoLoading = true;
+      _videoError = null;
+    });
+    try {
+      // 녹음은 인증+소유권 체크 엔드포인트(local)라 JWT를 함께 보낸다.
+      // (prod의 presigned S3 URL은 헤더가 있어도 무시되므로 안전)
+      final token = await tokenStorage.readAccessToken();
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(url),
+        httpHeaders:
+            token != null ? {'Authorization': 'Bearer $token'} : const {},
+      );
+      await controller.initialize();
+      _videoPlayerController = controller;
+      _chewieController = ChewieController(
+        videoPlayerController: controller,
+        aspectRatio: 16 / 9,
+        autoPlay: false,
+        looping: false,
+      );
+      if (mounted) setState(() => _videoLoading = false);
+    } catch (e) {
+      // mp4가 아닌 포맷(.m3u8 등)·네트워크 실패 시 여기로 — 조용히 사라지지 않게 안내.
+      _videoPlayerController?.dispose();
+      _videoPlayerController = null;
+      _chewieController?.dispose();
+      _chewieController = null;
+      if (mounted) {
+        setState(() {
+          _videoLoading = false;
+          _videoError = '영상을 재생할 수 없습니다.';
+        });
+      }
+    }
+  }
+
+  void _retryVideo() {
+    final res = ref.read(lessonReviewChatProvider).resources;
+    if (res?.recordingUrl == null) return;
+    _initVideo(ApiConstants.resolveImageUrl(res!.recordingUrl!));
+  }
+
+  Widget _buildVideoSection(ShellTheme shell) {
+    if (_videoLoading) {
+      return const AspectRatio(
+        aspectRatio: 16 / 9,
+        child: ColoredBox(
+          color: Colors.black,
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.studentPoint),
+          ),
+        ),
+      );
+    }
+
+    if (_videoError != null) {
+      return Container(
+        color: Colors.black,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            const Icon(Icons.videocam_off_rounded,
+                color: Colors.white70, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _videoError!,
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ),
+            TextButton(
+              onPressed: _retryVideo,
+              style:
+                  TextButton.styleFrom(foregroundColor: AppColors.studentPoint),
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_chewieController == null) return const SizedBox.shrink();
+
+    // 접힘: 얇은 바만 — 탭하면 펼침(영상 '줄이기')
+    if (!_videoExpanded) {
+      return Material(
+        color: Colors.black,
+        child: InkWell(
+          onTap: () => setState(() => _videoExpanded = true),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                Icon(Icons.smart_display_rounded,
+                    color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('강의 영상 펼치기',
+                    style: TextStyle(color: Colors.white, fontSize: 13)),
+                Spacer(),
+                Icon(Icons.expand_more_rounded, color: Colors.white, size: 20),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 펼침: 영상 + 우상단 접기 버튼('키우기'는 영상 컨트롤의 전체화면 버튼 사용)
+    return Stack(
+      children: [
+        AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Chewie(controller: _chewieController!),
+        ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: Material(
+            color: Colors.black54,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => setState(() => _videoExpanded = false),
+              child: const Padding(
+                padding: EdgeInsets.all(6),
+                child: Icon(Icons.expand_less_rounded,
+                    color: Colors.white, size: 22),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   Future<void> _loadPdf(String rawUrl) async {
     if (_pdfLocalPath != null || _isPdfLoading) return;
@@ -162,7 +284,10 @@ class _StudentReviewDetailScreenState
     ref.listen<LessonReviewChatState>(lessonReviewChatProvider, (prev, next) {
       final res = next.resources;
       if (res == null) return;
-      if (_videoPlayerController == null && res.hasVideo) {
+      if (_chewieController == null &&
+          !_videoLoading &&
+          _videoError == null &&
+          res.hasVideo) {
         // 로컬은 '/uploads/...' 상대경로, prod는 S3 절대 URL → resolve로 통일
         _initVideo(ApiConstants.resolveImageUrl(res.recordingUrl!));
       }
@@ -190,11 +315,7 @@ class _StudentReviewDetailScreenState
                         minHeight: 2, color: AppColors.studentPoint)
                   else
                     const SizedBox(height: 2),
-                  if (_chewieController != null)
-                    AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: Chewie(controller: _chewieController!),
-                    ),
+                  _buildVideoSection(shell),
                   _buildTabBar(shell),
                   Expanded(
                     child: TabBarView(
