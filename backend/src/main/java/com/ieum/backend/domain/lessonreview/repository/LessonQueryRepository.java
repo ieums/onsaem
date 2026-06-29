@@ -130,6 +130,23 @@ public class LessonQueryRepository {
         return result;
     }
 
+    /** 강의별 문제 요약(problems.summary) — 제목 표시용. 없으면 맵에서 빠짐. 읽기 전용. */
+    public Map<Long, String> findSummariesByLessonIds(List<Long> lessonIds) {
+        if (lessonIds.isEmpty()) return Map.of();
+        String placeholders = lessonIds.stream().map(id -> "?").collect(Collectors.joining(","));
+        String sql = """
+            SELECT l.id AS lesson_id, p.summary AS summary
+            FROM lessons l
+            JOIN problems p ON p.id = l.problem_id
+            WHERE l.id IN (%s)
+            """.formatted(placeholders);
+        Map<Long, String> result = new HashMap<>();
+        jdbcTemplate.query(sql, rs -> {
+            result.put(rs.getLong("lesson_id"), rs.getString("summary"));
+        }, lessonIds.toArray());
+        return result;
+    }
+
     private LessonInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
         return new LessonInfo(
                 rs.getLong("id"),
