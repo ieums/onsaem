@@ -18,6 +18,7 @@ import 'package:ieum/features/student/screens/student_ai_tutor_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_edit_screen.dart';
 import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/features/student/utils/student_question_text_util.dart';
+import 'package:ieum/features/student/widgets/student_action_button_style.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
@@ -69,7 +70,7 @@ class _StudentProblemUploadScreenState
     final isDark = ref.read(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final sheetTheme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
@@ -165,7 +166,7 @@ class _StudentProblemUploadScreenState
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              Icon(icon, size: 22, color: AppColors.studentInk),
+              Icon(icon, size: 22, color: AppColors.studentPoint),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
@@ -313,7 +314,7 @@ class _StudentProblemUploadScreenState
     final isDark = ref.read(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final sheetTheme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
@@ -397,7 +398,7 @@ class _StudentProblemUploadScreenState
                                           style: const TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w700,
-                                            color: AppColors.studentInk,
+                                            color: AppColors.studentPoint,
                                           ),
                                         ),
                                         if (hasMixedSubjects &&
@@ -418,7 +419,7 @@ class _StudentProblemUploadScreenState
                                               style: const TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w700,
-                                                color: AppColors.studentInk,
+                                                color: AppColors.studentPoint,
                                               ),
                                             ),
                                           ),
@@ -624,7 +625,7 @@ class _StudentProblemUploadScreenState
     final isDark = ref.watch(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
@@ -744,16 +745,11 @@ class _StudentProblemUploadScreenState
                       child: SizedBox(
                         width: double.infinity,
                         height: 52,
-                        child: FilledButton(
+                        child: OutlinedButton(
                           onPressed: _submitting ? null : _submitMatchingRequest,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.studentPoint,
-                            foregroundColor: AppColors.studentInk,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
+                          // 통일 스타일: 라이트=흰 배경+검정, 다크=어두운 배경+특징색, 보더=특징색.
+                          style: studentOutlinedButtonStyle(isDarkTheme,
+                              radius: 14),
                           child: const Text(
                             '매칭 요청하기',
                             style: TextStyle(
@@ -871,7 +867,7 @@ class _StudentProblemUploadScreenState
                       child: const Icon(
                         Icons.add_a_photo_outlined,
                         size: 24,
-                        color: AppColors.studentInk,
+                        color: AppColors.studentPoint,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -932,14 +928,14 @@ class _StudentProblemUploadScreenState
           child: const Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.add, size: 28, color: AppColors.studentInk),
+              Icon(Icons.add, size: 28, color: AppColors.studentPoint),
               SizedBox(height: 6),
               Text(
                 '추가',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.studentInk,
+                  color: AppColors.studentPoint,
                 ),
               ),
             ],
@@ -994,12 +990,12 @@ class _StudentProblemUploadScreenState
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: _selectedSubject == subject
-                    ? AppColors.studentInk
+                    ? AppColors.studentPoint
                     : shell.cardBackground,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: _selectedSubject == subject
-                      ? AppColors.studentInk
+                      ? AppColors.studentPoint
                       : shell.cardBorder,
                 ),
               ),
@@ -1009,7 +1005,7 @@ class _StudentProblemUploadScreenState
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: _selectedSubject == subject
-                      ? AppColors.white
+                      ? Colors.black
                       : shell.subtitleColor,
                 ),
               ),

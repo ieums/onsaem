@@ -17,24 +17,29 @@ class ShellFilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final onFill = AppColors.onPrimaryFill(Theme.of(context).brightness);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 통일 스타일: 채움 없이 '테두리만 특징색 + 흰/다크 표면 + 검정/특징색 글씨'.
+    // 선택은 특징색 보더(굵게) + 진한 글씨로, 미선택은 회색 보더 + 흐린 글씨로 구분.
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primaryBlue : scheme.surface,
+          color: scheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected ? AppColors.primaryBlue : scheme.outline,
+            width: selected ? 1.5 : 1,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: selected ? onFill : scheme.onSurfaceVariant,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            color: selected
+                ? (isDark ? AppColors.primaryBlue : Colors.black)
+                : scheme.onSurfaceVariant,
           ),
         ),
       ),

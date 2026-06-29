@@ -8,6 +8,7 @@ import com.ieum.backend.domain.problem.dto.internal.OcrResult.DetectedText;
 import com.ieum.backend.domain.problem.entity.enums.Difficulty;
 import com.ieum.backend.domain.problem.entity.enums.ExamType;
 import com.ieum.backend.domain.problem.entity.enums.Subject;
+import com.ieum.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,10 +40,22 @@ public class GeminiClient {
     private static final Pattern EBS_CODE_PATTERN =
             Pattern.compile("\\[25(\\d{3})-\\d{4}]");
 
+    /**
+     * 전체 AI 분석 마감 시간(ms). 이 시간을 넘기면 분석을 중단하고 실패로 끝낸다.
+     * FE 업로드 타임아웃(240초)보다 충분히 작게 둬서 "FE는 실패인데 서버는 저장" 불일치를 막는다.
+     * (read 80초 × 호출 누적을 감안 — OCR 완료 후/문제별 분류 전 확인)
+     */
+    private static final long ANALYZE_DEADLINE_MS = 150_000L;
+
     public AiAnalysisResult analyze(List<MultipartFile> images) {
+        long deadline = System.currentTimeMillis() + ANALYZE_DEADLINE_MS;
+
         // 1단계: OCR
         log.info("1단계 OCR 시작 — 이미지 {}장", images.size());
         OcrResult ocrResult = ocrClient.extract(images);
+
+        // OCR이 마감을 넘겨 끝났으면 분류로 넘어가지 않고 즉시 실패(이미지 정리는 상위 catch가 수행).
+        checkDeadline(deadline);
 
         // (2) 한 문제 여러 장(SINGLE_MULTIPAGE): 순서대로 텍스트를 합쳐 "1개 문제"로 1회 분류.
         if (ocrResult.getMode() == OcrResult.OcrMode.SINGLE_MULTIPAGE
@@ -56,6 +69,8 @@ public class GeminiClient {
         List<DetectedProblem> problems = new ArrayList<>();
         String previousCode = null;
         for (int i = 0; i < ocrResult.getDetectedTexts().size(); i++) {
+            // 문제 수가 많으면 분류 시간이 누적된다 — 매 문제 전에 마감 확인.
+            checkDeadline(deadline);
             DetectedText t = ocrResult.getDetectedTexts().get(i);
 
             String examCode = t.getExamCode();
@@ -116,6 +131,15 @@ public class GeminiClient {
         AiAnalysisResult result = new AiAnalysisResult();
         result.setDetectedProblems(problems);
         return result;
+    }
+
+    /** 분석 마감 초과 시 즉시 실패시킨다(상위 createProblem catch가 이미지 정리). */
+    private void checkDeadline(long deadline) {
+        if (System.currentTimeMillis() > deadline) {
+            log.warn("AI 분석 마감({}ms) 초과 — 분석 중단", ANALYZE_DEADLINE_MS);
+            throw BusinessException.serviceUnavailable(
+                    "지금 AI 분석이 지연되고 있어요. 잠시 후 다시 시도해 주세요.", null);
+        }
     }
 
     /**

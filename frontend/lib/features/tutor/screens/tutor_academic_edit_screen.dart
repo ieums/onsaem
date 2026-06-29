@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/features/tutor/widgets/tutor_action_button_style.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/providers/mypage_provider.dart';
@@ -132,22 +133,16 @@ class _TutorAcademicEditScreenState
                       const SizedBox(height: 32),
                       SizedBox(
                         height: 52,
-                        child: FilledButton(
+                        child: OutlinedButton(
                           onPressed: _saving ? null : _save,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.primaryBlue,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(14)),
-                          ),
+                          style: tutorOutlinedButtonStyle(isDark, radius: 14),
                           child: _saving
                               ? const SizedBox(
                                   width: 22,
                                   height: 22,
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2.4,
-                                      color: Colors.white))
+                                      color: AppColors.primaryBlue))
                               : const Text('저장',
                                   style: TextStyle(
                                       fontSize: 16,

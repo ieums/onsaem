@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/storage/token_storage.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/data/models/lesson_review_message.dart';
 import 'package:ieum/features/student/providers/lesson_review_provider.dart';
@@ -140,9 +141,22 @@ class _StudentReviewDetailScreenState
     });
   }
 
+  /// 학생 연두 틴트 페이지 배경(라이트/다크). 헬퍼들이 공통으로 쓴다.
+  Color get _pageBg => ref.read(shellDarkModeProvider)
+      ? AppColors.shellScaffoldDark
+      : AppColors.studentScaffoldLight;
+
   @override
   Widget build(BuildContext context) {
-    final shell = ShellTheme.of(context);
+    // 단독 라우트라 부모 shell 테마를 못 받으므로 직접 다크/라이트 테마로 감싼다(외부 AI 튜터와 동일).
+    final isDark = ref.watch(shellDarkModeProvider);
+    final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
+    final theme = baseTheme.copyWith(
+      colorScheme:
+          baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      scaffoldBackgroundColor:
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
+    );
     final state = ref.watch(lessonReviewChatProvider);
 
     ref.listen<LessonReviewChatState>(lessonReviewChatProvider, (prev, next) {
@@ -160,36 +174,42 @@ class _StudentReviewDetailScreenState
       }
     });
 
-    return Scaffold(
-      // 라이트모드는 학생 연두 틴트로 통일(다크는 기존 그대로).
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? Theme.of(context).scaffoldBackgroundColor
-          : AppColors.studentScaffoldLight,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(shell, state),
-            if (state.isInitializing)
-              const LinearProgressIndicator(minHeight: 2, color: AppColors.studentPoint)
-            else
-              const SizedBox(height: 2),
-            if (_chewieController != null)
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Chewie(controller: _chewieController!),
-              ),
-            _buildTabBar(shell),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
+    return Theme(
+      data: theme,
+      child: Builder(
+        builder: (context) {
+          final shell = ShellTheme.of(context);
+          return Scaffold(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            body: SafeArea(
+              child: Column(
                 children: [
-                  _buildChatTab(shell, state),
-                  _buildPdfTab(shell, state),
+                  _buildAppBar(shell, state),
+                  if (state.isInitializing)
+                    const LinearProgressIndicator(
+                        minHeight: 2, color: AppColors.studentPoint)
+                  else
+                    const SizedBox(height: 2),
+                  if (_chewieController != null)
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Chewie(controller: _chewieController!),
+                    ),
+                  _buildTabBar(shell),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildChatTab(shell, state),
+                        _buildPdfTab(shell, state),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -225,7 +245,7 @@ class _StudentReviewDetailScreenState
 
   Widget _buildTabBar(ShellTheme shell) {
     return ColoredBox(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: _pageBg,
       child: TabBar(
         controller: _tabController,
         indicatorColor: AppColors.studentPoint,
@@ -236,7 +256,7 @@ class _StudentReviewDetailScreenState
             const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
         unselectedLabelStyle:
             const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-        dividerColor: Theme.of(context).dividerColor,
+        dividerColor: shell.cardBorder.withValues(alpha: 0.5),
         tabs: const [
           Tab(text: '질문하기'),
           Tab(text: '요약 PDF'),
@@ -314,11 +334,11 @@ class _StudentReviewDetailScreenState
   }
 
   Widget _buildInputBar(ShellTheme shell, LessonReviewChatState state) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = ref.read(shellDarkModeProvider);
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: _pageBg,
         border: Border(
           top: BorderSide(
               color: shell.cardBorder.withValues(alpha: 0.5)),
@@ -536,7 +556,8 @@ class _MessageBubble extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.55,
-                  color: isUser ? Colors.white : shell.titleColor,
+                  // 내 말풍선은 연두(studentPoint) 배경이라 글씨는 검정(외부 AI 튜터와 통일).
+                  color: isUser ? Colors.black : shell.titleColor,
                 ),
               ),
             ),

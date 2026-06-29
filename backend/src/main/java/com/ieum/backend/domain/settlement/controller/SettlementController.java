@@ -55,8 +55,10 @@ public class SettlementController {
      * GET /api/v1/settlements/{id}
      */
     @GetMapping("/{id}")
-    public ResponseEntity<SettlementResponse> getDetail(@PathVariable Long id) {
-        return ResponseEntity.ok(settlementService.getDetail(id));
+    public ResponseEntity<SettlementResponse> getDetail(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ResponseEntity.ok(settlementService.getDetail(id, principal.id()));
     }
 
     /**
@@ -121,5 +123,14 @@ public class SettlementController {
     @PostMapping("/{id}/cancel")
     public ResponseEntity<SettlementResponse> cancelSettlement(@PathVariable Long id) {
         return ResponseEntity.ok(settlementService.cancelSettlement(id));
+    }
+
+    /**
+     * 송금 실패분 재시도 (관리자) — FAILED → CALCULATED.
+     * POST /api/v1/settlements/{id}/retry
+     */
+    @PostMapping("/{id}/retry")
+    public ResponseEntity<SettlementResponse> retryWithdraw(@PathVariable Long id) {
+        return ResponseEntity.ok(settlementService.retryWithdraw(id));
     }
 }

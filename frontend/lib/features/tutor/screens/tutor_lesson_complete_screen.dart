@@ -5,6 +5,7 @@ import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/student/screens/student_report_screen.dart';
+import 'package:ieum/features/tutor/widgets/tutor_action_button_style.dart';
 
 /// 강사가 강의 종료 후 보는 완료 화면. (강사는 별점 리뷰 없음 — 완료 안내 + 신고만)
 class TutorLessonCompleteArgs {
@@ -56,15 +57,16 @@ class TutorLessonCompleteScreen extends ConsumerWidget {
           child: Column(
             children: [
               const Spacer(),
-              Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+              // 체크 아이콘 대신 마스코트 이미지(강사=보라 e).
+              SizedBox(
+                width: 120,
+                height: 120,
+                child: Image.asset(
+                  'assets/images/review_tutor.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) =>
+                      const SizedBox(width: 120, height: 120),
                 ),
-                child: const Icon(Icons.check_rounded,
-                    size: 48, color: AppColors.primaryBlue),
               ),
               const SizedBox(height: 20),
               Text(
@@ -82,32 +84,38 @@ class TutorLessonCompleteScreen extends ConsumerWidget {
                 style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
               ),
               const Spacer(),
-              // 수업 중 문제가 있었다면 신고
-              TextButton(
-                onPressed: () => _openReport(context),
-                child: Text(
-                  '수업 진행에 불편한 점이 있었나요? 신고하기',
+              // 수업 중 문제가 있었다면 신고 (학생 리뷰 화면과 동일한 디자인)
+              Text(
+                '수업 진행에 불편한 점이 있으셨나요?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () => _openReport(context),
+                child: const Text(
+                  '신고하기',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.logoutRed,
                     decoration: TextDecoration.underline,
-                    color: scheme.onSurfaceVariant,
+                    decorationColor: AppColors.logoutRed,
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
+                child: OutlinedButton(
                   onPressed: () => context.go(RoutePaths.tutorHome),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primaryBlue,
-                    foregroundColor:
-                        AppColors.onPrimaryFill(Theme.of(context).brightness),
-                    minimumSize: const Size.fromHeight(52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
+                  // 통일 스타일: 테두리만 특징색 + 흰/다크 배경 + 검정/특징색 글씨.
+                  style: tutorOutlinedButtonStyle(isDark, radius: 14,
+                      minimumSize: const Size.fromHeight(52)),
                   child: const Text('홈으로',
                       style:
                           TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),

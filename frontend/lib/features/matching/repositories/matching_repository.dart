@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:ieum/core/network/dio_client.dart';
 import '../../student/models/applicant_model.dart';
+import '../models/pending_confirm.dart';
 import '../models/searching_problem_model.dart';
 import '../models/tutor_application_model.dart';
 
@@ -25,6 +26,14 @@ class MatchingRepository {
       '/matching/$problemId/apply',
       data: {'tutorId': tutorId},
     );
+  }
+
+  /// 학생이 놓친 매칭 수락 요청(있으면) — 앱 재실행 복구용. 없으면 null.
+  Future<PendingConfirm?> fetchPendingConfirm(int studentId) async {
+    final res = await _dio.get('/matching/student/$studentId/pending-confirm');
+    final data = res.data['data'];
+    if (data == null) return null;
+    return PendingConfirm.fromJson(data as Map<String, dynamic>);
   }
 
   Future<List<TutorApplicationModel>> getTutorApplications(int tutorId) async {

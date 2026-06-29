@@ -33,6 +33,11 @@ List<TutorSettlementCalendarTransaction> settlementRecordsToTransactions(
 ) {
   final out = <TutorSettlementCalendarTransaction>[];
   for (final r in records) {
+    // 취소·실패 정산은 수입이 아니므로 달력/차트/합계에서 제외.
+    if (r.status == SettlementStatus.canceled ||
+        r.status == SettlementStatus.failed) {
+      continue;
+    }
     out.add(
       TutorSettlementCalendarTransaction(
         date: r.createdAt,

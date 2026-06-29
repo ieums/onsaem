@@ -30,6 +30,7 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
   final _msgController = TextEditingController();
   final _scrollController = ScrollController();
   bool _problemExpanded = false;
+  int _problemImagePage = 0; // 확장된 문제 이미지 페이저 현재 페이지
 
   @override
   void initState() {
@@ -98,7 +99,7 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
       colorScheme:
-          baseTheme.colorScheme.copyWith(primary: AppColors.studentInk),
+          baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
       scaffoldBackgroundColor:
           isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
     );
@@ -155,7 +156,7 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
                 children: [
                   if (state.isInitializing)
                     const LinearProgressIndicator(
-                        minHeight: 2, color: AppColors.studentInk),
+                        minHeight: 2, color: AppColors.studentPoint),
                   _buildProblemBanner(shell, state),
                   Expanded(child: _buildBody(shell, state)),
                   if (state.error != null && state.messages.isNotEmpty)
@@ -278,7 +279,7 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.studentInk,
+                            color: AppColors.studentPoint,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -307,20 +308,86 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
               ),
             ),
           ),
-          if (_problemExpanded && firstImageUrl != null)
+          if (_problemExpanded && images.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: GestureDetector(
-                onTap: () => _showImageViewer(images),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    firstImageUrl,
-                    width: double.infinity,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 200,
+                    child: Stack(
+                      children: [
+                        // 여러 장이면 좌우로 넘겨 본다(눌러서 확대도 그대로).
+                        PageView.builder(
+                          itemCount: images.length,
+                          onPageChanged: (i) =>
+                              setState(() => _problemImagePage = i),
+                          itemBuilder: (_, i) {
+                            final url =
+                                ApiConstants.resolveImageUrl(images[i]);
+                            return GestureDetector(
+                              onTap: () => _showImageViewer(images),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  color: shell.cardBackground,
+                                  width: double.infinity,
+                                  alignment: Alignment.center,
+                                  child: Image.network(
+                                    url,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, _, _) =>
+                                        const SizedBox.shrink(),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        if (images.length > 1)
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 9, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${_problemImagePage + 1}/${images.length}',
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 12),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
+                  if (images.length > 1) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (var i = 0; i < images.length; i++)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            margin:
+                                const EdgeInsets.symmetric(horizontal: 3),
+                            width: i == _problemImagePage ? 18 : 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: i == _problemImagePage
+                                  ? AppColors.studentPoint
+                                  : shell.cardBorder,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
             ),
         ],
@@ -385,7 +452,7 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide:
-                      const BorderSide(color: AppColors.studentInk, width: 1.5),
+                      const BorderSide(color: AppColors.studentPoint, width: 1.5),
                 ),
               ),
             ),
@@ -399,8 +466,8 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
               height: 44,
               decoration: BoxDecoration(
                 color: state.isSending
-                    ? AppColors.studentInk.withValues(alpha: 0.4)
-                    : AppColors.studentInk,
+                    ? AppColors.studentPoint.withValues(alpha: 0.4)
+                    : AppColors.studentPoint,
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
@@ -409,10 +476,10 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
+                          color: Colors.black, strokeWidth: 2),
                     )
                   : const Icon(Icons.send_rounded,
-                      color: Colors.white, size: 18),
+                      color: Colors.black, size: 18),
             ),
           ),
         ],
@@ -449,7 +516,7 @@ class _MessageBubble extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: isUser
-                    ? AppColors.studentInk
+                    ? AppColors.studentPoint
                     : (isDark ? shell.detailBackground : shell.cardBackground),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
@@ -467,7 +534,8 @@ class _MessageBubble extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.55,
-                  color: isUser ? Colors.white : shell.titleColor,
+                  // 유저 버블이 연두(studentPoint)라 글씨는 검정으로.
+                  color: isUser ? Colors.black : shell.titleColor,
                 ),
               ),
             ),
@@ -503,13 +571,13 @@ class _AiAvatar extends StatelessWidget {
       height: 30,
       decoration: BoxDecoration(
         color: isDark
-            ? AppColors.studentInk.withValues(alpha: 0.2)
-            : AppColors.studentInk.withValues(alpha: 0.12),
+            ? AppColors.studentPoint.withValues(alpha: 0.2)
+            : AppColors.studentPoint.withValues(alpha: 0.12),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
       child: const Icon(Icons.smart_toy_rounded,
-          size: 16, color: AppColors.studentInk),
+          size: 16, color: AppColors.studentPoint),
     );
   }
 }

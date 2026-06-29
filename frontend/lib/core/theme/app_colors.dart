@@ -18,7 +18,7 @@ abstract final class AppColors {
   static const Color primaryBlue = Color(0xFFBFA2DB);
   /// 학생 브랜드 컬러(연두). 채움·칩·소프트 배경용. 글씨/버튼 라벨엔 [studentInk] 사용.
   /// (로그인/회원가입 강조색과 통일 — D2E096)
-  static const Color studentPoint = Color(0xFFD2E096);
+  static const Color studentPoint = Color(0xFFC5D48C);
   /// 학생 강조용 진한 연두. 버튼 배경/라벨·인디케이터·강조 글씨(흰 배경·흰 글씨 대비 OK).
   static const Color studentInk = Color(0xFF4C7A1E);
   /// 액션 강조용 선명 블루 (studentPoint보다 쨍함)

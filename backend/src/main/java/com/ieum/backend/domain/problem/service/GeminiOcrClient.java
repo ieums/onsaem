@@ -13,11 +13,13 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -52,7 +54,16 @@ public class GeminiOcrClient {
         return "https://generativelanguage.googleapis.com/v1beta/models/" + useModel + ":generateContent";
     }
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    // 한 호출이 무한 대기하지 않도록 connect/read 타임아웃을 건다.
+    // (read 80초: 이미지 여러 장 OCR이 길어질 때도 정상 호출은 끊기지 않게 넉넉히)
+    private final RestTemplate restTemplate = buildRestTemplate();
+
+    private static RestTemplate buildRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(80));
+        return new RestTemplate(factory);
+    }
 
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .enable(JsonReadFeature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER)
@@ -224,7 +235,9 @@ public class GeminiOcrClient {
             ☐ 백슬래시 없음
             """;
 
-    private static final int MAX_ATTEMPTS = 3;
+    // 503은 즉시 응답이라 재시도가 싸지만, 총 처리시간을 FE 타임아웃 안에 두려고 예산을 줄였다.
+    private static final int PRIMARY_ATTEMPTS = 2;
+    private static final int FALLBACK_ATTEMPTS = 1;
 
     public OcrResult extract(List<MultipartFile> images) {
         if ("none".equals(apiKey)) {
@@ -234,7 +247,7 @@ public class GeminiOcrClient {
         // 여러 장이 한 세트(지문이 페이지에 걸침, 문제가 다른 페이지)일 수 있어 한 번에 보낸다.
         // 출력이 길어 잘리던 문제는 maxOutputTokens를 모델 최대치로 올려 대응.
         try {
-            return callWithRetries(images, model);
+            return callWithRetries(images, model, PRIMARY_ATTEMPTS);
         } catch (HttpStatusCodeException e) {
             // 기본 모델이 일시 과부하면(503/5xx/429) → 폴백 모델로 한 번 더 시도
             if (isTransient(e) && fallbackModel != null
@@ -242,7 +255,7 @@ public class GeminiOcrClient {
                 log.warn("OCR 기본모델({}) 과부하({}) — 폴백모델({})로 재시도",
                         model, e.getStatusCode(), fallbackModel);
                 try {
-                    return callWithRetries(images, fallbackModel);
+                    return callWithRetries(images, fallbackModel, FALLBACK_ATTEMPTS);
                 } catch (Exception fe) {
                     log.error("OCR 폴백모델도 실패", fe);
                     throw overloadException(fe);
@@ -258,15 +271,16 @@ public class GeminiOcrClient {
         }
     }
 
-    /** 한 모델로 MAX_ATTEMPTS까지 재시도(일시 오류만). 소진되면 예외를 그대로 던진다. */
-    private OcrResult callWithRetries(List<MultipartFile> images, String useModel) throws Exception {
+    /** 한 모델로 maxAttempts까지 재시도(일시 오류만). 소진되면 예외를 그대로 던진다. */
+    private OcrResult callWithRetries(List<MultipartFile> images, String useModel, int maxAttempts)
+            throws Exception {
         for (int attempt = 1; ; attempt++) {
             try {
                 return callApi(images, useModel);
             } catch (HttpStatusCodeException e) {
-                if (isTransient(e) && attempt < MAX_ATTEMPTS) {
+                if (isTransient(e) && attempt < maxAttempts) {
                     log.warn("OCR 일시 오류({}) — {} 재시도 {}/{}",
-                            e.getStatusCode(), useModel, attempt, MAX_ATTEMPTS);
+                            e.getStatusCode(), useModel, attempt, maxAttempts);
                     backoff(attempt);
                     continue;
                 }

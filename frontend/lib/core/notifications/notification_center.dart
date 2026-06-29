@@ -120,6 +120,23 @@ class _NotificationCenterDialogState extends State<_NotificationCenterDialog> {
     widget.onRemoveAt(index);
   }
 
+  /// '모두 읽음'을 누르면 즉시 화면에도 반영(재진입 없이). 로컬 스냅샷을 읽음 상태로 갱신.
+  void _markAllReadLocal() {
+    setState(() {
+      _items = [
+        for (final i in _items)
+          NotificationViewData(
+            id: i.id,
+            title: i.title,
+            body: i.body,
+            createdAt: i.createdAt,
+            isRead: true,
+            kind: i.kind,
+          ),
+      ];
+    });
+  }
+
   static bool _isToday(DateTime d) {
     final n = DateTime.now();
     return d.year == n.year && d.month == n.month && d.day == n.day;
@@ -156,7 +173,7 @@ class _NotificationCenterDialogState extends State<_NotificationCenterDialog> {
                   TextButton(
                     onPressed: () {
                       widget.onMarkAllRead();
-                      setState(() {});
+                      _markAllReadLocal();
                     },
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -350,9 +367,17 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     final v = _visualOf(item.kind);
     return Container(
-      color: item.isRead
-          ? shell.cardBackground
-          : v.bg.withValues(alpha: 0.45),
+      // 안 읽은 알림: 종류별 색 틴트(불투명)로 강조 + 왼쪽 색 바.
+      // 반투명이면 뒤 삭제 버튼이 비쳐 보여 → cardBackground 위에 합성해 불투명 처리.
+      decoration: BoxDecoration(
+        color: item.isRead
+            ? shell.cardBackground
+            : Color.alphaBlend(
+                v.bg.withValues(alpha: 0.55), shell.cardBackground),
+        border: item.isRead
+            ? null
+            : Border(left: BorderSide(color: v.fg, width: 3)),
+      ),
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -7,6 +7,7 @@ enum SettlementStatus {
   pending, // 송금 대기
   transferred, // 송금 완료
   failed, // 송금 실패
+  canceled, // 정산 취소(환불 등) — 수입 집계에서 제외
   unknown;
 
   static SettlementStatus fromName(String? name) {
@@ -19,6 +20,8 @@ enum SettlementStatus {
         return SettlementStatus.transferred;
       case 'FAILED':
         return SettlementStatus.failed;
+      case 'CANCELED':
+        return SettlementStatus.canceled;
       default:
         return SettlementStatus.unknown;
     }

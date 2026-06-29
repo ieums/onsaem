@@ -8,6 +8,7 @@ import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.domain.lesson.repository.LessonRepository;
 import com.ieum.backend.domain.lesson.service.LessonService;
 import com.ieum.backend.domain.matching.dto.response.ApplicantResponse;
+import com.ieum.backend.domain.matching.dto.response.PendingConfirmResponse;
 import com.ieum.backend.domain.matching.dto.response.TutorApplicationResponse;
 import com.ieum.backend.domain.matching.entity.ApplicationStatus;
 import com.ieum.backend.domain.matching.entity.MatchingApplication;
@@ -127,6 +128,35 @@ public class MatchingService {
         application.confirm();
 
         notificationService.notifyMatchRequested(problemId, tutorId, problem.getStudentId());
+    }
+
+    /**
+     * 학생이 아직 수락하지 않은 매칭 요청 1건(있으면) — 앱을 껐다 켰을 때 홈 배너로 복구하기 위함.
+     * 없으면 null. (CONFIRMING + studentConfirmed=false, 학생의 탐색 중 문제 한정)
+     */
+    public PendingConfirmResponse getPendingConfirm(Long studentId) {
+        List<Long> problemIds = problemRepository
+                .findAllByStudentIdAndStatus(studentId, ProblemStatus.PENDING)
+                .stream().map(Problem::getId).toList();
+        if (problemIds.isEmpty()) return null;
+
+        List<MatchingApplication> pending = applicationRepository
+                .findByProblemIdInAndStatusAndStudentConfirmedFalse(
+                        problemIds, ApplicationStatus.CONFIRMING);
+        if (pending.isEmpty()) return null;
+
+        MatchingApplication app = pending.get(0);
+        Problem problem = problemRepository.findById(app.getProblemId()).orElse(null);
+        if (problem == null) return null;
+        Tutor tutor = tutorRepository.findById(app.getTutorId()).orElse(null);
+
+        return new PendingConfirmResponse(
+                app.getProblemId(),
+                app.getTutorId(),
+                tutor != null ? tutor.getName() : "강사",
+                problem.getSubject() != null ? problem.getSubject().name() : null,
+                problem.getSummary()
+        );
     }
 
     @Transactional

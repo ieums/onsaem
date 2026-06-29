@@ -79,14 +79,14 @@ void showStudentCardCompanyPicker(
                         fontSize: 15,
                         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                         color: selected
-                            ? AppColors.studentInk
+                            ? AppColors.studentPoint
                             : sheetShell.titleColor,
                       ),
                     ),
                     trailing: selected
                         ? const Icon(
                             Icons.check_rounded,
-                            color: AppColors.studentInk,
+                            color: AppColors.studentPoint,
                           )
                         : null,
                     onTap: () {
@@ -236,7 +236,7 @@ class _StudentCardRegistrationFormState
               onPressed: _save,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.studentPoint,
-                foregroundColor: AppColors.studentInk,
+                foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -373,7 +373,7 @@ class _CardFormInputField extends StatelessWidget {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(
-                color: AppColors.studentInk,
+                color: AppColors.studentPoint,
                 width: 1.5,
               ),
             ),

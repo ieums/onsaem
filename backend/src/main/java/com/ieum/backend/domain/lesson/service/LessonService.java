@@ -17,9 +17,7 @@ import com.ieum.backend.domain.matching.repository.MatchingApplicationRepository
 import com.ieum.backend.domain.matching.service.MatchingNotificationService;
 import com.ieum.backend.domain.report.entity.enums.ReportStatus;
 import com.ieum.backend.domain.report.repository.ReportRepository;
-import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
 import com.ieum.backend.domain.settlement.repository.SettlementRepository;
-import com.ieum.backend.domain.settlement.service.SettlementService;
 import com.ieum.backend.global.agora.AgoraRecordingService;
 import com.ieum.backend.global.agora.RtcTokenBuilder2;
 import com.ieum.backend.global.config.AgoraConfig;
@@ -49,12 +47,12 @@ public class LessonService {
     private final S3Service s3Service;
     private final AgoraRecordingService agoraRecordingService;
     private final CoinService coinService;
-    private final SettlementService settlementService;
     private final LessonMediaStorage lessonMediaStorage;
     private final ImageStorageService imageStorageService; // local/S3 자동 분기 (강의 임시 이미지)
     private final SettlementRepository settlementRepository; // 정산 보류/확정 판단
     private final ReportRepository reportRepository;         // 신고 보류 게이팅
     private final TutorRepository tutorRepository;           // 등급 실적(완료 수업수) 반영
+    private final LessonSettlementFinalizer settlementFinalizer; // 강의 1건 확정차감+정산(원자)
     private final MatchingApplicationRepository matchingApplicationRepository; // 수업중 알림 대상(강사의 PENDING 신청)
     private final MatchingNotificationService matchingNotificationService;     // 강사 수업중/해제 STOMP 알림
 
@@ -273,7 +271,9 @@ public class LessonService {
      * 완료된 과금 강의 중 종료 24h 경과 + 정산 미생성 + (그 강의에) 열린 신고 없음 → 확정차감 + 정산.
      * 열린 신고가 있으면 건너뛴다(코인은 홀드 유지 → 운영자 처리 전까지 보류).
      */
-    @Transactional
+    // 배치 자체는 트랜잭션으로 묶지 않는다(읽기 위주). 강의 1건의 확정차감+정산은
+    // settlementFinalizer.finalizeOne(...)이 '건별 독립 트랜잭션'으로 처리하고, 여기선 건별 try/catch로
+    // 한 건 실패가 나머지 강의 처리를 막지 않게 한다(다음 틱에 재시도됨).
     public void finalizeDueSettlements() {
         LocalDateTime cutoff = LocalDateTime.now().minusHours(24);
         List<Lesson> due = lessonRepository
@@ -284,9 +284,12 @@ public class LessonService {
                     lesson.getId(), List.of(ReportStatus.PENDING, ReportStatus.REVIEWING));
             if (blocked) continue; // 신고 보류 — 정산 안 함(홀드 유지)
 
-            coinService.confirmDeduct(lesson.getStudentId(), lesson.getCoinCost(), lesson.getId());
-            settlementService.calculate(new CalculateSettlementRequest(
-                    lesson.getTutorId(), lesson.getId(), lesson.getCoinCost()));
+            try {
+                settlementFinalizer.finalizeOne(lesson); // 확정차감 + 정산 (원자, 건별 트랜잭션)
+            } catch (RuntimeException e) {
+                // 이 강의만 건너뛰고 계속 — 다음 스케줄 틱에 재시도된다.
+                log.warn("정산 확정 실패(다음 틱 재시도) lessonId={}: {}", lesson.getId(), e.getMessage());
+            }
         }
     }
 

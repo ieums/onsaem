@@ -41,9 +41,21 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/ai-tutor/**", "/api/v1/lesson-review/**").hasRole("STUDENT")
                         // JWT 주체 기반 — 결제(학생)·정산(강사)·리뷰/신고(인증)
                         .requestMatchers("/api/v1/payments/**").hasRole("STUDENT")
-                        .requestMatchers("/api/v1/settlements/calculate").permitAll() // 시스템/내부(강의 완료) 호출
+                        // 관리자/내부 전용 — 강사가 스스로 송금완료/실패/취소·임의 계산을 못 하게 잠금.
+                        // (현재 ADMIN 롤이 없으므로 외부 HTTP로는 차단됨. 정산 생성은 스케줄러가 서비스로 직접 호출.)
+                        .requestMatchers(
+                                "/api/v1/settlements/calculate",
+                                "/api/v1/settlements/*/complete",
+                                "/api/v1/settlements/*/fail",
+                                "/api/v1/settlements/*/cancel",
+                                "/api/v1/settlements/*/retry"
+                        ).hasRole("ADMIN")
                         .requestMatchers("/api/v1/settlements/**").hasRole("TUTOR")
                         .requestMatchers("/api/v1/reviews/**", "/api/v1/reports/**").authenticated()
+                        // 본인 전용(정산 계좌 등록/조회 등) — @AuthenticationPrincipal 의존.
+                        // permitAll 그룹의 /tutors/** 보다 먼저 둬야 함(순서 매칭): 토큰 만료/누락 시
+                        // NPE 500이 아니라 401을 내보내 FE가 토큰 재발급·재시도하도록 유도.
+                        .requestMatchers("/api/v1/tutors/me/**").hasRole("TUTOR")
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/health",
