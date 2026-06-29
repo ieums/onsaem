@@ -6,7 +6,9 @@ import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/core/widgets/profile_image.dart';
+import 'package:ieum/core/widgets/shell_filter_chip.dart';
 import 'package:ieum/features/student/providers/mypage_provider.dart';
+import 'package:ieum/features/tutor/widgets/tutor_action_button_style.dart';
 
 class TutorProfileEditScreen extends ConsumerStatefulWidget {
   const TutorProfileEditScreen({super.key});
@@ -224,18 +226,17 @@ class _TutorProfileEditScreenState
                           maxLines: 3),
                       const SizedBox(height: 20),
                       _label(shell, '담당 과목'),
-                      _buildSubjectChips(shell),
+                      _buildSubjectChips(),
                       const SizedBox(height: 32),
                       SizedBox(
                         height: 52,
-                        child: FilledButton(
+                        // 통일 스타일: 테두리만 특징색 + 흰/다크 내부 + 검정/특징색 글씨.
+                        child: OutlinedButton(
                           onPressed: _saving ? null : _save,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.primaryBlue,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(14)),
+                          style: tutorOutlinedButtonStyle(
+                            isDark,
+                            radius: 14,
+                            minimumSize: const Size.fromHeight(52),
                           ),
                           child: _saving
                               ? const SizedBox(
@@ -243,7 +244,7 @@ class _TutorProfileEditScreenState
                                   height: 22,
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2.4,
-                                      color: Colors.white))
+                                      color: AppColors.primaryBlue))
                               : const Text('저장',
                                   style: TextStyle(
                                       fontSize: 16,
@@ -260,6 +261,7 @@ class _TutorProfileEditScreenState
   }
 
   Widget _buildAvatar(ShellTheme shell) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final url = _imageUrl;
     final resolved = (url != null && url.isNotEmpty)
         ? ApiConstants.resolveImageUrl(url)
@@ -290,17 +292,21 @@ class _TutorProfileEditScreenState
           Positioned(
             right: 0,
             bottom: 0,
+            // 통일 스타일: 테두리만 특징색 + 흰/다크 내부 + 검정/특징색 아이콘.
             child: Material(
-              color: AppColors.primaryBlue,
-              shape: const CircleBorder(),
+              color: isDark ? AppColors.shellSurfaceDark : Colors.white,
+              shape: const CircleBorder(
+                side: BorderSide(color: AppColors.primaryBlue, width: 1.5),
+              ),
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap:
                     _uploadingImage ? null : _chooseProfileImage,
-                child: const Padding(
-                  padding: EdgeInsets.all(7),
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
                   child: Icon(Icons.camera_alt_rounded,
-                      size: 16, color: Colors.white),
+                      size: 16,
+                      color: isDark ? AppColors.primaryBlue : Colors.black),
                 ),
               ),
             ),
@@ -310,38 +316,23 @@ class _TutorProfileEditScreenState
     );
   }
 
-  Widget _buildSubjectChips(ShellTheme shell) {
+  /// 담당 과목 — 강사 신청 리스트의 '선별 과목 태그'(ShellFilterChip)와 디자인 통일.
+  Widget _buildSubjectChips() {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: _subjectOptions.map((code) {
         final selected = _selectedSubjects.contains(code);
-        return FilterChip(
-          label: Text(_subjectLabels[code]!),
+        return ShellFilterChip(
+          label: _subjectLabels[code]!,
           selected: selected,
-          onSelected: (v) => setState(() {
-            if (v) {
-              _selectedSubjects.add(code);
-            } else {
+          onTap: () => setState(() {
+            if (selected) {
               _selectedSubjects.remove(code);
+            } else {
+              _selectedSubjects.add(code);
             }
           }),
-          selectedColor:
-              AppColors.primaryBlue.withValues(alpha: 0.15),
-          checkmarkColor: AppColors.primaryBlue,
-          labelStyle: TextStyle(
-            color: selected
-                ? AppColors.primaryBlue
-                : shell.subtitleColor,
-            fontWeight: selected
-                ? FontWeight.w700
-                : FontWeight.w500,
-          ),
-          side: BorderSide(
-            color: selected
-                ? AppColors.primaryBlue
-                : shell.cardBorder,
-          ),
         );
       }).toList(),
     );

@@ -38,6 +38,8 @@ class SettlementResponse {
     required this.tutorCoin,
     required this.tutorAmount,
     required this.status,
+    this.subject,
+    this.lessonDate,
     required this.createdAt,
     this.transferredAt,
     this.reportPending = false,
@@ -53,6 +55,13 @@ class SettlementResponse {
   /// 강사 정산 금액(원).
   final int tutorAmount;
   final SettlementStatus status;
+
+  /// 표시용 과목(한글, 예: "수학"). 없을 수 있음.
+  final String? subject;
+
+  /// 실제 수업 날짜(강의 종료 시각). 없을 수 있음.
+  final DateTime? lessonDate;
+
   final DateTime createdAt;
 
   /// 송금 완료 시점. TRANSFERRED 전에는 null.
@@ -75,11 +84,70 @@ class SettlementResponse {
       tutorCoin: (json['tutorCoin'] as num).toInt(),
       tutorAmount: (json['tutorAmount'] as num).toInt(),
       status: SettlementStatus.fromName(json['status'] as String?),
+      subject: json['subject'] as String?,
+      lessonDate: json['lessonDate'] == null
+          ? null
+          : DateTime.parse(json['lessonDate'] as String),
       createdAt: DateTime.parse(json['createdAt'] as String),
       transferredAt: json['transferredAt'] == null
           ? null
           : DateTime.parse(json['transferredAt'] as String),
       reportPending: json['reportPending'] as bool? ?? false,
+    );
+  }
+}
+
+/// 정산 예정 보류 사유 (백엔드 PendingSettlementReason enum과 동일).
+enum PendingSettlementReason {
+  waitingPeriod, // 수업 종료 후 24시간 정산 대기
+  reportHold, // 신고 처리 중 보류
+  processing, // 곧 자동 정산될 예정
+  unknown;
+
+  static PendingSettlementReason fromName(String? name) {
+    switch (name) {
+      case 'WAITING_PERIOD':
+        return PendingSettlementReason.waitingPeriod;
+      case 'REPORT_HOLD':
+        return PendingSettlementReason.reportHold;
+      case 'PROCESSING':
+        return PendingSettlementReason.processing;
+      default:
+        return PendingSettlementReason.unknown;
+    }
+  }
+}
+
+/// 완료됐지만 아직 정산되지 않은 강의(정산 예정).
+class PendingSettlementResponse {
+  const PendingSettlementResponse({
+    required this.lessonId,
+    required this.totalCoin,
+    required this.expectedTutorAmount,
+    this.subject,
+    this.lessonDate,
+    required this.reason,
+  });
+
+  final int lessonId;
+  final int totalCoin;
+
+  /// 정산되면 받게 될 예상 강사 정산금(원).
+  final int expectedTutorAmount;
+  final String? subject;
+  final DateTime? lessonDate;
+  final PendingSettlementReason reason;
+
+  factory PendingSettlementResponse.fromJson(Map<String, dynamic> json) {
+    return PendingSettlementResponse(
+      lessonId: (json['lessonId'] as num).toInt(),
+      totalCoin: (json['totalCoin'] as num).toInt(),
+      expectedTutorAmount: (json['expectedTutorAmount'] as num).toInt(),
+      subject: json['subject'] as String?,
+      lessonDate: json['lessonDate'] == null
+          ? null
+          : DateTime.parse(json['lessonDate'] as String),
+      reason: PendingSettlementReason.fromName(json['reason'] as String?),
     );
   }
 }
@@ -146,12 +214,16 @@ class TutorSettlementCalendarTransaction {
     required this.date,
     required this.label,
     required this.amount,
+    this.subject,
     this.filledFromPriorYear = false,
   });
 
   final DateTime date;
   final String label;
   final int amount;
+
+  /// 입금(수업 완료) 거래의 과목명(예: "수학"). 출금 거래는 null.
+  final String? subject;
   final bool filledFromPriorYear;
 
   bool get isDeposit => amount > 0;

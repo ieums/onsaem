@@ -37,7 +37,8 @@ class StudentSubscriptionScreen extends ConsumerStatefulWidget {
 
 class _StudentSubscriptionScreenState
     extends ConsumerState<StudentSubscriptionScreen> {
-  bool _autoRenew = true;
+  // 신규 구독은 자동 갱신 ON으로 시작(구독 후 카드에서 끌 수 있음).
+  final bool _autoRenew = true;
   bool _busy = false;
 
   void _snack(String m) {
@@ -223,23 +224,7 @@ class _StudentSubscriptionScreenState
                         ],
                       ),
                     ),
-                    if (!hasActive) ...[
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        activeThumbColor: AppColors.studentPoint,
-                        title: Text('자동 갱신',
-                            style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: shell.titleColor)),
-                        subtitle: Text('기간 종료 시 자동으로 재결제돼요.',
-                            style:
-                                TextStyle(fontSize: 12, color: shell.hintColor)),
-                        value: _autoRenew,
-                        onChanged: (v) => setState(() => _autoRenew = v),
-                      ),
-                    ],
+                    // 구독 전에는 자동 갱신 토글을 노출하지 않는다(구독 중에 카드에서 관리).
                     const SizedBox(height: 20),
                     // 환불 불가 안내 — footer 느낌으로 작고 회색.
                     Text(

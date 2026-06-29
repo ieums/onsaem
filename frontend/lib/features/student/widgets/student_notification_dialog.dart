@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/notifications/notification_center.dart';
+import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/features/student/models/student_notification_category.dart';
 import 'package:ieum/features/student/providers/student_notification_provider.dart';
 
@@ -32,5 +33,6 @@ Future<void> showStudentNotificationDialog(
         ref.read(studentNotificationInboxProvider.notifier).markAllRead(),
     onRemoveAt: (i) =>
         ref.read(studentNotificationInboxProvider.notifier).removeAt(i),
+    accent: AppColors.studentPoint, // 학생 강조색(연두)
   );
 }

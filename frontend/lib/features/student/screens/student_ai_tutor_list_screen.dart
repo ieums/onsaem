@@ -210,9 +210,33 @@ class _ProblemCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            const Icon(Icons.smart_toy_outlined,
-                color: AppColors.studentPoint, size: 20),
+            // 이 카드를 누르면 'AI와 대화하는 채팅방'에 들어간다는 단서.
+            // 작게(칩) 둬서 한 줄 카드 균형을 해치지 않게.
+            const SizedBox(width: 10),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.studentPoint.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.chat_bubble_outline_rounded,
+                      size: 13, color: AppColors.studentPoint),
+                  SizedBox(width: 4),
+                  Text(
+                    '질문하기',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.studentPoint,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

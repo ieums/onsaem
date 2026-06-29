@@ -77,7 +77,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     final base =
         ref.watch(shellDarkModeProvider) ? AppTheme.shellDark : AppTheme.shellLight;
     return base.copyWith(
-      colorScheme: base.colorScheme.copyWith(primary: AppColors.studentInk),
+      colorScheme: base.colorScheme.copyWith(primary: AppColors.studentPoint),
     );
   }
 
@@ -119,7 +119,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
       _isShellDark(context) ? _scheme(context).surface : _fieldFill(context);
 
   Color _selectorRowFill(BuildContext context, {required bool selected}) {
-    if (selected) return AppColors.studentInk;
+    if (selected) return AppColors.studentPoint;
     if (_isShellDark(context)) return _scheme(context).surface;
     return _isShellThemed ? _menuSurface(context) : Colors.white;
   }
@@ -132,7 +132,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   }
 
   Color _selectorIconColor(BuildContext context, {required bool isOpen}) {
-    if (isOpen) return AppColors.studentInk;
+    if (isOpen) return AppColors.studentPoint;
     if (_isShellDark(context)) return AppColors.white70;
     return _textHint(context);
   }
@@ -142,48 +142,26 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
 
   ColorScheme _scheme(BuildContext context) => Theme.of(context).colorScheme;
 
-  Color _accentFill(BuildContext context) {
-    if (!_isShellThemed) return AppColors.studentInk;
-    if (_isShellDark(context)) return _scheme(context).surfaceContainerHigh;
-    return _scheme(context).primary;
-  }
-
-  Color _accentForeground(BuildContext context) {
-    if (!_isShellThemed) return Colors.white;
-    if (_isShellDark(context)) return _scheme(context).primary;
-    return _scheme(context).onPrimary;
-  }
-
-  Color _profileAddBorder(BuildContext context) {
-    if (!_isShellThemed) return Colors.white;
-    return _scaffoldBg(context);
-  }
-
   ButtonStyle _primaryCtaStyle(BuildContext context) {
-    if (_isShellDark(context)) {
-      return FilledButton.styleFrom(
-        backgroundColor: _scheme(context).surface,
-        foregroundColor: _scheme(context).onSurface,
-        disabledBackgroundColor: _scheme(context).surfaceContainerLow,
-        disabledForegroundColor: _scheme(context).onSurfaceVariant,
-        elevation: 0,
-        side: BorderSide(color: _scheme(context).primary, width: 1.5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      );
-    }
+    // 통일 스타일: 테두리만 특징색 + 흰 배경 + 검정 글씨.
+    // 다크모드는 다크 표면 배경 + 특징색 글씨.
+    final dark = _isShellDark(context);
+    final accent =
+        _isShellThemed ? _scheme(context).primary : AppColors.studentPoint;
+    final bg = dark ? _scheme(context).surface : Colors.white;
     return FilledButton.styleFrom(
-      backgroundColor:
-          _isShellThemed ? _scheme(context).primary : AppColors.studentInk,
-      foregroundColor:
-          _isShellThemed ? _scheme(context).onPrimary : Colors.white,
-      disabledBackgroundColor: AppColors.studentPoint.withValues(alpha: 0.4),
+      backgroundColor: bg,
+      foregroundColor: dark ? accent : Colors.black,
+      disabledBackgroundColor: bg,
+      disabledForegroundColor: Colors.grey,
       elevation: 0,
+      side: BorderSide(color: accent, width: 1.5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     );
   }
 
   Color _focusBorderColor(BuildContext context) =>
-      _isShellThemed ? _scheme(context).primary : AppColors.studentInk;
+      _isShellThemed ? _scheme(context).primary : AppColors.studentPoint;
 
   @override
   void initState() {
@@ -642,6 +620,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                     PasswordRulesChecklist(
                       password: _passwordController.text,
                       compact: true,
+                      accent: AppColors.studentPoint, // 페이지 특징색(연두)
                     ),
                     const SizedBox(height: 20),
                     _buildLabel(context, '비밀번호 확인'),
@@ -685,14 +664,10 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                 style: _primaryCtaStyle(context),
                 child: Text(
                   widget.isEditMode ? '저장하기' : '가입하기',
-                  style: TextStyle(
+                  // 색은 _primaryCtaStyle의 foregroundColor를 따른다(라이트 검정/다크 특징색).
+                  style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: _isShellDark(context)
-                        ? _scheme(context).onSurface
-                        : (_isShellThemed
-                            ? _scheme(context).onPrimary
-                            : Colors.white),
                   ),
                 ),
               ),
@@ -738,18 +713,25 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                     child: Container(
                       width: _profileAddButtonSize,
                       height: _profileAddButtonSize,
+                      // 프로필 수정 화면과 통일: 카메라 + 흰/다크 배경 + 특징색 테두리.
                       decoration: BoxDecoration(
-                        color: _accentFill(context),
+                        color: _isShellDark(context)
+                            ? _scheme(context).surface
+                            : Colors.white,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: _profileAddBorder(context),
-                          width: 2,
+                          color: _isShellThemed
+                              ? _scheme(context).primary
+                              : AppColors.studentPoint,
+                          width: 1.5,
                         ),
                       ),
                       child: Icon(
-                        Icons.add,
-                        color: _accentForeground(context),
-                        size: 14,
+                        Icons.camera_alt_rounded,
+                        color: _isShellDark(context)
+                            ? _scheme(context).primary
+                            : Colors.black,
+                        size: 13,
                       ),
                     ),
                   ),

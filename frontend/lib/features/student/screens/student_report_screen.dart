@@ -155,7 +155,6 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
       child: Builder(
         builder: (context) {
           final shell = ShellTheme.of(context);
-          final buttonLabelColor = Colors.black; // 강조색 버튼 위 글씨는 검정
 
           return Scaffold(
             backgroundColor: theme.scaffoldBackgroundColor,
@@ -430,25 +429,26 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                    child: FilledButton(
+                    // 통일 스타일: 테두리만 특징색 + 흰/다크 배경 + 검정/특징색 글씨. 네모(라운드 14).
+                    child: OutlinedButton(
                       onPressed: _step == 0
                           ? (_selectedTypeIndex == null ? null : _goNext)
                           : _submit,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _accent,
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor:
+                            isDark ? AppColors.shellSurfaceDark : Colors.white,
+                        foregroundColor: isDark ? _accent : Colors.black,
+                        disabledForegroundColor: Colors.grey,
                         disabledBackgroundColor:
-                            _accent.withValues(alpha: 0.45),
-                        foregroundColor: buttonLabelColor,
-                        disabledForegroundColor: buttonLabelColor.withValues(
-                          alpha: 0.7,
-                        ),
+                            isDark ? AppColors.shellSurfaceDark : Colors.white,
+                        side: BorderSide(color: _accent),
                         minimumSize: const Size.fromHeight(52),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(26),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
                       child: Text(
-                        _step == 0 ? '다음' : '신고 제출',
+                        _step == 0 ? '다음' : '신고 제출하기',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -475,6 +475,8 @@ class _ReportProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
     final progress = step == 0 ? 0.5 : 1.0;
+    // 역할 강조색(학생=연두 / 강사=보라) 한 가지로 그라데이션 — 강사도 진행바가 그라데이션으로 보이게.
+    final accent = Theme.of(context).colorScheme.primary;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
@@ -491,8 +493,8 @@ class _ReportProgressBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Theme.of(context).colorScheme.primary,
-                      AppColors.primaryBlue,
+                      Color.lerp(accent, Colors.white, 0.25)!,
+                      Color.lerp(accent, Colors.black, 0.22)!,
                     ],
                   ),
                 ),

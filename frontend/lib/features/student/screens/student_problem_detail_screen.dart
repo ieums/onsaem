@@ -8,6 +8,7 @@ import 'package:ieum/features/matching/repositories/matching_repository.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/screens/student_ai_tutor_screen.dart';
+import 'package:ieum/features/student/screens/student_review_detail_screen.dart';
 import 'package:ieum/features/student/screens/student_problem_edit_screen.dart';
 import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/features/student/widgets/student_action_button_style.dart';
@@ -162,8 +163,10 @@ class StudentProblemDetailScreen extends ConsumerWidget {
     final isReask = status == 'CANCELED' || status == 'EXPIRED';
     if (!isReview && !isReask) return const [];
 
-    final label = isReview ? 'AI 튜터로 복습하기' : '다시 질문하기';
-    final icon = isReview ? Icons.smart_toy_outlined : Icons.refresh_rounded;
+    // 복습은 강의(lessonId)가 있어야 복습창으로 갈 수 있다. 없으면 AI 튜터로 폴백.
+    final canReview = isReview && problem.lessonId != null;
+    final label = isReview ? '복습하기' : '다시 질문하기';
+    final icon = isReview ? Icons.menu_book_rounded : Icons.refresh_rounded;
 
     return [
       SizedBox(
@@ -171,14 +174,29 @@ class StudentProblemDetailScreen extends ConsumerWidget {
         child: OutlinedButton.icon(
           onPressed: () {
             if (isReview) {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => StudentAiTutorScreen(
-                    problemId: problem.problemId,
-                    problemSummary: problem.summary,
+              if (canReview) {
+                // 복습창(질문하기 + 요약 PDF)으로 이동.
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => StudentReviewDetailScreen(
+                      lessonId: problem.lessonId!,
+                      title: (problem.summary?.trim().isNotEmpty ?? false)
+                          ? problem.summary!.trim()
+                          : '복습',
+                    ),
                   ),
-                ),
-              );
+                );
+              } else {
+                // 강의 정보가 없으면 AI 튜터 채팅으로 폴백.
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => StudentAiTutorScreen(
+                      problemId: problem.problemId,
+                      problemSummary: problem.summary,
+                    ),
+                  ),
+                );
+              }
             } else {
               _reRequest(context, ref);
             }

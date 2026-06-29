@@ -37,6 +37,14 @@ class SettlementRepository {
         .toList();
   }
 
+  /// 정산 예정(완료됐지만 미정산) 강의 목록.
+  Future<List<PendingSettlementResponse>> fetchPending(int tutorId) async {
+    final res = await _dio.get('/settlements/pending');
+    return _asList(res.data)
+        .map((e) => PendingSettlementResponse.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<SettlementSummaryResponse> fetchSummary(int tutorId) async {
     final res = await _dio.get('/settlements/summary');
     return SettlementSummaryResponse.fromJson(_asMap(res.data));

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/widgets/profile_image.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/models/student_tutor_profile.dart';
 import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
@@ -308,35 +308,13 @@ class StudentTutorCompactCard extends StatelessWidget {
 
   Widget _buildAvatar(ShellTheme shell) {
     const size = 44.0;
-    final url = tutor.profileImageUrl;
-    if (url != null) {
-      return ClipOval(
-        child: Image.network(
-          ApiConstants.resolveImageUrl(url),
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stack) => _placeholderAvatar(shell, size),
-        ),
-      );
-    }
-    return _placeholderAvatar(shell, size);
-  }
-
-  Widget _placeholderAvatar(ShellTheme shell, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: shell.cardBorder.withValues(alpha: 0.3),
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: Icon(
-          Icons.person_rounded,
-          size: size * 0.55,
-          color: shell.hintColor,
-        ),
+    // 강사 프로필이므로 강사 기본 프로필 이미지로 폴백(에셋 없으면 위젯이 아이콘으로 폴백).
+    return ClipOval(
+      child: ProfileImage(
+        imageUrl: tutor.profileImageUrl,
+        role: ProfileRole.tutor,
+        size: size,
+        iconColor: shell.hintColor,
       ),
     );
   }

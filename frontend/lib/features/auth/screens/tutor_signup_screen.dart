@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/widgets/profile_image.dart';
+import 'package:ieum/core/widgets/shell_filter_chip.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/auth/data/auth_controller.dart';
@@ -159,44 +160,21 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
 
   ColorScheme _scheme(BuildContext context) => Theme.of(context).colorScheme;
 
-  Color _accentButtonFill(BuildContext context) {
-    if (!_isShellThemed) return AppColors.primaryBlue;
-    if (_isShellDark(context)) return _scheme(context).surfaceContainerHigh;
-    return _scheme(context).primary;
-  }
-
-  Color _accentButtonForeground(BuildContext context) {
-    if (!_isShellThemed) return Colors.white;
-    if (_isShellDark(context)) return _scheme(context).primary;
-    return _scheme(context).onPrimary;
-  }
-
-  Color _profileAddBorder(BuildContext context) {
-    if (!_isShellThemed) return Colors.white;
-    return _scaffoldBg(context);
-  }
 
   ButtonStyle _primaryCtaStyle(BuildContext context) {
-    if (_isShellDark(context)) {
-      return FilledButton.styleFrom(
-        backgroundColor: _scheme(context).surface,
-        foregroundColor: _scheme(context).onSurface,
-        disabledBackgroundColor: _scheme(context).surfaceContainerLow,
-        disabledForegroundColor: _scheme(context).onSurfaceVariant,
-        elevation: 0,
-        side: BorderSide(color: _scheme(context).primary, width: 1.5),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-      );
-    }
+    // 통일 스타일: 테두리만 특징색 + 흰 배경 + 검정 글씨.
+    // 다크모드는 다크 표면 배경 + 특징색 글씨.
+    final dark = _isShellDark(context);
+    final accent =
+        _isShellThemed ? _scheme(context).primary : AppColors.primaryBlue;
+    final bg = dark ? _scheme(context).surface : Colors.white;
     return FilledButton.styleFrom(
-      backgroundColor:
-          _isShellThemed ? _scheme(context).primary : AppColors.primaryBlue,
-      foregroundColor:
-          _isShellThemed ? _scheme(context).onPrimary : Colors.white,
-      disabledBackgroundColor: AppColors.primaryBlue.withValues(alpha: 0.4),
+      backgroundColor: bg,
+      foregroundColor: dark ? accent : Colors.black,
+      disabledBackgroundColor: bg,
+      disabledForegroundColor: Colors.grey,
       elevation: 0,
+      side: BorderSide(color: accent, width: 1.5),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
       ),
@@ -594,12 +572,8 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   }
 
   /// 과외 가능 과목 — problem subject enum(미분류 제외) 다중 선택 칩.
+  /// 강사 신청 리스트의 '선별 과목 태그'(ShellFilterChip)와 디자인 통일.
   Widget _buildSubjectChips(BuildContext context) {
-    final selectedFill = _isShellDark(context)
-        ? _scheme(context).surfaceContainerHigh
-        : (_isShellThemed ? _scheme(context).primary : AppColors.primaryBlue);
-    final selectedFg = _accentButtonForeground(context);
-
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -613,8 +587,9 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
         final code = entry.key; // 'KOREAN'
         final label = entry.value; // '국어'
         final selected = _subjectKeywords.contains(code);
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
+        return ShellFilterChip(
+          label: label,
+          selected: selected,
           onTap: () => setState(() {
             if (selected) {
               _subjectKeywords.remove(code);
@@ -622,26 +597,6 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
               _subjectKeywords.add(code);
             }
           }),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-            decoration: BoxDecoration(
-              color: selected ? selectedFill : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: selected
-                    ? Colors.transparent
-                    : _scheme(context).outlineVariant,
-              ),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: selected ? selectedFg : _scheme(context).onSurfaceVariant,
-              ),
-            ),
-          ),
         );
       }).toList(),
     );
@@ -828,6 +783,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                     PasswordRulesChecklist(
                       password: _passwordController.text,
                       compact: true,
+                      accent: AppColors.primaryBlue, // 페이지 특징색(보라)
                     ),
                     const SizedBox(height: 20),
                     _buildLabel(context, '비밀번호 확인'),
@@ -936,14 +892,10 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                 style: _primaryCtaStyle(context),
                 child: Text(
                   widget.isEditMode ? '저장하기' : '가입하기',
-                  style: TextStyle(
+                  // 색은 _primaryCtaStyle의 foregroundColor를 따른다(라이트 검정/다크 특징색).
+                  style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: _isShellDark(context)
-                        ? _scheme(context).onSurface
-                        : (_isShellThemed
-                            ? _scheme(context).onPrimary
-                            : Colors.white),
                   ),
                 ),
               ),
@@ -978,27 +930,25 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                     child: Container(
                       width: _profileAddButtonSize,
                       height: _profileAddButtonSize,
+                      // 프로필 수정 화면과 통일: 카메라 + 흰/다크 배경 + 특징색 테두리.
                       decoration: BoxDecoration(
-                        color: _accentButtonFill(context),
+                        color: _isShellDark(context)
+                            ? _scheme(context).surface
+                            : Colors.white,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: _profileAddBorder(context),
-                          width: 2,
+                          color: _isShellThemed
+                              ? _scheme(context).primary
+                              : AppColors.primaryBlue,
+                          width: 1.5,
                         ),
-                        boxShadow: _isShellDark(context)
-                            ? null
-                            : [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
                       ),
                       child: Icon(
-                        Icons.add,
-                        color: _accentButtonForeground(context),
-                        size: 14,
+                        Icons.camera_alt_rounded,
+                        color: _isShellDark(context)
+                            ? _scheme(context).primary
+                            : Colors.black,
+                        size: 13,
                       ),
                     ),
                   ),
