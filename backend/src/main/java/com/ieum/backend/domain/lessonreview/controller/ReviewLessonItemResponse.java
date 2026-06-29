@@ -13,6 +13,7 @@ public record ReviewLessonItemResponse(
         boolean ready,
         String status,        // READY | PREPARING
         Long sessionId,       // 이미 만들어진 세션이 있으면 그 id, 없으면 null
-        LocalDateTime endedAt
+        LocalDateTime endedAt,
+        String subject
 ) {
 }

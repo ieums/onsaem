@@ -8,9 +8,12 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.List;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * lessons 테이블 읽기 전용.
@@ -90,6 +93,24 @@ public class LessonQueryRepository {
 
     public void updateRecordingUrl(Long lessonId, String recordingUrl) {
         jdbcTemplate.update("UPDATE lessons SET recording_url = ? WHERE id = ?", recordingUrl, lessonId);
+    }
+
+    /** 강의별 과목(problems.subject) — lessons.problem_id → problems.id JOIN.
+     *  problem_id 없거나 매칭 안 되면 맵에서 빠짐(→ 과목 칩 미표시). 읽기 전용. */
+    public Map<Long, String> findSubjectsByLessonIds(List<Long> lessonIds) {
+        if (lessonIds.isEmpty()) return Map.of();
+        String placeholders = lessonIds.stream().map(id -> "?").collect(Collectors.joining(","));
+        String sql = """
+            SELECT l.id AS lesson_id, p.subject AS subject
+            FROM lessons l
+            JOIN problems p ON p.id = l.problem_id
+            WHERE l.id IN (%s)
+            """.formatted(placeholders);
+        Map<Long, String> result = new HashMap<>();
+        jdbcTemplate.query(sql, rs -> {
+            result.put(rs.getLong("lesson_id"), rs.getString("subject"));
+        }, lessonIds.toArray());
+        return result;
     }
 
     private LessonInfo mapRow(ResultSet rs, int rowNum) throws SQLException {

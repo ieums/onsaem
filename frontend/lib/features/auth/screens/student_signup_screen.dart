@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:ieum/core/utils/phone_input_formatter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
@@ -597,7 +598,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                     keyboardType: TextInputType.number,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
-                      _PhoneNumberFormatter(),
+                      const PhoneInputFormatter(),
                     ],
                   ),
                   if (!widget.isEditMode && !_isSocial) ...[
@@ -936,25 +937,3 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   }
 }
 
-class _PhoneNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    if (digits.length > 11) return oldValue;
-
-    final buffer = StringBuffer();
-    for (var i = 0; i < digits.length; i++) {
-      if (i == 3 || i == 7) buffer.write('-');
-      buffer.write(digits[i]);
-    }
-    final formatted = buffer.toString();
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}

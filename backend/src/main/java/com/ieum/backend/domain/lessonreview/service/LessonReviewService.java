@@ -176,6 +176,9 @@ public class LessonReviewService {
                         LessonReviewSession::getId,
                         (a, b) -> a)); // 같은 강의에 세션 여러 개면 최신(updatedAt desc 정렬 첫 번째) 사용
 
+        Map<Long, String> subjectByLesson =
+                lessonQueryRepository.findSubjectsByLessonIds(lessonIds);
+
         return lessons.stream()
                 .map(lesson -> {
                     boolean ready = transcriptStatus.get(lesson.lessonId()) == LessonTranscriptStatus.COMPLETED;
@@ -185,7 +188,8 @@ public class LessonReviewService {
                             ready,
                             ready ? "READY" : "PREPARING",
                             sessionByLesson.get(lesson.lessonId()),
-                            lesson.endedAt());
+                            lesson.endedAt(),
+                            subjectByLesson.get(lesson.lessonId()));
                 })
                 .toList();
     }

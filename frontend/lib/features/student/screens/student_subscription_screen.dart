@@ -51,36 +51,19 @@ class _StudentSubscriptionScreenState
     if (studentId == null) return _snack('로그인이 필요해요.');
 
     // 결제 전 환불 불가 안내 + 동의 (구매 동의 없이는 진행하지 않음)
-    final agreed = await showDialog<bool>(
+    final agreed = await showConfirmDialog(
       context: context,
-      builder: (c) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('구독 결제 안내',
-            style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Text(
-          '${plan.name}을(를) 결제할까요?\n\n'
+      title: '구독 결제 안내',
+      message: '${plan.name}을(를) 결제할까요?\n\n'
           '• 결제 후 환불은 불가능해요.\n'
           '• 해지하면 자동 갱신만 중단되고, 남은 기간은 계속 이용할 수 있어요.\n'
           '• 남은 기간에 대한 중도 환불은 되지 않아요.',
-          style: const TextStyle(fontSize: 13.5, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('취소')),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.studentPoint,
-              foregroundColor: Colors.black,
-            ),
-            child: const Text('동의하고 결제',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
+      cancelText: '취소',
+      confirmText: '동의하고 결제',
+      highlightLabel: '결제 금액',
+      highlightValue: '${_won(plan.price)}원',
     );
-    if (agreed != true) return;
+    if (!agreed) return;
 
     setState(() => _busy = true);
     try {

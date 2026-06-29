@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/network/api_error.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/core/widgets/shell_filter_chip.dart';
 import 'package:ieum/features/student/data/models/review_lesson_item.dart';
 import 'package:ieum/features/student/providers/lesson_review_provider.dart';
 import 'package:ieum/features/student/screens/student_review_detail_screen.dart';
+import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 
 class StudentLessonsScreen extends ConsumerStatefulWidget {
   const StudentLessonsScreen({super.key});
@@ -19,6 +21,9 @@ class _StudentLessonsScreenState
     extends ConsumerState<StudentLessonsScreen> {
   final _searchController = TextEditingController();
 
+  static const _subjectFilters = ['전체', '국어', '수학', '영어', '사회', '과학'];
+  String _selectedSubject = '전체';
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -27,10 +32,13 @@ class _StudentLessonsScreenState
 
   List<ReviewLessonItem> _filter(List<ReviewLessonItem> lessons) {
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return lessons;
-    return lessons
-        .where((l) => l.title.toLowerCase().contains(query))
-        .toList();
+    return lessons.where((l) {
+      final matchesQuery =
+          query.isEmpty || l.title.toLowerCase().contains(query);
+      final matchesSubject = _selectedSubject == '전체' ||
+          subjectLabel(l.subject) == _selectedSubject;
+      return matchesQuery && matchesSubject;
+    }).toList();
   }
 
   void _openDetail(ReviewLessonItem lesson) {
@@ -83,6 +91,23 @@ class _StudentLessonsScreenState
               child: _buildSearchField(shell),
             ),
             const SizedBox(height: 16),
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: _subjectFilters.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, index) => ShellFilterChip(
+                  label: _subjectFilters[index],
+                  selected: _selectedSubject == _subjectFilters[index],
+                  selectedColor: AppColors.studentPoint,
+                  onTap: () => setState(
+                      () => _selectedSubject = _subjectFilters[index]),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             Expanded(
               child: lessonsAsync.when(
                 loading: () =>
@@ -110,7 +135,9 @@ class _StudentLessonsScreenState
                   if (items.isEmpty) {
                     return Center(
                       child: Text(
-                        '복습 내역이 없습니다.',
+                        _selectedSubject == '전체'
+                            ? '복습 내역이 없습니다.'
+                            : '해당 과목의 복습 내역이 없습니다.',
                         style: TextStyle(
                             color: shell.hintColor, fontSize: 14),
                       ),

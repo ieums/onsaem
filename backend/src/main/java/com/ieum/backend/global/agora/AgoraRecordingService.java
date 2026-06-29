@@ -176,8 +176,8 @@ public class AgoraRecordingService {
         Map<String, Object> serviceParam = new HashMap<>();
         serviceParam.put("url", recorderUrl);
         serviceParam.put("audioProfile", 0);
-        serviceParam.put("videoWidth", 1280);
-        serviceParam.put("videoHeight", 720);
+        serviceParam.put("videoWidth", 720);   // 세로(portrait) 녹화 — recorder.html 캔버스와 일치
+        serviceParam.put("videoHeight", 1280);
         serviceParam.put("maxRecordingHour", 1);
 
         Map<String, Object> extensionService = new HashMap<>();
@@ -248,11 +248,15 @@ public class AgoraRecordingService {
         Object fileListObj = serverResponse.get("fileList");
         if (fileListObj instanceof List) {
             List<Map<String, Object>> fileList = (List<Map<String, Object>>) fileListObj;
-            if (!fileList.isEmpty()) {
-                String filename = (String) fileList.get(0).get("filename");
-                if (filename != null) {
+            // avFileType=["hls","mp4"]라 fileList에 m3u8과 mp4가 섞여 온다.
+            // m3u8은 전사·재생 불가이므로 mp4만 고른다.
+            // (이 시점에 mp4가 없으면 비워두고, 비동기 60회 폴링 + 5분 스케줄러가 mp4로 채운다)
+            for (Map<String, Object> file : fileList) {
+                String filename = (String) file.get("filename");
+                if (filename != null && filename.endsWith(".mp4")) {
                     recordingUrl = "https://" + bucket + ".s3." + region
                             + ".amazonaws.com/" + filename;
+                    break;
                 }
             }
         }
