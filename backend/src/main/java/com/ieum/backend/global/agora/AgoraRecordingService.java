@@ -161,8 +161,8 @@ public class AgoraRecordingService {
         Map<String, Object> serviceParam = new HashMap<>();
         serviceParam.put("url", recorderUrl);
         serviceParam.put("audioProfile", 0);
-        serviceParam.put("videoWidth", 1280);
-        serviceParam.put("videoHeight", 720);
+        serviceParam.put("videoWidth", 720);   // 세로(portrait) 녹화 — recorder.html 캔버스와 일치
+        serviceParam.put("videoHeight", 1280);
         serviceParam.put("maxRecordingHour", 1);
 
         Map<String, Object> extensionService = new HashMap<>();

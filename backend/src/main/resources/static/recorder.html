@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=1280, initial-scale=1.0" />
+  <meta name="viewport" content="width=720, initial-scale=1.0" />
   <title>LOADING</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -20,10 +20,10 @@
       justify-content: center;
       background: #e9eef3;          /* 캔버스 바깥 여백 */
     }
-    /* 16:9 고정 캔버스. 화면을 꽉 채우되 비율 유지 */
+    /* 9:16 세로 고정 캔버스(녹화 출력 720×1280과 일치). 화면을 꽉 채우되 비율 유지 */
     #board {
-      width: 1280px;
-      height: 720px;
+      width: 720px;
+      height: 1280px;
       background: #ffffff;
       box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
     }
@@ -44,7 +44,7 @@
 </head>
 <body>
   <div id="stage">
-    <canvas id="board" width="1280" height="720"></canvas>
+    <canvas id="board" width="720" height="1280"></canvas>
   </div>
   <div id="status">init…</div>
 
