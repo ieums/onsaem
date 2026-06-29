@@ -90,6 +90,14 @@ public class S3LessonMediaStorage implements LessonMediaStorage {
         return presign(storedRef);
     }
 
+    @Override
+    public String imageDisplayUrl(String rawImageUrl) {
+        if (rawImageUrl == null || rawImageUrl.isBlank()) return rawImageUrl;
+        // 절대 S3 URL만 presign. 그 외(상대경로 등)는 그대로.
+        if (!rawImageUrl.contains(".amazonaws.com/")) return rawImageUrl;
+        return presign(rawImageUrl);
+    }
+
     private String presign(String s3Url) {
         String key = extractS3Key(s3Url);
         try (S3Presigner presigner = S3Presigner.builder()

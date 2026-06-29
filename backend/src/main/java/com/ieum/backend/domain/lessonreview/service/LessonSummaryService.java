@@ -174,9 +174,10 @@ public class LessonSummaryService {
                 bytes = java.nio.file.Files.readAllBytes(
                         java.nio.file.Paths.get("uploads").resolve(rel));
             } else {
-                // 절대 URL(S3 등) → HTTP로 받아옴. 타임아웃·리다이렉트·UA 설정 + 상태코드 확인.
+                // 절대 URL(S3 등) → 비공개 S3면 presigned로 변환(403 방지) 후 HTTP로 받아옴.
+                String fetchUrl = lessonMediaStorage.imageDisplayUrl(imageUrl);
                 java.net.HttpURLConnection conn =
-                        (java.net.HttpURLConnection) new java.net.URL(imageUrl).openConnection();
+                        (java.net.HttpURLConnection) new java.net.URL(fetchUrl).openConnection();
                 conn.setInstanceFollowRedirects(true);
                 conn.setConnectTimeout(5000);
                 conn.setReadTimeout(10000);
