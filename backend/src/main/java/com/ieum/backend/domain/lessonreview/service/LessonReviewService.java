@@ -178,6 +178,8 @@ public class LessonReviewService {
 
         Map<Long, String> subjectByLesson =
                 lessonQueryRepository.findSubjectsByLessonIds(lessonIds);
+        Map<Long, String> imageByLesson =
+                lessonQueryRepository.findFirstImageUrlByLessonIds(lessonIds);
 
         return lessons.stream()
                 .map(lesson -> {
@@ -189,7 +191,8 @@ public class LessonReviewService {
                             ready ? "READY" : "PREPARING",
                             sessionByLesson.get(lesson.lessonId()),
                             lesson.endedAt(),
-                            subjectByLesson.get(lesson.lessonId()));
+                            subjectByLesson.get(lesson.lessonId()),
+                            imageByLesson.get(lesson.lessonId()));
                 })
                 .toList();
     }
