@@ -199,7 +199,8 @@ public class LessonReviewService {
                             sessionByLesson.get(lesson.lessonId()),
                             lesson.endedAt(),
                             subjectByLesson.get(lesson.lessonId()),
-                            imageByLesson.get(lesson.lessonId()));
+                            lessonMediaStorage.imageDisplayUrl(
+                                    imageByLesson.get(lesson.lessonId())));
                 })
                 .toList();
     }

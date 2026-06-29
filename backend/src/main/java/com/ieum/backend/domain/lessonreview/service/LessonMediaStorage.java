@@ -47,4 +47,11 @@ public interface LessonMediaStorage {
      * local만 사용(파일). prod는 presigned URL로 직접 가므로 호출되지 않음.
      */
     Resource openRecordingResource(Long lessonId, String recordingRef);
+
+    /**
+     * 비공개 S3 이미지(문제 이미지 등)를 화면에서 바로 로드 가능한 URL로 변환.
+     * prod: presigned URL(시간 제한). local: 상대경로 그대로(정적 서빙).
+     */
+    String imageDisplayUrl(String rawImageUrl);
 }
+
