@@ -2,22 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 
 /// 가로 스크롤 과목·카테고리 필터 칩 (라이트/다크 공통)
+/// 가로 스크롤 과목·카테고리 필터 칩 (라이트/다크 공통)
 class ShellFilterChip extends StatelessWidget {
   const ShellFilterChip({
     super.key,
     required this.label,
     required this.selected,
     required this.onTap,
+    this.selectedColor,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
+  /// 선택 시 강조색. 안 주면 기본 파랑(튜터 화면 호환).
+  final Color? selectedColor;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = selectedColor ?? AppColors.primaryBlue;
     // 통일 스타일: 채움 없이 '테두리만 특징색 + 흰/다크 표면 + 검정/특징색 글씨'.
     // 선택은 특징색 보더(굵게) + 진한 글씨로, 미선택은 회색 보더 + 흐린 글씨로 구분.
     return GestureDetector(
@@ -28,7 +34,7 @@ class ShellFilterChip extends StatelessWidget {
           color: scheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? AppColors.primaryBlue : scheme.outline,
+            color: selected ? accent : scheme.outline,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -38,7 +44,7 @@ class ShellFilterChip extends StatelessWidget {
             fontSize: 14,
             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
             color: selected
-                ? (isDark ? AppColors.primaryBlue : Colors.black)
+                ? (isDark ? accent : Colors.black)
                 : scheme.onSurfaceVariant,
           ),
         ),

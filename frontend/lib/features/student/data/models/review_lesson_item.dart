@@ -6,6 +6,7 @@ class ReviewLessonItem {
   final bool ready;
   final int? sessionId;
   final DateTime? endedAt;
+  final String? subject;
 
   const ReviewLessonItem({
     required this.lessonId,
@@ -13,6 +14,7 @@ class ReviewLessonItem {
     required this.ready,
     this.sessionId,
     this.endedAt,
+    this.subject,
   });
 
   factory ReviewLessonItem.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,7 @@ class ReviewLessonItem {
       endedAt: json['endedAt'] == null
           ? null
           : DateTime.tryParse(json['endedAt'] as String),
+      subject: json['subject'] as String?,
     );
   }
 }
