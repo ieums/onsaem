@@ -78,7 +78,11 @@ class _StudentReviewDetailScreenState
     try {
       // 녹음은 인증+소유권 체크 엔드포인트(local)라 JWT를 함께 보낸다.
       // (prod의 presigned S3 URL은 헤더가 있어도 무시되므로 안전)
-      final token = await tokenStorage.readAccessToken();
+      // prod는 presigned S3 URL이라 Authorization 헤더를 함께 보내면
+      // S3가 '이중 인증'으로 거부(403/400)한다 → 헤더는 local 인증 엔드포인트일 때만.
+      final isPresignedS3 =
+          url.contains('amazonaws.com') || url.contains('X-Amz-');
+      final token = isPresignedS3 ? null : await tokenStorage.readAccessToken();
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(url),
         httpHeaders:

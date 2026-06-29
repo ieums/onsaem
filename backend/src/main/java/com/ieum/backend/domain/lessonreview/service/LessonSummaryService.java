@@ -165,27 +165,47 @@ public class LessonSummaryService {
     private String fetchAsDataUri(String imageUrl) {
         try {
             byte[] bytes;
+            String contentType = null;
             if (imageUrl.startsWith("/")) {
-                // 로컬 상대경로(/uploads/xxx.jpg) → 디스크(uploads/)에서 직접 읽음. (prod는 http(s) URL)
+                // 로컬 상대경로(/uploads/xxx.jpg) → 디스크(uploads/)에서 직접 읽음.
                 String rel = imageUrl.startsWith("/uploads/")
                         ? imageUrl.substring("/uploads/".length())
                         : imageUrl.replaceFirst("^/+", "");
                 bytes = java.nio.file.Files.readAllBytes(
                         java.nio.file.Paths.get("uploads").resolve(rel));
             } else {
-                try (var in = new java.net.URL(imageUrl).openStream()) {
+                // 절대 URL(S3 등) → HTTP로 받아옴. 타임아웃·리다이렉트·UA 설정 + 상태코드 확인.
+                java.net.HttpURLConnection conn =
+                        (java.net.HttpURLConnection) new java.net.URL(imageUrl).openConnection();
+                conn.setInstanceFollowRedirects(true);
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(10000);
+                conn.setRequestProperty("User-Agent", "ieum-pdf");
+                int code = conn.getResponseCode();
+                if (code != 200) {
+                    log.warn("[SummaryPDF] 이미지 응답 코드 {} - {}", code, imageUrl);
+                    return null;
+                }
+                contentType = conn.getContentType();
+                try (var in = conn.getInputStream()) {
                     bytes = in.readAllBytes();
                 }
             }
-            String lower = imageUrl.toLowerCase();
-            String mime = lower.endsWith(".png") ? "image/png"
-                    : lower.endsWith(".webp") ? "image/webp"
-                    : "image/jpeg";
+            String mime = mimeFor(imageUrl, contentType);
             return "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
         } catch (Exception e) {
             log.warn("[SummaryPDF] 이미지 가져오기 실패: {}", imageUrl, e);
             return null;
         }
+    }
+
+    /** Content-Type 우선, 없으면 확장자로 MIME 추정. */
+    private String mimeFor(String url, String contentType) {
+        if (contentType != null && contentType.startsWith("image/")) return contentType;
+        String lower = url.toLowerCase();
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".webp")) return "image/webp";
+        return "image/jpeg";
     }
 
     private byte[] htmlToPdf(String html) throws Exception {
