@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -26,6 +27,7 @@ public class AuthService {
     private final OAuthClientResolver oauthClientResolver;
     private final TokenService tokenService;
     private final ImageStorageService imageStorageService;
+    private final com.ieum.backend.global.s3.S3Service s3Service;
 
     @Transactional
     public TokenResponse signupStudent(StudentSignupRequest request) {
@@ -45,10 +47,14 @@ public class AuthService {
     }
 
     @Transactional
-    public TokenResponse signupTutor(TutorSignupRequest request) {
+    public TokenResponse signupTutor(TutorSignupRequest request, MultipartFile document) {   // ← 파라미터 추가
         if (tutorRepository.existsByEmail(request.email())) {
             throw BusinessException.badRequest("이미 가입된 이메일입니다.");
         }
+        // 증빙 서류(선택) → S3 업로드 후 URL 확보
+        String verificationDocumentUrl = (document != null && !document.isEmpty())
+                ? s3Service.uploadVerificationDocument(document)
+                : null;
         Tutor tutor = Tutor.builder()
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
@@ -62,6 +68,7 @@ public class AuthService {
                 .experienceYears(request.experienceYears())
                 .educationStatus(EducationStatus.fromLabel(request.educationStatus()))
                 .subjects(request.subjects())
+                .verificationDocumentUrl(verificationDocumentUrl)
                 .build();
         tutorRepository.save(tutor);
         return tokenService.issue(tutor.getId(), Role.TUTOR);
@@ -121,7 +128,7 @@ public class AuthService {
      * 토큰을 재검증해 같은 소셜 신원으로만 가입되게 한다(폼 위변조 방지).
      */
     @Transactional
-    public TokenResponse oauthSignup(String providerName, OAuthSignupRequest req) {
+    public TokenResponse oauthSignup(String providerName, OAuthSignupRequest req, MultipartFile document) {
         AuthProvider provider = parseProvider(providerName);
         Role role = parseRole(req.role());
         OAuthUserInfo info = oauthClientResolver.resolve(provider).getUserInfo(req.token());
@@ -166,6 +173,10 @@ public class AuthService {
                 if (req.educationStatus() == null || req.educationStatus().isBlank()) {
                     throw BusinessException.badRequest("최종학력을 선택해주세요.");
                 }
+                // 증빙 서류(선택) → S3 업로드
+                String verificationDocumentUrl = (document != null && !document.isEmpty())
+                        ? s3Service.uploadVerificationDocument(document)
+                        : null;
                 Tutor tutor = tutorRepository.save(
                         Tutor.builder()
                                 .provider(info.provider())
@@ -181,8 +192,10 @@ public class AuthService {
                                 .experienceYears(req.experienceYears())
                                 .educationStatus(EducationStatus.fromLabel(req.educationStatus()))
                                 .subjects(req.subjects())
+                                .verificationDocumentUrl(verificationDocumentUrl)
                                 .build());
                 yield tokenService.issue(tutor.getId(), Role.TUTOR);
+
             }
         };
     }
