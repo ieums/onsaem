@@ -8,6 +8,8 @@ import 'package:ieum/features/student/data/models/review_lesson_item.dart';
 import 'package:ieum/features/student/providers/lesson_review_provider.dart';
 import 'package:ieum/features/student/screens/student_review_detail_screen.dart';
 import 'package:ieum/features/student/utils/problem_enum_labels.dart';
+import 'package:ieum/core/constants/api_constants.dart';
+import 'package:ieum/features/student/widgets/student_problem_chips.dart';
 
 class StudentLessonsScreen extends ConsumerStatefulWidget {
   const StudentLessonsScreen({super.key});
@@ -211,7 +213,6 @@ class _ReviewLessonCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ready = lesson.ready;
 
-    // ready=준비완료(녹색 계열), 준비중=회색 계열
     final badgeColor = ready
         ? (isDark ? const Color(0xFF2E3D1E) : const Color(0xFFF1FCE0))
         : (isDark ? const Color(0xFF2A2E36) : const Color(0xFFEFEFEF));
@@ -223,56 +224,83 @@ class _ReviewLessonCard extends StatelessWidget {
       opacity: ready ? 1.0 : 0.7,
       child: Material(
         color: shell.cardBackground,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              border: Border.all(color: shell.cardBorder),
-              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: shell.cardBorder.withValues(alpha: 0.4)),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: (lesson.imageUrl != null &&
+                            lesson.imageUrl!.isNotEmpty)
+                        ? Image.network(
+                            ApiConstants.resolveImageUrl(lesson.imageUrl!),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => _thumb(shell),
+                          )
+                        : _thumb(shell),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      Row(
+                        children: [
+                          if (lesson.subject != null &&
+                              lesson.subject!.isNotEmpty)
+                            ProblemSubjectChip(subject: lesson.subject),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: badgeColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              ready ? '복습 시작' : '복습 준비중',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: badgeTextColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
                       Text(
                         lesson.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
                           color: shell.titleColor,
                         ),
                       ),
                       if (lesson.endedAt != null) ...[
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         Text(
                           _formatDate(lesson.endedAt!),
-                          style: TextStyle(
-                              fontSize: 13, color: shell.hintColor),
+                          style:
+                              TextStyle(fontSize: 11.5, color: shell.hintColor),
                         ),
                       ],
                     ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: badgeColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    ready ? '복습 시작' : '복습 준비중',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: badgeTextColor,
-                    ),
                   ),
                 ),
               ],
@@ -282,6 +310,12 @@ class _ReviewLessonCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _thumb(ShellTheme shell) => Container(
+        color: shell.cardBorder.withValues(alpha: 0.3),
+        alignment: Alignment.center,
+        child: Icon(Icons.image_outlined, color: shell.hintColor, size: 22),
+      );
 
   String _formatDate(DateTime dt) {
     return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')} '

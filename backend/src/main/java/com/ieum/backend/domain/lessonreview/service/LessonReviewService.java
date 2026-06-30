@@ -178,18 +178,29 @@ public class LessonReviewService {
 
         Map<Long, String> subjectByLesson =
                 lessonQueryRepository.findSubjectsByLessonIds(lessonIds);
+        Map<Long, String> imageByLesson =
+                lessonQueryRepository.findFirstImageUrlByLessonIds(lessonIds);
+        Map<Long, String> summaryByLesson =
+                lessonQueryRepository.findSummariesByLessonIds(lessonIds);
 
         return lessons.stream()
                 .map(lesson -> {
                     boolean ready = transcriptStatus.get(lesson.lessonId()) == LessonTranscriptStatus.COMPLETED;
+                    // 제목: OCR 요약(problems.summary)이 있으면 그걸로, 없으면 날짜 기반 기본 제목.
+                    String summary = summaryByLesson.get(lesson.lessonId());
+                    String title = (summary != null && !summary.isBlank())
+                            ? summary.trim()
+                            : buildTitle(lesson);
                     return new ReviewLessonItemResponse(
                             lesson.lessonId(),
-                            buildTitle(lesson),
+                            title,
                             ready,
                             ready ? "READY" : "PREPARING",
                             sessionByLesson.get(lesson.lessonId()),
                             lesson.endedAt(),
-                            subjectByLesson.get(lesson.lessonId()));
+                            subjectByLesson.get(lesson.lessonId()),
+                            lessonMediaStorage.imageDisplayUrl(
+                                    imageByLesson.get(lesson.lessonId())));
                 })
                 .toList();
     }

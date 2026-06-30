@@ -120,5 +120,13 @@ public class LocalLessonMediaStorage implements LessonMediaStorage {
     @Override
     public String summaryPdfDownloadUrl(String storedRef) {
         return storedRef; // 이미 /uploads/... 정적 경로
+
+
+    }
+
+
+    @Override
+    public String imageDisplayUrl(String rawImageUrl) {
+        return rawImageUrl; // local은 /uploads/... 정적 서빙이라 그대로
     }
 }

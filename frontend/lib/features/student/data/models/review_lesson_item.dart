@@ -7,6 +7,7 @@ class ReviewLessonItem {
   final int? sessionId;
   final DateTime? endedAt;
   final String? subject;
+  final String? imageUrl;
 
   const ReviewLessonItem({
     required this.lessonId,
@@ -15,6 +16,7 @@ class ReviewLessonItem {
     this.sessionId,
     this.endedAt,
     this.subject,
+    this.imageUrl,
   });
 
   factory ReviewLessonItem.fromJson(Map<String, dynamic> json) {
@@ -27,6 +29,7 @@ class ReviewLessonItem {
           ? null
           : DateTime.tryParse(json['endedAt'] as String),
       subject: json['subject'] as String?,
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 }
