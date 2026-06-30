@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/core/notifications/notification_permission_provider.dart';
+import 'package:ieum/features/onboarding/onboarding_review_args.dart';
+import 'package:ieum/features/tutor/providers/tutor_notification_provider.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/storage/token_storage.dart';
 import 'package:ieum/core/theme/app_colors.dart';
@@ -33,8 +36,6 @@ class _TutorMyPageScreenState
   void initState() {
     super.initState();
   }
-
-  bool _pushNotifications = true;
 
   static const _faqItems = <({String question, String answer})>[
     (
@@ -348,6 +349,17 @@ class _TutorMyPageScreenState
     );
   }
 
+  /// 온보딩 다시보기 — 현재 앱 테마(라/다)를 그대로 따른다(첫 실행 게이팅 영향 없음).
+  void _openOnboardingReview() {
+    final isDark = ref.read(shellDarkModeProvider);
+    context.push(
+      RoutePaths.onboardingTutor,
+      extra: OnboardingReviewArgs(
+        brightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+    );
+  }
+
   Widget _buildSettingsCard(Map<String, dynamic>? me) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,9 +378,16 @@ class _TutorMyPageScreenState
             _buildSwitchRow(
               icon: Icons.notifications_none_rounded,
               title: '푸시 알림',
-              value: _pushNotifications,
-              onChanged: (v) =>
-                  setState(() => _pushNotifications = v),
+              // 토글 상태 = 앱 pref AND OS 권한(설정에서 끄면 자동 off 반영).
+              value: ref.watch(tutorPushEnabledProvider) &&
+                  (ref.watch(notificationPermissionProvider).valueOrNull ?? false),
+              onChanged: (v) => handlePushToggle(
+                context,
+                ref,
+                enable: v,
+                setPref: (on) =>
+                    ref.read(tutorPushEnabledProvider.notifier).set(on),
+              ),
             ),
             _buildMenuRow(
               icon: Icons.headset_mic_outlined,
@@ -379,6 +398,11 @@ class _TutorMyPageScreenState
               icon: Icons.help_outline_rounded,
               title: '자주 묻는 질문',
               onTap: _showFaqSheet,
+            ),
+            _buildMenuRow(
+              icon: Icons.replay_rounded,
+              title: '온샘 소개',
+              onTap: _openOnboardingReview,
               showDivider: false,
             ),
           ],

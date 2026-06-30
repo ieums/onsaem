@@ -48,6 +48,8 @@ dependencies:
   shared_preferences: ^2.5.3
   timezone: ^0.10.1
   flutter_svg: ^2.3.0
+  flutter_animate: ^4.5.0
+  visibility_detector: ^0.4.0+2
   flutter_secure_storage: ^9.2.4
    # ─── 소셜 로그인 ───────────────────────────
   google_sign_in: ^7.2.0

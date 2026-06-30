@@ -6,7 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/widgets/profile_image.dart';
 import 'package:ieum/core/constants/route_paths.dart';
-import 'package:ieum/core/notifications/app_notification_service.dart';
+import 'package:ieum/features/onboarding/onboarding_review_args.dart';
+import 'package:ieum/core/notifications/notification_permission_provider.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/storage/token_storage.dart';
 import 'package:ieum/core/theme/app_colors.dart';
@@ -441,6 +442,17 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
     );
   }
 
+  /// 온보딩 다시보기 — 현재 앱 테마(라/다)를 그대로 따른다(첫 실행 게이팅 영향 없음).
+  void _openOnboardingReview() {
+    final isDark = ref.read(shellDarkModeProvider);
+    context.push(
+      RoutePaths.onboardingStudent,
+      extra: OnboardingReviewArgs(
+        brightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+    );
+  }
+
   Widget _buildSettingsCard() {
     final me = ref.watch(meProvider).valueOrNull;
     // 소셜 계정은 비밀번호가 없으므로 '비밀번호 변경'을 LOCAL 가입자에게만 노출.
@@ -472,6 +484,11 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
               icon: Icons.help_outline_rounded,
               title: '자주 묻는 질문',
               onTap: _showFaqSheet,
+            ),
+            _buildMenuRow(
+              icon: Icons.replay_rounded,
+              title: '온샘 소개',
+              onTap: _openOnboardingReview,
               showDivider: false,
             ),
           ],
@@ -483,8 +500,11 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
   }
 
   Widget _buildNotificationSettingsCard() {
-    final pushEnabled =
-        ref.watch(studentNotificationSettingsProvider).pushEnabled;
+    // 토글 상태 = 앱 pref AND OS 권한(설정에서 끄면 자동으로 off로 반영).
+    final pref = ref.watch(studentNotificationSettingsProvider).pushEnabled;
+    final osGranted =
+        ref.watch(notificationPermissionProvider).valueOrNull ?? false;
+    final pushEnabled = pref && osGranted;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,9 +524,12 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
               icon: Icons.notifications_active_outlined,
               title: '푸시 알림 받기',
               value: pushEnabled,
-              onChanged: (v) => _updateNotificationSetting(
-                enabled: v,
-                update: (notifier) => notifier.setAll(v),
+              onChanged: (v) => handlePushToggle(
+                context,
+                ref,
+                enable: v,
+                setPref: (on) =>
+                    ref.read(studentNotificationSettingsProvider.notifier).setAll(on),
               ),
               showDivider: false,
             ),
@@ -516,23 +539,6 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
     );
   }
 
-  Future<void> _updateNotificationSetting({
-    required bool enabled,
-    required Future<void> Function(StudentNotificationSettingsNotifier) update,
-  }) async {
-    if (enabled) {
-      final granted =
-          await ref.read(appNotificationServiceProvider).requestPermission();
-      if (!granted && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('알림 권한이 필요합니다. 기기 설정에서 허용해 주세요.'),
-          ),
-        );
-      }
-    }
-    await update(ref.read(studentNotificationSettingsProvider.notifier));
-  }
 
   Widget _buildGroupedMenuCard({required List<Widget> children}) {
     return Container(
