@@ -361,7 +361,7 @@ class _StudentReviewDetailScreenState
           ),
           Expanded(
             child: Text(
-              state.session?.title ?? widget.title,
+              widget.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
