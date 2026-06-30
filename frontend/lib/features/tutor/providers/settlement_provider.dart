@@ -13,6 +13,7 @@ class TutorSettlementData {
   const TutorSettlementData({
     required this.summary,
     required this.records,
+    required this.pending,
     required this.transactions,
   });
 
@@ -20,6 +21,9 @@ class TutorSettlementData {
 
   /// 정산 건(수업 단위) 목록 — 상태 뱃지·출금 요청에 사용.
   final List<SettlementResponse> records;
+
+  /// 정산 예정(완료됐지만 미정산) 강의 목록 — 24h 대기/신고 보류 표시용.
+  final List<PendingSettlementResponse> pending;
 
   /// 달력·차트가 쓰는 부호 있는 거래 목록(입금 +, 송금완료 출금 -).
   final List<TutorSettlementCalendarTransaction> transactions;
@@ -43,6 +47,7 @@ List<TutorSettlementCalendarTransaction> settlementRecordsToTransactions(
         date: r.createdAt,
         label: '입금',
         amount: r.tutorAmount,
+        subject: r.subject,
       ),
     );
     if (r.status == SettlementStatus.transferred && r.transferredAt != null) {
@@ -67,9 +72,11 @@ final settlementDataProvider =
   final repo = ref.watch(settlementRepositoryProvider);
   final records = await repo.fetchByTutor(tutorId);
   final summary = await repo.fetchSummary(tutorId);
+  final pending = await repo.fetchPending(tutorId);
   return TutorSettlementData(
     summary: summary,
     records: records,
+    pending: pending,
     transactions: settlementRecordsToTransactions(records),
   );
 });

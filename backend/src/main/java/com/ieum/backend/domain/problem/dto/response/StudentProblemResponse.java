@@ -32,8 +32,14 @@ public class StudentProblemResponse {
     private int applicantCount;
     /** (2) 여러 장 한 문제로 등록돼 페이지 순서 재정렬이 가능한지. */
     private boolean multiPage;
+    /** 매칭/풀이 완료 문제의 강의 id — 복습(리뷰) 화면 진입용. 없으면 null. */
+    private Long lessonId;
 
     public static StudentProblemResponse from(Problem problem, int applicantCount) {
+        return from(problem, applicantCount, null);
+    }
+
+    public static StudentProblemResponse from(Problem problem, int applicantCount, Long lessonId) {
         return StudentProblemResponse.builder()
                 .problemId(problem.getId())
                 .summary(problem.getSummary())
@@ -49,6 +55,7 @@ public class StudentProblemResponse {
                 .imageUrls(problem.getImageUrls())
                 .applicantCount(applicantCount)
                 .multiPage(problem.isMultiPage())
+                .lessonId(lessonId)
                 .build();
     }
 }

@@ -132,6 +132,7 @@ class StudentProblemModel {
     this.imageUrls = const [],
     this.applicantCount = 0,
     this.multiPage = false,
+    this.lessonId,
   });
 
   final int problemId;
@@ -148,6 +149,7 @@ class StudentProblemModel {
   final List<String> imageUrls;
   final int applicantCount;
   final bool multiPage; // 여러 장 한 문제 → 페이지 순서 재정렬 가능
+  final int? lessonId; // 매칭/풀이 완료 문제의 강의 id(복습 진입용). 없으면 null
 
   factory StudentProblemModel.fromJson(Map<String, dynamic> json) {
     return StudentProblemModel(
@@ -167,6 +169,7 @@ class StudentProblemModel {
       imageUrls: List<String>.from(json['imageUrls'] as List? ?? const []),
       applicantCount: json['applicantCount'] as int? ?? 0,
       multiPage: json['multiPage'] as bool? ?? false,
+      lessonId: json['lessonId'] as int?,
     );
   }
 

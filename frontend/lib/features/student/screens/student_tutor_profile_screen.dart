@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/widgets/profile_image.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/data/tutor_profile_repository.dart';
 import 'package:ieum/features/student/models/tutor_profile_detail.dart';
+import 'package:ieum/features/student/widgets/student_action_button_style.dart';
+import 'package:ieum/features/tutor/widgets/review_summary.dart';
 import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
 import 'package:ieum/features/tutor/widgets/tutor_subject_badge.dart';
@@ -113,6 +115,7 @@ class _StudentTutorProfileScreenState
     required bool canSelect,
   }) {
     final pageBg = theme.scaffoldBackgroundColor;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: StudentFlowAppBar(title: '강사 프로필'),
@@ -147,16 +150,10 @@ class _StudentTutorProfileScreenState
                 child: SizedBox(
                   width: double.infinity,
                   height: 50,
-                  child: FilledButton(
+                  child: OutlinedButton(
                     onPressed: _selectTutor,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.studentPoint,
-                      foregroundColor: Colors.black, // 연두 버튼 위 글씨는 검정
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 0,
-                    ),
+                    // 통일 스타일: 테두리 특징색 + 흰/다크 배경 + 검정/특징색 글씨.
+                    style: studentOutlinedButtonStyle(isDark, radius: 14),
                     child: const Text(
                       '선택하기',
                       style:
@@ -240,31 +237,13 @@ class _StudentTutorProfileScreenState
 
   Widget _buildAvatar(ShellTheme shell, TutorProfileDetail profile) {
     const size = 64.0;
-    final url = profile.profileImageUrl;
-    if (url != null) {
-      return ClipOval(
-        child: Image.network(
-          ApiConstants.resolveImageUrl(url),
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => _iconAvatar(shell, size),
-        ),
-      );
-    }
-    return _iconAvatar(shell, size);
-  }
-
-  Widget _iconAvatar(ShellTheme shell, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: shell.cardBorder.withValues(alpha: 0.3),
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: Icon(Icons.person_rounded, size: 35, color: shell.hintColor),
+    // 강사 프로필이므로 강사 기본 프로필 이미지로 폴백(에셋 없으면 위젯이 아이콘으로 폴백).
+    return ClipOval(
+      child: ProfileImage(
+        imageUrl: profile.profileImageUrl,
+        role: ProfileRole.tutor,
+        size: size,
+        iconColor: shell.hintColor,
       ),
     );
   }
@@ -368,6 +347,11 @@ class _StudentTutorProfileScreenState
     }
     return Column(
       children: [
+        // 상단 별점 요약(평균 + 점수별 분포) — 받은 리뷰 화면과 동일.
+        ReviewSummary(shell: shell, profile: profile),
+        const SizedBox(height: 8),
+        Divider(color: shell.cardBorder.withValues(alpha: 0.5)),
+        const SizedBox(height: 12),
         for (final review in profile.reviews) ...[
           _ReviewCard(shell: shell, review: review),
           const SizedBox(height: 10),

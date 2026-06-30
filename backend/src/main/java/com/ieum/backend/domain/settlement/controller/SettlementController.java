@@ -3,6 +3,7 @@ package com.ieum.backend.domain.settlement.controller;
 import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
 import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
 import com.ieum.backend.domain.settlement.dto.response.BulkWithdrawResponse;
+import com.ieum.backend.domain.settlement.dto.response.PendingSettlementResponse;
 import com.ieum.backend.domain.settlement.dto.response.SettlementResponse;
 import com.ieum.backend.domain.settlement.dto.response.SettlementSummaryResponse;
 import com.ieum.backend.domain.settlement.entity.enums.SettlementStatus;
@@ -48,6 +49,16 @@ public class SettlementController {
             return ResponseEntity.ok(settlementService.getByTutorAndStatus(tutorId, status));
         }
         return ResponseEntity.ok(settlementService.getByTutor(tutorId));
+    }
+
+    /**
+     * 정산 예정 목록 — 완료됐지만 아직 정산되지 않은 강의(24h 대기/신고 보류 등).
+     * GET /api/v1/settlements/pending
+     */
+    @GetMapping("/pending")
+    public ResponseEntity<List<PendingSettlementResponse>> getPending(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return ResponseEntity.ok(settlementService.getPendingByTutor(principal.id()));
     }
 
     /**

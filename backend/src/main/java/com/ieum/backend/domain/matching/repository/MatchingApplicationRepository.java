@@ -18,6 +18,9 @@ public interface MatchingApplicationRepository extends JpaRepository<MatchingApp
 
     List<MatchingApplication> findByProblemId(Long problemId);
 
+    /** 그 문제의 모든 신청 기록 삭제 — '다시 요청'(reopen)으로 새 탐색 라운드를 시작할 때 사용. */
+    long deleteByProblemId(Long problemId);
+
     Optional<MatchingApplication> findByProblemIdAndTutorId(Long problemId, Long tutorId);
 
     int countByProblemIdAndStatusIn(Long problemId, List<ApplicationStatus> statuses);

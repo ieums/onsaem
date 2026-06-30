@@ -11,27 +11,22 @@ enum NotificationKind {
   general,
 }
 
-class _KindVisual {
-  const _KindVisual(this.icon, this.fg, this.bg);
-  final IconData icon;
-  final Color fg;
-  final Color bg;
-}
-
-_KindVisual _visualOf(NotificationKind kind) {
+/// 카테고리별 '아이콘'은 의미 구분을 위해 유지하되, 색은 역할 강조색(accent)으로 통일한다.
+/// (학생 알림 = 학생색, 강사 알림 = 강사색)
+IconData _iconOf(NotificationKind kind) {
   switch (kind) {
     case NotificationKind.matching:
-      return const _KindVisual(Icons.person_add_alt_1, Color(0xFF185FA5), Color(0xFFE6F1FB));
+      return Icons.person_add_alt_1;
     case NotificationKind.lesson:
-      return const _KindVisual(Icons.videocam_rounded, Color(0xFF854F0B), Color(0xFFFAEEDA));
+      return Icons.videocam_rounded;
     case NotificationKind.settlement:
-      return const _KindVisual(Icons.payments_rounded, Color(0xFF0F6E56), Color(0xFFE1F5EE));
+      return Icons.payments_rounded;
     case NotificationKind.report:
-      return const _KindVisual(Icons.gavel_rounded, Color(0xFFA32D2D), Color(0xFFFCEBEB));
+      return Icons.gavel_rounded;
     case NotificationKind.aiTutor:
-      return const _KindVisual(Icons.smart_toy_rounded, Color(0xFF534AB7), Color(0xFFEEEDFE));
+      return Icons.smart_toy_rounded;
     case NotificationKind.general:
-      return const _KindVisual(Icons.notifications_rounded, Color(0xFF5F5E5A), Color(0xFFF1EFE8));
+      return Icons.notifications_rounded;
   }
 }
 
@@ -62,13 +57,14 @@ class NotificationViewData {
   }
 }
 
-/// 공용 알림 센터 다이얼로그. 학생·강사가 같은 UI를 쓴다.
+/// 공용 알림 센터 다이얼로그. 학생·강사가 같은 UI를 쓰되 [accent]만 각 역할색으로 다르게 넘긴다.
 /// onMarkAllRead: 열릴 때 자동 호출. onRemoveAt: 스와이프 삭제.
 Future<void> showNotificationCenterDialog(
   BuildContext context, {
   required List<NotificationViewData> items,
   required VoidCallback onMarkAllRead,
   required void Function(int index) onRemoveAt,
+  required Color accent,
 }) {
   final theme = Theme.of(context);
   return showDialog<void>(
@@ -80,6 +76,7 @@ Future<void> showNotificationCenterDialog(
         items: items,
         onMarkAllRead: onMarkAllRead,
         onRemoveAt: onRemoveAt,
+        accent: accent,
       ),
     ),
   );
@@ -90,11 +87,13 @@ class _NotificationCenterDialog extends StatefulWidget {
     required this.items,
     required this.onMarkAllRead,
     required this.onRemoveAt,
+    required this.accent,
   });
 
   final List<NotificationViewData> items;
   final VoidCallback onMarkAllRead;
   final void Function(int index) onRemoveAt;
+  final Color accent;
 
   @override
   State<_NotificationCenterDialog> createState() =>
@@ -249,6 +248,7 @@ class _NotificationCenterDialogState extends State<_NotificationCenterDialog> {
           key: ValueKey(item.id),
           item: item,
           shell: shell,
+          accent: widget.accent,
           isOpen: _swipedOpenId == item.id,
           onOpen: () => setState(() => _swipedOpenId = item.id),
           onClose: () {
@@ -265,6 +265,7 @@ class _SwipeDeleteRow extends StatefulWidget {
     super.key,
     required this.item,
     required this.shell,
+    required this.accent,
     required this.isOpen,
     required this.onOpen,
     required this.onClose,
@@ -273,6 +274,7 @@ class _SwipeDeleteRow extends StatefulWidget {
 
   final NotificationViewData item;
   final ShellTheme shell;
+  final Color accent;
   final bool isOpen;
   final VoidCallback onOpen;
   final VoidCallback onClose;
@@ -349,7 +351,8 @@ class _SwipeDeleteRowState extends State<_SwipeDeleteRow> {
                 : null,
             child: Transform.translate(
               offset: Offset(_dx, 0),
-              child: _Row(item: widget.item, shell: widget.shell),
+              child: _Row(
+                  item: widget.item, shell: widget.shell, accent: widget.accent),
             ),
           ),
         ],
@@ -359,24 +362,27 @@ class _SwipeDeleteRowState extends State<_SwipeDeleteRow> {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.item, required this.shell});
+  const _Row({required this.item, required this.shell, required this.accent});
   final NotificationViewData item;
   final ShellTheme shell;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    final v = _visualOf(item.kind);
+    final icon = _iconOf(item.kind);
+    // 색은 역할 강조색(accent)으로 통일 — 아이콘 원 배경은 옅은 틴트, 강조는 진한 accent.
+    final iconBg = accent.withValues(alpha: 0.14);
     return Container(
-      // 안 읽은 알림: 종류별 색 틴트(불투명)로 강조 + 왼쪽 색 바.
+      // 안 읽은 알림: 역할색 옅은 틴트(불투명)로 강조 + 왼쪽 색 바.
       // 반투명이면 뒤 삭제 버튼이 비쳐 보여 → cardBackground 위에 합성해 불투명 처리.
       decoration: BoxDecoration(
         color: item.isRead
             ? shell.cardBackground
             : Color.alphaBlend(
-                v.bg.withValues(alpha: 0.55), shell.cardBackground),
+                accent.withValues(alpha: 0.12), shell.cardBackground),
         border: item.isRead
             ? null
-            : Border(left: BorderSide(color: v.fg, width: 3)),
+            : Border(left: BorderSide(color: accent, width: 3)),
       ),
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
       child: Row(
@@ -385,9 +391,9 @@ class _Row extends StatelessWidget {
           Container(
             width: 38,
             height: 38,
-            decoration: BoxDecoration(color: v.bg, shape: BoxShape.circle),
+            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: Icon(v.icon, size: 19, color: v.fg),
+            child: Icon(icon, size: 19, color: accent),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -431,7 +437,7 @@ class _Row extends StatelessWidget {
               height: 8,
               margin: const EdgeInsets.only(left: 8, top: 6),
               decoration:
-                  BoxDecoration(color: v.fg, shape: BoxShape.circle),
+                  BoxDecoration(color: accent, shape: BoxShape.circle),
             ),
         ],
       ),

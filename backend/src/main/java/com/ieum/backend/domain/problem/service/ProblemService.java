@@ -42,6 +42,7 @@ public class ProblemService {
     private final GeminiClient geminiClient;
     private final DetectionCache detectionCache;
     private final ProblemPersistence problemPersistence;
+    private final com.ieum.backend.domain.lesson.repository.LessonRepository lessonRepository;
 
     /** 학생 1명이 동시에 등록(탐색 중)할 수 있는 질문 수 상한. */
     private static final int MAX_ACTIVE_PROBLEMS = 3;
@@ -369,10 +370,25 @@ public class ProblemService {
         // 마이페이지 '내 질문'은 상태와 무관하게 전부 노출(매칭 대기/완료/만료/취소…) — 최신순.
         // 상태 키워드(칩)로 구분하므로 모든 상태를 그대로 보여준다.
         List<ApplicationStatus> countStatuses = List.of(ApplicationStatus.PENDING, ApplicationStatus.UNAVAILABLE);
-        return problemRepository.findAllByStudentIdOrderByCreatedAtDesc(studentId).stream()
+        List<Problem> problems = problemRepository.findAllByStudentIdOrderByCreatedAtDesc(studentId);
+
+        // 복습 진입용 problemId→lessonId 매핑(배치 1회, N+1 회피).
+        java.util.Map<Long, Long> lessonIdByProblem = new java.util.HashMap<>();
+        List<Long> problemIds = problems.stream().map(Problem::getId).toList();
+        if (!problemIds.isEmpty()) {
+            lessonRepository.findByProblemIdIn(problemIds).forEach(l -> {
+                if (l.getProblemId() != null) {
+                    // 한 문제에 강의가 여러 건이면 가장 최근(큰 id)을 사용.
+                    lessonIdByProblem.merge(l.getProblemId(), l.getId(), Math::max);
+                }
+            });
+        }
+
+        return problems.stream()
                 .map(problem -> {
                     int count = matchingApplicationRepository.countByProblemIdAndStatusIn(problem.getId(), countStatuses);
-                    return StudentProblemResponse.from(problem, count);
+                    return StudentProblemResponse.from(
+                            problem, count, lessonIdByProblem.get(problem.getId()));
                 })
                 .toList();
     }

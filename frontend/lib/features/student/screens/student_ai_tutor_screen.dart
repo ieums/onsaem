@@ -287,7 +287,8 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
                           summary.isNotEmpty
                               ? summary
                               : '이미지를 눌러 문제를 확인하세요',
-                          maxLines: _problemExpanded ? 6 : 1,
+                          // 접힘 상태도 2줄까지 보여 제목이 한 줄로 잘리지 않게.
+                          maxLines: _problemExpanded ? 8 : 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 13,
@@ -295,6 +296,18 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
                             height: 1.4,
                           ),
                         ),
+                        if (!_problemExpanded && summary.length > 30)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              '탭하여 전체 보기',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.studentPoint,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),

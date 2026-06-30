@@ -14,6 +14,9 @@ public record SettlementResponse(
         Integer tutorCoin,
         Integer tutorAmount,
         SettlementStatus status,
+        // 표시용: 과목(한글) + 실제 수업 날짜.
+        String subject,
+        LocalDateTime lessonDate,
         LocalDateTime createdAt,
         LocalDateTime transferredAt,
         // 그 강의에 처리 중인 신고가 있어 출금이 막힌 상태인지(프론트 배지/버튼 비활성용)
@@ -33,6 +36,8 @@ public record SettlementResponse(
                 settlement.getTutorCoin(),
                 settlement.getTutorAmount(),
                 settlement.getStatus(),
+                settlement.getSubject(),
+                settlement.getLessonDate(),
                 settlement.getCreatedAt(),
                 settlement.getTransferredAt(),
                 reportPending

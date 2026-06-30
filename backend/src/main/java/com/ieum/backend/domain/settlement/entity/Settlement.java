@@ -45,6 +45,12 @@ public class Settlement {
     @Column(nullable = false, length = 20)
     private SettlementStatus status;
 
+    // 표시용 비정규화 — 정산 목록에서 "과목 · 수업 날짜"를 간단히 보여주기 위함.
+    @Column(length = 20)
+    private String subject;             // 과목 한글 표시명(예: "수학")
+
+    private LocalDateTime lessonDate;   // 실제 수업 날짜(강의 종료 시각)
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
@@ -52,13 +58,16 @@ public class Settlement {
 
     @Builder
     public Settlement(Long tutorId, Long lessonId, Integer totalCoin,
-                      Integer platformFeeCoin, Integer tutorCoin, Integer tutorAmount) {
+                      Integer platformFeeCoin, Integer tutorCoin, Integer tutorAmount,
+                      String subject, LocalDateTime lessonDate) {
         this.tutorId = tutorId;
         this.lessonId = lessonId;
         this.totalCoin = totalCoin;
         this.platformFeeCoin = platformFeeCoin;
         this.tutorCoin = tutorCoin;
         this.tutorAmount = tutorAmount;
+        this.subject = subject;
+        this.lessonDate = lessonDate;
         this.status = SettlementStatus.CALCULATED;
         this.createdAt = LocalDateTime.now();
     }

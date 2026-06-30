@@ -10,6 +10,7 @@ import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/core/utils/phone_input_formatter.dart';
 import 'package:ieum/core/widgets/role_date_picker.dart';
 import 'package:ieum/features/student/providers/mypage_provider.dart';
+import 'package:ieum/features/student/widgets/student_action_button_style.dart';
 import 'package:ieum/features/student/widgets/student_tutor_profile_widgets.dart';
 
 /// 프로필 수정 — PATCH /auth/me. 이름·전화·생년월일·프로필 사진 수정(이메일은 읽기전용).
@@ -245,21 +246,21 @@ class _StudentProfileEditScreenState
                         const SizedBox(height: 32),
                         SizedBox(
                           height: 52,
-                          child: FilledButton(
+                          // 통일 스타일: 테두리만 특징색 + 흰/다크 내부 + 검정/특징색 글씨.
+                          child: OutlinedButton(
                             onPressed: _saving ? null : _save,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.studentPoint,
-                              foregroundColor: Colors.black, // 연두 위 글씨 검정
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
+                            style: studentOutlinedButtonStyle(
+                              isDark,
+                              radius: 14,
+                              minimumSize: const Size.fromHeight(52),
                             ),
                             child: _saving
                                 ? const SizedBox(
                                     width: 22,
                                     height: 22,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2.4, color: Colors.black),
+                                        strokeWidth: 2.4,
+                                        color: AppColors.studentPoint),
                                   )
                                 : const Text('저장',
                                     style: TextStyle(
@@ -277,6 +278,7 @@ class _StudentProfileEditScreenState
   }
 
   Widget _buildAvatar(ShellTheme shell) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final url = _imageUrl;
     final resolved = (url != null && url.isNotEmpty)
         ? ApiConstants.resolveImageUrl(url)
@@ -305,16 +307,20 @@ class _StudentProfileEditScreenState
           Positioned(
             right: 0,
             bottom: 0,
+            // 통일 스타일: 테두리만 특징색 + 흰/다크 내부 + 검정/특징색 아이콘.
             child: Material(
-              color: AppColors.studentPoint,
-              shape: const CircleBorder(),
+              color: isDark ? AppColors.shellSurfaceDark : Colors.white,
+              shape: const CircleBorder(
+                side: BorderSide(color: AppColors.studentPoint, width: 1.5),
+              ),
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: _uploadingImage ? null : _chooseProfileImage,
-                child: const Padding(
-                  padding: EdgeInsets.all(7),
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
                   child: Icon(Icons.camera_alt_rounded,
-                      size: 16, color: Colors.black),
+                      size: 16,
+                      color: isDark ? AppColors.studentPoint : Colors.black),
                 ),
               ),
             ),
