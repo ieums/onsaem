@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/notifications/app_notification_service.dart';
+import 'package:ieum/core/permissions/lesson_permission_dialog.dart';
+import 'package:ieum/core/permissions/media_permissions.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
@@ -54,10 +56,9 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
   void initState() {
     super.initState();
     // 인앱 알람(배너)용 초기화 — 오프라인 토글과 무관하게 STOMP로 도착하면 알림이 뜨도록.
+    // 권한 자동 요청은 하지 않는다(온보딩 일괄 화면/마이페이지 토글에서만).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppNotificationService.instance.initialize().then((_) {
-        AppNotificationService.instance.ensurePermission();
-      });
+      AppNotificationService.instance.initialize();
     });
   }
 
@@ -203,7 +204,17 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
     // confirmed == null → 상대 취소로 자동 닫힘. 이미 취소됐으므로 추가 호출 없음.
     if (confirmed == null) return;
     if (confirmed) {
-      await ref.read(matchingProvider.notifier).confirmMatch(problemId);
+      // 입장 직전 카메라·마이크 게이트(시스템 팝업 없이 상태만 확인).
+      // 미허용이면 매칭을 취소하고 설정 유도 → 강의실 진입 자체를 막아 오류방 방지.
+      final allowed = await MediaPermissions.ensureForLessonEntry();
+      if (!mounted) return;
+      if (!allowed) {
+        await ref.read(matchingProvider.notifier).cancelConfirm(problemId);
+        if (!context.mounted) return;
+        await showLessonPermissionDialog(context);
+      } else {
+        await ref.read(matchingProvider.notifier).confirmMatch(problemId);
+      }
     } else {
       await ref.read(matchingProvider.notifier).cancelConfirm(problemId);
     }

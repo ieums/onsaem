@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ieum/core/constants/route_paths.dart';
-import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/features/student/models/student_problem_model.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
@@ -189,21 +188,14 @@ class _StudentProblemUploadScreenState
     required Permission permission,
     required String label,
   }) async {
-    var status = await permission.status;
+    final status = await permission.status;
     if (status.isGranted || status.isLimited) return true;
 
-    if (status.isPermanentlyDenied) {
-      if (mounted) {
-        _showSnack('$label 권한이 꺼져 있어요. 설정에서 허용해 주세요.');
-      }
-      return false;
+    // 시스템 권한 팝업은 온보딩 일괄 권한 화면에서만 띄운다.
+    // 여기선 다시 요청하지 않고 설정으로 유도.
+    if (mounted) {
+      _showPermissionSnack('$label 권한이 필요해요. 설정에서 허용해 주세요.');
     }
-
-    status = await permission.request();
-    if (status.isGranted || status.isLimited) return true;
-
-    if (!mounted) return false;
-    _showSnack('$label 권한이 필요해요.');
     return false;
   }
 
@@ -279,6 +271,16 @@ class _StudentProblemUploadScreenState
   void _showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+
+  /// 권한 미허용 안내 — 시스템 설정으로 유도(팝업 재요청 대신).
+  void _showPermissionSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: SnackBarAction(label: '설정', onPressed: openAppSettings),
+      ),
     );
   }
 
@@ -461,11 +463,7 @@ class _StudentProblemUploadScreenState
       return;
     }
     // 과목은 선택 사항 — 고르지 않으면 AI가 자동으로 분류한다.
-
-    // 알림 권한은 매칭 알림용 — 있으면 좋지만 없어도 업로드는 진행한다.
-    // (웹/미지원 플랫폼은 ensurePermission이 false를 주지만 막지 않음)
-    await ref.read(appNotificationServiceProvider).ensurePermission();
-    if (!mounted) return;
+    // (알림 권한은 자동 요청하지 않는다 — 온보딩 일괄 화면/마이페이지 토글에서만 관리)
 
     // 백엔드에 실제 문제 등록 (POST /problems) — AI가 분류/난이도 판정
     final studentId = ref.read(currentUserProvider)?.id;

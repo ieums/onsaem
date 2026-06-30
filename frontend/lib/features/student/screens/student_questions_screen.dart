@@ -257,10 +257,17 @@ class _StudentQuestionsScreenState extends ConsumerState<StudentQuestionsScreen>
     return false;
   }
 
-  Future<bool> _ensureCameraPermission() => _ensurePermission(
-        permission: Permission.camera,
-        label: '카메라',
-      );
+  /// 촬영용 카메라 권한 — 시스템 팝업은 일괄 권한 화면에서만 띄우므로
+  /// 여기선 재요청하지 않고 상태만 확인, 미허용이면 설정으로 유도한다.
+  Future<bool> _ensureCameraPermission() async {
+    if (kIsWeb) return true; // 웹은 브라우저 파일 선택기에 위임
+    final status = await Permission.camera.status;
+    if (status.isGranted || status.isLimited) return true;
+    if (mounted) {
+      _showPermissionSnack('카메라 권한이 필요해요. 설정에서 허용해 주세요.');
+    }
+    return false;
+  }
 
   /// iOS는 허용 필수. Android는 요청해 설정에 노출하고, 거부돼도 시스템 사진 선택기 시도.
   Future<bool> _ensurePhotosPermission({bool required = true}) async {

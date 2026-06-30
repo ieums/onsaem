@@ -220,11 +220,8 @@ class _OnboardingPermissionsScreenState
                 ),
               _StartButton(
                 label: '시작하기',
-                color: role.point,
-                labelColor: role.onPoint,
+                palette: p,
                 enabled: _requiredAllGranted,
-                disabledColor: p.line,
-                disabledLabelColor: p.textDim,
                 onTap: _requiredAllGranted ? widget.onDone : null,
               ),
             ],
@@ -275,8 +272,6 @@ class _PermRow extends StatelessWidget {
   final _PermStatus status;
   final VoidCallback? onAllow;
   final VoidCallback onOpenSettings;
-
-  static const Color _granted = Color(0xFF2E9E6B);
 
   @override
   Widget build(BuildContext context) {
@@ -336,56 +331,47 @@ class _PermRow extends StatelessWidget {
 
   Widget _trailing(OnbPalette p) {
     if (status == _PermStatus.granted) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 8),
-        child: Icon(Icons.check_circle_rounded, color: _granted, size: 24),
+      // 허용됨 — 역할색 체크(학생 연두 / 강사 연보라). accent == role.point.
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Icon(Icons.check_circle_rounded, color: accent, size: 24),
       );
     }
     // 필수 권한이 영구거부면 설정으로 유도(선택 권한은 그냥 다시 허용 시도).
     if (status == _PermStatus.permanentlyDenied && required) {
-      return _pill(
-        label: '설정 열기',
-        onTap: onOpenSettings,
-        filled: false,
-        accent: accent,
-        palette: p,
-      );
+      return _pill(label: '설정 열기', onTap: onOpenSettings, palette: p);
     }
-    return _pill(
-      label: '허용',
-      onTap: onAllow,
-      filled: true,
-      accent: accent,
-      palette: p,
-    );
+    return _pill(label: '허용', onTap: onAllow, palette: p);
   }
 
+  /// 흰 배경 · 검정 글씨 · 라운드 사각 테두리(팀 디자인 가이드). 비활성은 연하게.
   Widget _pill({
     required String label,
     required VoidCallback? onTap,
-    required bool filled,
-    required Color accent,
     required OnbPalette palette,
   }) {
+    final p = palette;
+    final enabled = onTap != null;
     return Material(
-      color: filled ? accent : Colors.transparent,
-      borderRadius: BorderRadius.circular(999),
+      color: enabled ? Colors.white : p.bgSoft,
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: filled ? null : Border.all(color: accent, width: 1.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: enabled ? p.textDim.withValues(alpha: 0.45) : p.line,
+            ),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
-              // 채움 버튼(밝은 포인트색) 위엔 어두운 글자가 잘 보임.
-              color: filled ? const Color(0xFF2A2E1A) : accent,
+              color: enabled ? p.text : p.textDim,
             ),
           ),
         ),
@@ -394,44 +380,47 @@ class _PermRow extends StatelessWidget {
   }
 }
 
+/// 하단 CTA — 흰 배경 · 검정 글씨 · 라운드 사각 테두리(팀 가이드). 비활성은 연하게.
 class _StartButton extends StatelessWidget {
   const _StartButton({
     required this.label,
-    required this.color,
-    required this.labelColor,
+    required this.palette,
     required this.enabled,
-    required this.disabledColor,
-    required this.disabledLabelColor,
     required this.onTap,
   });
 
   final String label;
-  final Color color;
-  final Color labelColor;
+  final OnbPalette palette;
   final bool enabled;
-  final Color disabledColor;
-  final Color disabledLabelColor;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final p = palette;
     return SizedBox(
       width: double.infinity,
       child: Material(
-        color: enabled ? color : disabledColor,
-        borderRadius: BorderRadius.circular(999),
+        color: enabled ? Colors.white : p.bgSoft,
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
-          child: Padding(
+          child: Container(
             padding: const EdgeInsets.symmetric(vertical: 17),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: enabled ? p.textDim.withValues(alpha: 0.5) : p.line,
+                width: 1.5,
+              ),
+            ),
             child: Center(
               child: Text(
                 label,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
-                  color: enabled ? labelColor : disabledLabelColor,
+                  color: enabled ? p.text : p.textDim,
                 ),
               ),
             ),

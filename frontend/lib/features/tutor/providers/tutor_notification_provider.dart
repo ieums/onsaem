@@ -6,9 +6,35 @@ import 'package:ieum/core/notifications/notification_center.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _inboxPrefsKey = 'tutor_notif_inbox_v1';
+const _pushPrefsKey = 'tutor_notif_push';
 const _maxInboxItems = 20;
 const _readRetentionDays = 1;
 const _unreadRetentionDays = 3;
+
+/// 강사 "푸시 알림 받기" 앱 레벨 on/off pref(영속). 학생 패턴과 동일하게
+/// OS 권한과 별개로 앱에서 끌 수 있게 한다. (기본 on)
+class TutorPushSettingsNotifier extends StateNotifier<bool> {
+  TutorPushSettingsNotifier() : super(true) {
+    _load();
+  }
+
+  SharedPreferences? _prefs;
+
+  Future<void> _load() async {
+    _prefs = await SharedPreferences.getInstance();
+    state = _prefs!.getBool(_pushPrefsKey) ?? true;
+  }
+
+  Future<void> set(bool value) async {
+    state = value;
+    await _prefs?.setBool(_pushPrefsKey, value);
+  }
+}
+
+final tutorPushEnabledProvider =
+    StateNotifierProvider<TutorPushSettingsNotifier, bool>(
+  (ref) => TutorPushSettingsNotifier(),
+);
 
 /// 강사 알림 1건. (학생 인박스와 동일 구조 + 종류(kind) 직접 보관)
 class TutorNotification {
