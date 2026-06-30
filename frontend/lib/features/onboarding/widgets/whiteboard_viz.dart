@@ -28,9 +28,12 @@ class WhiteboardViz extends StatefulWidget {
   State<WhiteboardViz> createState() => _WhiteboardVizState();
 }
 
-class _WhiteboardVizState extends State<WhiteboardViz> with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1850));
+class _WhiteboardVizState extends State<WhiteboardViz>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1850),
+  );
 
   @override
   void initState() {
@@ -61,39 +64,47 @@ class _WhiteboardVizState extends State<WhiteboardViz> with SingleTickerProvider
       _c.value = 1;
     }
 
-    return AspectRatio(
-      aspectRatio: 1.5,
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFFFFF),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: OnbPalette.of(context).line),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _c,
-                builder: (_, _) => CustomPaint(painter: _BoardPainter(_c.value)),
-              ),
-            ),
-            Positioned(
-              bottom: 12,
-              right: 12,
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: widget.accent,
-                  shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: widget.accent.withValues(alpha: 0.4), blurRadius: 16)],
+    return OnbVizHeightCap(
+      child: AspectRatio(
+        aspectRatio: 1.5,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: OnbPalette.of(context).line),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _c,
+                  builder: (_, _) =>
+                      CustomPaint(painter: _BoardPainter(_c.value)),
                 ),
-                alignment: Alignment.center,
-                child: SvgPicture.string(_micSvg, width: 20, height: 20),
               ),
-            ),
-          ],
+              Positioned(
+                bottom: 12,
+                right: 12,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: widget.accent,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.accent.withValues(alpha: 0.4),
+                        blurRadius: 16,
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: SvgPicture.string(_micSvg, width: 20, height: 20),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -119,12 +130,25 @@ class _BoardPainter extends CustomPainter {
     }
   }
 
-  void _text(Canvas canvas, String s, double x, double y, double size, FontWeight w, Color color, double opacity) {
+  void _text(
+    Canvas canvas,
+    String s,
+    double x,
+    double y,
+    double size,
+    FontWeight w,
+    Color color,
+    double opacity,
+  ) {
     if (opacity <= 0) return;
     final tp = TextPainter(
       text: TextSpan(
         text: s,
-        style: TextStyle(color: color.withValues(alpha: opacity), fontSize: size, fontWeight: w),
+        style: TextStyle(
+          color: color.withValues(alpha: opacity),
+          fontSize: size,
+          fontWeight: w,
+        ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -155,13 +179,17 @@ class _BoardPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     _drawFraction(
       canvas,
-      Path()..moveTo(12, 100)..lineTo(118, 100),
+      Path()
+        ..moveTo(12, 100)
+        ..lineTo(118, 100),
       _seg(350, 600, onbToss),
       axis,
     );
     _drawFraction(
       canvas,
-      Path()..moveTo(64, 16)..lineTo(64, 148),
+      Path()
+        ..moveTo(64, 16)
+        ..lineTo(64, 148),
       _seg(500, 600, onbToss),
       axis,
     );
@@ -172,7 +200,9 @@ class _BoardPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     _drawFraction(
       canvas,
-      Path()..moveTo(24, 134)..quadraticBezierTo(64, 16, 104, 134),
+      Path()
+        ..moveTo(24, 134)
+        ..quadraticBezierTo(64, 16, 104, 134),
       _seg(650, 600, onbToss),
       curve,
     );
@@ -202,7 +232,16 @@ class _BoardPainter extends CustomPainter {
     final f2 = _seg(1300, 400, Curves.easeOut);
     final f3 = _seg(1450, 400, Curves.easeOut);
 
-    _text(canvas, 'x² + 2x', 154, 52, 16, FontWeight.w700, const Color(0xFF333333), f1);
+    _text(
+      canvas,
+      'x² + 2x',
+      154,
+      52,
+      16,
+      FontWeight.w700,
+      const Color(0xFF333333),
+      f1,
+    );
     if (f1 > 0) {
       canvas.drawLine(
         const Offset(154, 60),
@@ -214,8 +253,26 @@ class _BoardPainter extends CustomPainter {
           ..style = PaintingStyle.stroke,
       );
     }
-    _text(canvas, '= x(x+2)', 154, 86, 14, FontWeight.w400, const Color(0xFF555555), f2);
-    _text(canvas, 'x = 0, −2', 154, 116, 15, FontWeight.w700, const Color(0xFFE0556B), f3);
+    _text(
+      canvas,
+      '= x(x+2)',
+      154,
+      86,
+      14,
+      FontWeight.w400,
+      const Color(0xFF555555),
+      f2,
+    );
+    _text(
+      canvas,
+      'x = 0, −2',
+      154,
+      116,
+      15,
+      FontWeight.w700,
+      const Color(0xFFE0556B),
+      f3,
+    );
 
     canvas.restore();
   }
