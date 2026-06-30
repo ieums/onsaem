@@ -19,6 +19,7 @@ import com.ieum.backend.domain.problem.repository.ProblemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.ieum.backend.domain.auth.entity.VerificationStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -62,6 +63,12 @@ public class MatchingService {
 
     @Transactional
     public void applyToLesson(Long problemId, Long tutorId) {
+        // 강사 인증 체크 — 관리자 승인(VERIFIED)된 강사만 강의 신청 가능
+        Tutor tutor = tutorRepository.findById(tutorId)
+                .orElseThrow(() -> new IllegalStateException("강사를 찾을 수 없습니다. id=" + tutorId));
+        if (tutor.getVerificationStatus() != VerificationStatus.VERIFIED) {
+            throw new IllegalStateException("학력 인증 승인 후 강의를 신청할 수 있습니다.");
+        }
         Problem problem = problemRepository.findById(problemId)
                 .orElseThrow(() -> new IllegalStateException("문제를 찾을 수 없습니다. id=" + problemId));
 

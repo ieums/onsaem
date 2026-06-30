@@ -70,6 +70,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
   String _selectedDomain = '직접입력';
   String _selectedEducation = '재학';
   String? _proofFileName;
+  Uint8List? _proofFileBytes;
   Uint8List? _profileImageBytes;
   bool _isDomainMenuOpen = false;
   bool _isEducationMenuOpen = false;
@@ -288,6 +289,8 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
             school: school.isEmpty ? null : school,
             major: major.isEmpty ? null : major,
             bio: bio.isEmpty ? null : bio,
+            documentBytes: _proofFileBytes,       
+            documentFileName: _proofFileName, 
           );
       if (!mounted) return;
       context.go(RoutePaths.tutorHome);
@@ -352,6 +355,8 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
             school: school.isEmpty ? null : school,
             major: major.isEmpty ? null : major,
             bio: bio.isEmpty ? null : bio,
+            documentBytes: _proofFileBytes,       // ← 추가
+            documentFileName: _proofFileName,     // ← 추가
           );
       if (!mounted) return;
       context.go(RoutePaths.tutorHome);
@@ -564,11 +569,19 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
 
   Future<void> _pickProofFile() async {
     try {
-      final result = await FilePicker.pickFiles();
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        withData: true,   // ← 실제 파일 데이터를 받아야 전송 가능
+      );
       if (!mounted || result == null || result.files.isEmpty) return;
-      final name = result.files.single.name;
-      if (name.isEmpty) return;
-      setState(() => _proofFileName = name);
+      final file = result.files.single;
+      final bytes = file.bytes;
+      if (file.name.isEmpty || bytes == null || bytes.isEmpty) return;
+      setState(() {
+        _proofFileName = file.name;
+        _proofFileBytes = bytes;   // ← bytes 보관
+      });
     } on MissingPluginException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

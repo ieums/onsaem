@@ -27,9 +27,11 @@ public class AuthController {
         return ApiResponse.ok("회원가입이 완료되었습니다.", authService.signupStudent(request));
     }
 
-    @PostMapping("/tutor/signup")
-    public ApiResponse<TokenResponse> signupTutor(@Valid @RequestBody TutorSignupRequest request) {
-        return ApiResponse.ok("회원가입이 완료되었습니다.", authService.signupTutor(request));
+    @PostMapping(value = "/tutor/signup", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<TokenResponse> signupTutor(
+            @Valid @RequestPart("data") TutorSignupRequest request,
+            @RequestPart(value = "document", required = false) MultipartFile document) {
+        return ApiResponse.ok("회원가입이 완료되었습니다.", authService.signupTutor(request, document));
     }
 
     @PostMapping("/student/login")
@@ -51,11 +53,12 @@ public class AuthController {
     }
 
     /** 소셜 로그인 2단계 — 신규 사용자 추가정보 가입 + 토큰 발급 */
-    @PostMapping("/oauth/{provider}/signup")
+    @PostMapping(value = "/oauth/{provider}/signup", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<TokenResponse> oauthSignup(
             @PathVariable String provider,
-            @Valid @RequestBody OAuthSignupRequest request) {
-        return ApiResponse.ok("회원가입이 완료되었습니다.", authService.oauthSignup(provider, request));
+            @Valid @RequestPart("data") OAuthSignupRequest request,
+            @RequestPart(value = "document", required = false) MultipartFile document) {
+        return ApiResponse.ok("회원가입이 완료되었습니다.", authService.oauthSignup(provider, request, document));
     }
 
     /** 비밀번호 재설정 코드 발송 — POST /api/v1/auth/password/forgot (LOCAL 계정만, 결과는 항상 200) */
