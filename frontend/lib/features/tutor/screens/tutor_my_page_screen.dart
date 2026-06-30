@@ -600,9 +600,9 @@ class _TutorMyPageScreenState
                                       color: AppColors.primaryBlue)),
                             ],
                           )
-                        : Icon(Icons.copy_rounded,
+                        : const Icon(Icons.copy_rounded,
                             size: 18,
-                            color: _shell.chevronColor),
+                            color: AppColors.primaryBlue),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -617,7 +617,8 @@ class _TutorMyPageScreenState
                       onPressed: copyEmail,
                       icon: const Icon(
                           Icons.content_copy_rounded,
-                          size: 18),
+                          size: 18,
+                          color: AppColors.primaryBlue),
                       // 통일 스타일: 테두리만 특징색 + 흰/다크 배경 + 검정/특징색 글씨.
                       style: tutorOutlinedButtonStyle(
                         Theme.of(context).brightness == Brightness.dark,

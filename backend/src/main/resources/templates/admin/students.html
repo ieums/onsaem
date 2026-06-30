@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온샘 관리자 · 학생 관리</title>
+    <link rel="stylesheet" th:href="@{/admin/admin.css}">
+</head>
+<body>
+<div th:replace="~{admin/_layout :: shell('students')}"></div>
+
+<div class="container">
+    <div class="page-head">
+        <h1>학생 관리</h1>
+    </div>
+
+    <form th:action="@{/admin/students}" method="get" class="filters" style="align-items:center;">
+        <input class="field" type="text" name="q" th:value="${q}" placeholder="이름 또는 이메일 검색"
+               style="margin:0;min-width:280px;padding:9px 13px;border-radius:9px;border:1px solid var(--line);">
+        <button class="btn primary sm" type="submit">검색</button>
+        <a class="btn ghost sm" th:href="@{/admin/students}" th:if="${q != null and !q.isBlank()}">초기화</a>
+    </form>
+
+    <div class="section-title">학생 <span th:text="'(' + ${totalElements} + ')'">0</span></div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr><th>이름</th><th>이메일</th><th>상태</th><th>가입일</th><th></th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="s : ${students}">
+                <td th:text="${s.name != null ? s.name : '-'}">홍길동</td>
+                <td class="faint" th:text="${s.email != null ? s.email : '-'}">a@b.com</td>
+                <td><span class="badge" th:classappend="${s.status}" th:text="${s.status.displayName}">ACTIVE</span></td>
+                <td class="faint" th:text="${s.createdAt != null ? #temporals.format(s.createdAt, 'yyyy-MM-dd') : '-'}">-</td>
+                <td><a class="btn ghost sm" th:href="@{/admin/members/STUDENT/{id}(id=${s.id})}">상세</a></td>
+            </tr>
+            <tr th:if="${students.isEmpty()}">
+                <td colspan="5" class="faint" style="text-align:center;padding:28px;">학생이 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:replace="~{admin/_layout :: pager('/admin/students', ${q}, null)}"></div>
+</div>
+</body>
+</html>

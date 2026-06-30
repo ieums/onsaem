@@ -8,7 +8,6 @@ import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/core/utils/phone_input_formatter.dart';
 import 'package:ieum/core/widgets/profile_image.dart';
-import 'package:ieum/core/widgets/shell_filter_chip.dart';
 import 'package:ieum/features/student/providers/mypage_provider.dart';
 import 'package:ieum/features/tutor/widgets/tutor_action_button_style.dart';
 
@@ -326,9 +325,9 @@ class _TutorProfileEditScreenState
       runSpacing: 8,
       children: _subjectOptions.map((code) {
         final selected = _selectedSubjects.contains(code);
-        return ShellFilterChip(
-          label: _subjectLabels[code]!,
-          selected: selected,
+        final scheme = Theme.of(context).colorScheme;
+        // 학생 과목선택 UI와 동일: 선택=특징색(보라) 채움+검정 글씨, 미선택=외곽선.
+        return GestureDetector(
           onTap: () => setState(() {
             if (selected) {
               _selectedSubjects.remove(code);
@@ -336,6 +335,24 @@ class _TutorProfileEditScreenState
               _selectedSubjects.add(code);
             }
           }),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.primaryBlue : scheme.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected ? AppColors.primaryBlue : scheme.outlineVariant,
+              ),
+            ),
+            child: Text(
+              _subjectLabels[code]!,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.black : scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
         );
       }).toList(),
     );

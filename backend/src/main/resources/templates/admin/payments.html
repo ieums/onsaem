@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온샘 관리자 · 결제</title>
+    <link rel="stylesheet" th:href="@{/admin/admin.css}">
+</head>
+<body>
+<div th:replace="~{admin/_layout :: shell('payments')}"></div>
+
+<div class="container">
+    <div class="page-head">
+        <h1>결제 내역</h1>
+    </div>
+
+    <div class="mini-strip" style="margin-top:0;margin-bottom:18px;">
+        <span class="ms-title">완료 매출 합계</span>
+        <span class="ms-item"><b th:text="'₩' + ${#numbers.formatInteger(revenue, 0, 'COMMA')}">₩0</b></span>
+        <span class="ms-note">결제 완료 기준</span>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>상품</th>
+                <th>유형</th>
+                <th class="num">금액(원)</th>
+                <th class="num">코인</th>
+                <th>상태</th>
+                <th>결제일</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="p : ${payments}">
+                <td th:text="${p.productName != null ? p.productName : '-'}">코인 패키지</td>
+                <td class="faint" th:text="${p.targetType != null ? p.targetType.displayName : '-'}">코인 충전</td>
+                <td class="num" th:text="${#numbers.formatInteger(p.amount, 0, 'COMMA')}">0</td>
+                <td class="num" th:text="${p.coinAmount != null ? p.coinAmount : '-'}">-</td>
+                <td><span class="badge" th:classappend="${p.status}" th:text="${p.status.displayName}">상태</span></td>
+                <td class="faint" th:text="${p.createdAt != null ? #temporals.format(p.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">-</td>
+            </tr>
+            <tr th:if="${payments.isEmpty()}">
+                <td colspan="6" class="faint" style="text-align:center;padding:28px;">결제 내역이 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:replace="~{admin/_layout :: pager('/admin/payments', null, null)}"></div>
+</div>
+</body>
+</html>

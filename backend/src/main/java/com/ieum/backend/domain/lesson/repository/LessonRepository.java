@@ -26,4 +26,30 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     // 문제 id들로 연결된 강의 일괄 조회(복습 진입용 problemId→lessonId 매핑, N+1 회피)
     List<Lesson> findByProblemIdIn(java.util.Collection<Long> problemIds);
+
+    // ── 관리자 콘솔(강의/매칭 관리 · 통계) ──
+    List<Lesson> findTop300ByOrderByCreatedAtDesc();
+
+    List<Lesson> findTop300ByStatusOrderByCreatedAtDesc(Lesson.LessonStatus status);
+
+    /** 관리자 강의 목록 — 페이지 슬라이스(최신순). */
+    org.springframework.data.domain.Page<Lesson> findAllByOrderByCreatedAtDesc(
+            org.springframework.data.domain.Pageable pageable);
+
+    org.springframework.data.domain.Page<Lesson> findByStatusOrderByCreatedAtDesc(
+            Lesson.LessonStatus status, org.springframework.data.domain.Pageable pageable);
+
+    long countByStatus(Lesson.LessonStatus status);
+
+    // 완료 강의 평균 수업시간(분) — startedAt/endedAt 모두 있는 건만. 데이터 없으면 null.
+    // JPQL의 avg(timestampdiff(...))는 Hibernate가 인자 타입(Object)을 못 받아 기동 시 검증 실패 → 네이티브 쿼리.
+    // status 컬럼은 EnumType.STRING 저장이라 String("COMPLETED")으로 바인딩한다.
+    @org.springframework.data.jpa.repository.Query(value = """
+            select avg(timestampdiff(minute, started_at, ended_at))
+            from lessons
+            where status = :status
+              and started_at is not null
+              and ended_at is not null
+            """, nativeQuery = true)
+    Double avgDurationMinutes(@org.springframework.data.repository.query.Param("status") String status);
 }

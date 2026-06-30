@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온샘 관리자 · 강의·매칭</title>
+    <link rel="stylesheet" th:href="@{/admin/admin.css}">
+</head>
+<body>
+<div th:replace="~{admin/_layout :: shell('lessons')}"></div>
+
+<div class="container">
+    <div class="page-head">
+        <h1>강의·매칭 관리</h1>
+    </div>
+
+    <div class="filters">
+        <a class="chip" th:classappend="${status == null} ? 'active'" th:href="@{/admin/lessons}">전체</a>
+        <a th:each="st : ${statuses}" class="chip"
+           th:classappend="${status != null and status.name() == st.name()} ? 'active'"
+           th:href="@{/admin/lessons(status=${st})}"
+           th:text="${st.displayName}">상태</a>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>상태</th>
+                <th>학생</th>
+                <th>강사</th>
+                <th class="num">코인</th>
+                <th>시작</th>
+                <th>종료</th>
+                <th>생성일</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="r : ${rows}">
+                <td><span class="badge" th:classappend="${r.status()}" th:text="${r.status().displayName}">상태</span></td>
+                <td>
+                    <span th:text="${r.studentName() != null ? r.studentName() : '-'}">학생</span>
+                </td>
+                <td>
+                    <span th:text="${r.tutorName() != null ? r.tutorName() : '-'}">강사</span>
+                </td>
+                <td class="num" th:text="${r.coinCost() != null ? r.coinCost() : '-'}">-</td>
+                <td class="faint" th:text="${r.startedAt() != null ? #temporals.format(r.startedAt(), 'MM-dd HH:mm') : '-'}">-</td>
+                <td class="faint" th:text="${r.endedAt() != null ? #temporals.format(r.endedAt(), 'MM-dd HH:mm') : '-'}">-</td>
+                <td class="faint" th:text="${r.createdAt() != null ? #temporals.format(r.createdAt(), 'yyyy-MM-dd HH:mm') : '-'}">-</td>
+            </tr>
+            <tr th:if="${rows.isEmpty()}">
+                <td colspan="7" class="faint" style="text-align:center;padding:32px;">강의가 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:replace="~{admin/_layout :: pager('/admin/lessons', null, ${status != null ? status.name() : null})}"></div>
+</div>
+</body>
+</html>

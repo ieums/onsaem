@@ -41,4 +41,33 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
         Long getPendingAmount();
         Long getSettlementCount();
     }
+
+    // ── 관리자 콘솔용 ──
+
+    /** 전체 정산(최신순) — 관리자 정산 목록(상태 필터 없음). */
+    List<Settlement> findAllByOrderByCreatedAtDesc();
+
+    /** 상태별 정산(최신순) — 관리자 정산 목록 필터. */
+    List<Settlement> findByStatusOrderByCreatedAtDesc(SettlementStatus status);
+
+    /** 관리자 정산 목록(페이지) — 전체/상태별. */
+    org.springframework.data.domain.Page<Settlement> findAllByOrderByCreatedAtDesc(
+            org.springframework.data.domain.Pageable pageable);
+
+    org.springframework.data.domain.Page<Settlement> findByStatusOrderByCreatedAtDesc(
+            SettlementStatus status, org.springframework.data.domain.Pageable pageable);
+
+    /** 상태별 합계/건수 — 대시보드 집계. */
+    @Query("""
+            select count(s) as cnt, coalesce(sum(s.tutorAmount), 0) as amount
+            from Settlement s
+            where s.status = :status
+            """)
+    SettlementStatusAggregate aggregateByStatus(SettlementStatus status);
+
+    /** aggregateByStatus 결과 매핑용 프로젝션 */
+    interface SettlementStatusAggregate {
+        Long getCnt();
+        Long getAmount();
+    }
 }

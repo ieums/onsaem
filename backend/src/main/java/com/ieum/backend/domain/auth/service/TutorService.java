@@ -34,6 +34,13 @@ public class TutorService {
     private final MatchingNotificationService notificationService;
     private final ReviewRepository reviewRepository;
 
+    /** 관리자 콘솔 — 강사 인증상태(VERIFIED/REJECTED/PENDING) 변경. */
+    public void updateVerificationStatus(Long tutorId, com.ieum.backend.domain.auth.entity.VerificationStatus status) {
+        Tutor tutor = tutorRepository.findById(tutorId)
+                .orElseThrow(() -> BusinessException.notFound("강사를 찾을 수 없습니다."));
+        tutor.updateVerificationStatus(status);
+    }
+
     public void updateAvailability(Long tutorId, boolean available) {
         Tutor tutor = tutorRepository.findById(tutorId)
                 .orElseThrow(() -> BusinessException.notFound("강사를 찾을 수 없습니다."));
