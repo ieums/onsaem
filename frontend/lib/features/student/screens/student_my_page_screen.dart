@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/widgets/profile_image.dart';
 import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/features/onboarding/onboarding_review_args.dart';
 import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/storage/token_storage.dart';
@@ -440,6 +441,17 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
     );
   }
 
+  /// 온보딩 다시보기 — 현재 앱 테마(라/다)를 그대로 따른다(첫 실행 게이팅 영향 없음).
+  void _openOnboardingReview() {
+    final isDark = ref.read(shellDarkModeProvider);
+    context.push(
+      RoutePaths.onboardingStudent,
+      extra: OnboardingReviewArgs(
+        brightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+    );
+  }
+
   Widget _buildSettingsCard() {
     final me = ref.watch(meProvider).valueOrNull;
     // 소셜 계정은 비밀번호가 없으므로 '비밀번호 변경'을 LOCAL 가입자에게만 노출.
@@ -471,6 +483,11 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
               icon: Icons.help_outline_rounded,
               title: '자주 묻는 질문',
               onTap: _showFaqSheet,
+            ),
+            _buildMenuRow(
+              icon: Icons.replay_rounded,
+              title: '온샘 소개',
+              onTap: _openOnboardingReview,
               showDivider: false,
             ),
           ],

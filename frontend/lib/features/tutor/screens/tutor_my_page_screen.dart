@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/api_constants.dart';
 import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/features/onboarding/onboarding_review_args.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/storage/token_storage.dart';
 import 'package:ieum/core/theme/app_colors.dart';
@@ -348,6 +349,17 @@ class _TutorMyPageScreenState
     );
   }
 
+  /// 온보딩 다시보기 — 현재 앱 테마(라/다)를 그대로 따른다(첫 실행 게이팅 영향 없음).
+  void _openOnboardingReview() {
+    final isDark = ref.read(shellDarkModeProvider);
+    context.push(
+      RoutePaths.onboardingTutor,
+      extra: OnboardingReviewArgs(
+        brightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+    );
+  }
+
   Widget _buildSettingsCard(Map<String, dynamic>? me) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,6 +391,11 @@ class _TutorMyPageScreenState
               icon: Icons.help_outline_rounded,
               title: '자주 묻는 질문',
               onTap: _showFaqSheet,
+            ),
+            _buildMenuRow(
+              icon: Icons.replay_rounded,
+              title: '온샘 소개',
+              onTap: _openOnboardingReview,
               showDivider: false,
             ),
           ],
