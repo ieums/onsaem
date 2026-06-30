@@ -322,7 +322,12 @@ class StudentMatchingSessionNotifier
       } catch (_) {}
     }
   }
-
+  /// 수업 완료 등 정상 종료 — 문제는 살리고(복습/이미지 보존) 세션만 비운다.
+  void clearSession() {
+    state = null;
+    _stomp.disconnect();
+  }
+  
   Future<void> extendSearch({int minutes = 1440}) async {
     if (state == null) return;
     await _repo.extendSearch(state!.problemId, minutes: minutes);
