@@ -15,7 +15,7 @@ public record TutorSignupRequest(
         @Size(max = 1000) String bio,
         @Size(max = 100) String school,
         @Size(max = 100) String major,
-        @PositiveOrZero Integer experienceYears,
+        @NotNull @PositiveOrZero Integer experienceYears,
         @NotBlank String educationStatus,
         List<String> subjects
 ) {
