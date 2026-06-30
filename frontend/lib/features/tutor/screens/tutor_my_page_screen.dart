@@ -199,6 +199,8 @@ class _TutorMyPageScreenState
     final imageUrl = (me?['profileImageUrl'] as String?)?.trim();
     final school = (me?['school'] as String?)?.trim();
     final major = (me?['major'] as String?)?.trim();
+    final grade = (me?['grade'] as String?)?.trim();       // 등급 한글(예: 주니어)
+    final fee = me?['gradeFeePercent'] as int?;            // 등급별 정산 수수료(%)
     final resolved = (imageUrl != null && imageUrl.isNotEmpty)
         ? ApiConstants.resolveImageUrl(imageUrl)
         : null;
@@ -233,13 +235,39 @@ class _TutorMyPageScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name ?? '…',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: _shell.titleColor,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        name ?? '…',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: _shell.titleColor,
+                        ),
+                      ),
+                    ),
+                    if (grade != null && grade.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryBlue.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          grade,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primaryBlue,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -259,6 +287,17 @@ class _TutorMyPageScreenState
                       fontSize: 13,
                       color: _shell.hintColor,
                       fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+                if (fee != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '정산 수수료 $fee%',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: _shell.hintColor,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],

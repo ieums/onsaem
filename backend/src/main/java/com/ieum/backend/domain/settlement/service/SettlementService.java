@@ -94,7 +94,12 @@ public class SettlementService {
                     .orElse(null);
         }
 
-        SettlementPolicy.Distribution dist = SettlementPolicy.distribute(coinCost);
+        // 등급별 수수료(루키30·주니어25·시니어20·마스터10%). 등급 없으면 기본 20%.
+        int feePercent = tutorRepository.findById(tutorId)
+                .map(t -> t.getGrade() != null ? t.getGrade().getFeePercent()
+                        : SettlementPolicy.DEFAULT_FEE_PERCENT)
+                .orElse(SettlementPolicy.DEFAULT_FEE_PERCENT);
+        SettlementPolicy.Distribution dist = SettlementPolicy.distribute(coinCost, feePercent);
         Settlement settlement = Settlement.builder()
                 .tutorId(tutorId)
                 .lessonId(request.getLessonId())
