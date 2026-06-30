@@ -3,6 +3,7 @@ import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/storage/token_storage.dart';
 import 'auth_models.dart';
 import 'auth_repository.dart';
+import 'dart:typed_data';
 
 /// 로그인/회원가입/로그아웃의 '흐름'을 조율
 /// (서버 호출은 AuthRepository, 토큰 저장은 tokenStorage 에 위임하고
@@ -61,6 +62,8 @@ class AuthController {
     String? bio,
     String? school,
     String? major,
+    Uint8List? documentBytes,        // ← 추가
+    String? documentFileName,        // ← 추가
   }) async {
     final tokens = await _repo.tutorSignup(
       email: email,
@@ -74,6 +77,8 @@ class AuthController {
       bio: bio,
       school: school,
       major: major,
+      documentBytes: documentBytes,          // ← 추가
+      documentFileName: documentFileName,    // ← 추가
     );
     await _onAuthenticated(tokens);
   }
@@ -106,6 +111,8 @@ class AuthController {
     String? bio,
     String? school,
     String? major,
+    Uint8List? documentBytes,        // ← 추가
+    String? documentFileName,        // ← 추가
   }) async {
     final tokens = await _repo.oauthSignup(
       provider: provider,
@@ -120,6 +127,8 @@ class AuthController {
       bio: bio,
       school: school,
       major: major,
+      documentBytes: documentBytes,          // ← 추가
+      documentFileName: documentFileName,    // ← 추가
     );
     await _onAuthenticated(tokens);
   }
