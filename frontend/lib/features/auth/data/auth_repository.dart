@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/network/dio_client.dart';
 import 'auth_models.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 /// 인증 관련 백엔드 API 호출을 모아둔 곳.
 /// (토큰 저장이나 화면 이동은 여기서 안 함 — 순수하게 '서버랑 대화'만)
@@ -58,31 +60,45 @@ class AuthRepository {
     required String email,
     required String password,
     required String name,
-    required String birthDate, // "yyyy-MM-dd"
+    required String birthDate,
     required String phone,
-    required String educationStatus, // "재학" | "휴학" | "졸업" (백엔드 라벨)
+    required String educationStatus,
     required List<String> subjects,
     int? experienceYears,
     String? bio,
     String? school,
     String? major,
+    Uint8List? documentBytes,        // ← 추가
+    String? documentFileName,        // ← 추가
   }) async {
-    final res = await _dio.post(
-      '/auth/tutor/signup',
-      data: {
-        'email': email,
-        'password': password,
-        'name': name,
-        'birthDate': birthDate,
-        'phone': phone,
-        'educationStatus': educationStatus,
-        'subjects': subjects,
-        if (experienceYears != null) 'experienceYears': experienceYears,
-        if (bio != null) 'bio': bio,
-        if (school != null) 'school': school,
-        if (major != null) 'major': major,
-      },
-    );
+    final dataJson = jsonEncode({
+      'email': email,
+      'password': password,
+      'name': name,
+      'birthDate': birthDate,
+      'phone': phone,
+      'educationStatus': educationStatus,
+      'subjects': subjects,
+      if (experienceYears != null) 'experienceYears': experienceYears,
+      if (bio != null) 'bio': bio,
+      if (school != null) 'school': school,
+      if (major != null) 'major': major,
+    });
+
+    final formData = FormData.fromMap({
+      // 백엔드 @RequestPart("data") 가 JSON으로 역직렬화하도록 content-type 지정
+      'data': MultipartFile.fromString(
+        dataJson,
+        contentType: DioMediaType('application', 'json'),
+      ),
+      if (documentBytes != null && documentFileName != null)
+        'document': MultipartFile.fromBytes(
+          documentBytes,
+          filename: documentFileName,
+        ),
+    });
+
+    final res = await _dio.post('/auth/tutor/signup', data: formData);
     return AuthTokens.fromJson(res.data['data'] as Map<String, dynamic>);
   }
     // ─── 소셜 로그인 1단계 (check) ────────────────
@@ -102,33 +118,45 @@ class AuthRepository {
     required String provider,
     required UserRole role,
     required String token,
-    required String birthDate, // "yyyy-MM-dd"
+    required String birthDate,
     required String phone,
-    String? email, // 소셜이 이메일 미제공 시 폼 입력값
-    // 강사 전용 (role=tutor)
+    String? email,
     String? educationStatus,
     List<String>? subjects,
     int? experienceYears,
     String? bio,
     String? school,
     String? major,
+    Uint8List? documentBytes,        // ← 추가
+    String? documentFileName,        // ← 추가
   }) async {
-    final res = await _dio.post(
-      '/auth/oauth/$provider/signup',
-      data: {
-        'role': role.apiValue,
-        'token': token,
-        'birthDate': birthDate,
-        'phone': phone,
-        if (email != null) 'email': email,
-        if (educationStatus != null) 'educationStatus': educationStatus,
-        if (subjects != null) 'subjects': subjects,
-        if (experienceYears != null) 'experienceYears': experienceYears,
-        if (bio != null) 'bio': bio,
-        if (school != null) 'school': school,
-        if (major != null) 'major': major,
-      },
-    );
+    final dataJson = jsonEncode({
+      'role': role.apiValue,
+      'token': token,
+      'birthDate': birthDate,
+      'phone': phone,
+      if (email != null) 'email': email,
+      if (educationStatus != null) 'educationStatus': educationStatus,
+      if (subjects != null) 'subjects': subjects,
+      if (experienceYears != null) 'experienceYears': experienceYears,
+      if (bio != null) 'bio': bio,
+      if (school != null) 'school': school,
+      if (major != null) 'major': major,
+    });
+
+    final formData = FormData.fromMap({
+      'data': MultipartFile.fromString(
+        dataJson,
+        contentType: DioMediaType('application', 'json'),
+      ),
+      if (documentBytes != null && documentFileName != null)
+        'document': MultipartFile.fromBytes(
+          documentBytes,
+          filename: documentFileName,
+        ),
+    });
+
+    final res = await _dio.post('/auth/oauth/$provider/signup', data: formData);
     return AuthTokens.fromJson(res.data['data'] as Map<String, dynamic>);
   }
 

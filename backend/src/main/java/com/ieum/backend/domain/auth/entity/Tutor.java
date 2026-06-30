@@ -61,6 +61,10 @@ public class Tutor extends Account {
     @Column(name = "verification_status", nullable = false, length = 20)
     private VerificationStatus verificationStatus;
 
+    /** 학력 증빙 서류 S3 URL. 선택 항목이라 nullable. 검토는 verificationStatus로. */
+    @Column(name = "verification_document_url", length = 512)
+    private String verificationDocumentUrl;
+
     /** 평점 평균 0.0~5.0. 리뷰 없으면 null */
     @Column(name = "rating_avg", precision = 2, scale = 1)
     private BigDecimal ratingAvg;
@@ -148,7 +152,7 @@ public class Tutor extends Account {
                   AuthProvider provider, String providerUserId, String profileImageUrl,
                   LocalDate birthDate, String phone,
                   String bio, String school, String major,Integer experienceYears, EducationStatus educationStatus,
-                  List<String> subjects) {
+                  List<String> subjects, String verificationDocumentUrl) {
         super(name, email, password, provider, providerUserId, profileImageUrl, birthDate, phone);
         this.bio = bio;
         this.school = school;
@@ -158,6 +162,7 @@ public class Tutor extends Account {
         this.subjects = subjects != null ? subjects : new ArrayList<>();
         this.grade = TutorGradePolicy.initialGrade(experienceYears);
         this.verificationStatus = VerificationStatus.PENDING;
+        this.verificationDocumentUrl = verificationDocumentUrl;
         this.reviewCount = 0;
         this.lessonCount = 0;
     }

@@ -52,6 +52,50 @@ public class S3Service {
 
         return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key);
     }
+    /**
+     * 강사 학력 증빙 서류 업로드 (PDF/이미지).
+     * 저장 경로: tutor-verifications/{UUID}_{originalFilename}
+     * 가입 시점이라 tutorId가 없어 UUID로 식별한다. (private 객체 → 조회는 presign 필요)
+     */
+    public String uploadVerificationDocument(MultipartFile file) {
+        // 1) 형식 검증 — PDF / JPG / PNG 만 허용
+        String contentType = file.getContentType();
+        boolean allowed = contentType != null && (
+                contentType.equals("application/pdf")
+                        || contentType.equals("image/jpeg")
+                        || contentType.equals("image/png"));
+        if (!allowed) {
+            throw BusinessException.badRequest("PDF 또는 이미지(JPG/PNG) 파일만 업로드할 수 있습니다.");
+        }
+
+        // 2) 크기 제한 — 10MB
+        long maxSize = 10L * 1024 * 1024;
+        if (file.getSize() > maxSize) {
+            throw BusinessException.badRequest("증빙 서류는 10MB를 넘을 수 없습니다.");
+        }
+
+        // 3) 키 생성 + 업로드
+        String originalFilename = file.getOriginalFilename() != null
+                ? file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_")
+                : "document";
+        String key = "tutor-verifications/" + UUID.randomUUID() + "_" + originalFilename;
+
+        try {
+            s3Client.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(key)
+                            .contentType(contentType)
+                            .contentLength(file.getSize())
+                            .build(),
+                    RequestBody.fromInputStream(file.getInputStream(), file.getSize())
+            );
+        } catch (IOException e) {
+            throw BusinessException.internalError("증빙 서류 업로드에 실패했습니다.");
+        }
+
+        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key);
+    }
 
     /**
      * 수업 종료 시 해당 lessonId의 임시 이미지 전체 삭제
