@@ -191,6 +191,7 @@ class _StudentReviewDetailScreenState
       children: [
         Container(
           color: Colors.black,
+          width: double.infinity,                            // ← 추가: 폭을 화면에 맞춤
           constraints: const BoxConstraints(maxHeight: 380),
           alignment: Alignment.center,
           child: AspectRatio(
