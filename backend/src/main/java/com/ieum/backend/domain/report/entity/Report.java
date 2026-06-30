@@ -78,6 +78,10 @@ public class Report {
     @Column(name = "admin_memo", length = MAX_DESCRIPTION_LENGTH)
     private String adminMemo;
 
+    /** 관리자가 신고자에게 보내는 답변(신고자 '내 신고 내역'에 노출). adminMemo(내부용)와 구분. */
+    @Column(name = "admin_reply", length = MAX_DESCRIPTION_LENGTH)
+    private String adminReply;
+
     @Column(name = "handled_by")
     private Long handledBy;
 
@@ -132,5 +136,12 @@ public class Report {
      */
     public void uphold(Long adminId) {
         transitionTo(ReportStatus.RESOLVED, adminId);
+    }
+
+    /** 관리자 답변 작성 — 신고자에게 보일 답변을 저장하고 처리자/시각을 남긴다(상태는 그대로). */
+    public void writeReply(String reply, Long adminId) {
+        this.adminReply = reply;
+        this.handledBy = adminId;
+        this.handledAt = LocalDateTime.now();
     }
 }

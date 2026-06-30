@@ -2,8 +2,10 @@ package com.ieum.backend.domain.admin.controller;
 
 import com.ieum.backend.domain.admin.entity.Admin;
 import com.ieum.backend.domain.admin.service.AdminAccountService;
+import com.ieum.backend.domain.auth.entity.AccountStatus;
 import com.ieum.backend.domain.auth.entity.Student;
 import com.ieum.backend.domain.auth.entity.Tutor;
+import com.ieum.backend.global.exception.BusinessException;
 import com.ieum.backend.domain.auth.repository.StudentRepository;
 import com.ieum.backend.domain.auth.repository.TutorRepository;
 import com.ieum.backend.domain.lesson.entity.Lesson;
@@ -15,6 +17,10 @@ import com.ieum.backend.domain.payment.repository.CoinTransactionRepository;
 import com.ieum.backend.domain.payment.repository.PaymentRepository;
 import com.ieum.backend.domain.auth.entity.VerificationStatus;
 import com.ieum.backend.domain.auth.service.TutorService;
+import com.ieum.backend.domain.auth.service.VerificationDocumentStorage;
+import com.ieum.backend.domain.payment.entity.Subscription;
+import com.ieum.backend.domain.payment.service.CoinService;
+import com.ieum.backend.domain.payment.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -48,6 +54,9 @@ public class AdminConsoleController {
     private final PaymentRepository paymentRepository;
     private final CoinTransactionRepository coinTransactionRepository;
     private final TutorService tutorService;
+    private final VerificationDocumentStorage verificationStorage;
+    private final CoinService coinService;
+    private final SubscriptionService subscriptionService;
 
     // ─────────────── 1. 관리자 계정 ───────────────
 
@@ -115,15 +124,33 @@ public class AdminConsoleController {
 
     @GetMapping("/admin/members/{role}/{id}")
     @Transactional(readOnly = true)
-    public String memberDetail(@PathVariable String role, @PathVariable Long id, Model model) {
+    public String memberDetail(@PathVariable String role, @PathVariable Long id,
+                               @RequestParam(name = "txPage", defaultValue = "0") int txPage,
+                               Model model) {
         String r = role.toUpperCase();
         model.addAttribute("role", r);
+        // 상태 수정 드롭다운 — 탈퇴(WITHDRAWN)는 제외(별도 처리).
+        model.addAttribute("statuses", java.util.List.of(
+                AccountStatus.ACTIVE, AccountStatus.INACTIVE, AccountStatus.SUSPENDED));
         if ("TUTOR".equals(r)) {
             Tutor tutor = tutorRepository.findById(id).orElse(null);
             model.addAttribute("tutor", tutor);
         } else {
             Student student = studentRepository.findById(id).orElse(null);
             model.addAttribute("student", student);
+            if (student != null) {
+                // 이 학생의 코인 거래내역 — 페이지(10건씩). 잔액은 최신 1건의 balanceAfter.
+                var txPageData = coinTransactionRepository.findByStudentIdOrderByCreatedAtDesc(
+                        id, PageRequest.of(Math.max(txPage, 0), 10));
+                model.addAttribute("coinTx", txPageData.getContent());
+                model.addAttribute("txPageNo", txPageData.getNumber());
+                model.addAttribute("txTotalPages", txPageData.getTotalPages());
+                model.addAttribute("txHasPrev", txPageData.hasPrevious());
+                model.addAttribute("txHasNext", txPageData.hasNext());
+                model.addAttribute("coinBalance", coinTransactionRepository
+                        .findFirstByStudentIdOrderByCreatedAtDesc(id)
+                        .map(CoinTransaction::getBalanceAfter).orElse(0));
+            }
         }
         return "admin/member-detail";
     }
@@ -140,6 +167,83 @@ public class AdminConsoleController {
             ra.addFlashAttribute("err", e.getMessage());
         }
         return "redirect:/admin/members/TUTOR/" + id;
+    }
+
+    /** 회원(학생) 정보 수정 — 이름·전화·상태. */
+    @PostMapping("/admin/students/{id}/edit")
+    @Transactional
+    public String editStudent(@PathVariable Long id,
+                              @RequestParam(required = false) String name,
+                              @RequestParam(required = false) String phone,
+                              @RequestParam(required = false) String status,
+                              RedirectAttributes ra) {
+        try {
+            Student s = studentRepository.findById(id)
+                    .orElseThrow(() -> BusinessException.notFound("학생을 찾을 수 없습니다."));
+            s.updateProfile(name, phone, null, null);
+            if (status != null && !status.isBlank()) {
+                s.changeStatus(AccountStatus.valueOf(status));
+            }
+            ra.addFlashAttribute("msg", "학생 정보를 수정했습니다.");
+        } catch (RuntimeException e) {
+            ra.addFlashAttribute("err", e.getMessage());
+        }
+        return "redirect:/admin/members/STUDENT/" + id;
+    }
+
+    /** 회원(강사) 정보 수정 — 이름·전화·상태·학교·학과. */
+    @PostMapping("/admin/tutors/{id}/edit")
+    @Transactional
+    public String editTutor(@PathVariable Long id,
+                            @RequestParam(required = false) String name,
+                            @RequestParam(required = false) String phone,
+                            @RequestParam(required = false) String status,
+                            @RequestParam(required = false) String school,
+                            @RequestParam(required = false) String major,
+                            RedirectAttributes ra) {
+        try {
+            Tutor t = tutorRepository.findById(id)
+                    .orElseThrow(() -> BusinessException.notFound("강사를 찾을 수 없습니다."));
+            t.updateProfile(name, phone, null, null);
+            if (status != null && !status.isBlank()) {
+                t.changeStatus(AccountStatus.valueOf(status));
+            }
+            t.updateTutorProfile(null,
+                    school != null && !school.isBlank() ? school : null,
+                    major != null && !major.isBlank() ? major : null,
+                    null, null, null);
+            ra.addFlashAttribute("msg", "강사 정보를 수정했습니다.");
+        } catch (RuntimeException e) {
+            ra.addFlashAttribute("err", e.getMessage());
+        }
+        return "redirect:/admin/members/TUTOR/" + id;
+    }
+
+    /** 관리자 코인 지급(보상·환불 등) → 해당 학생에게 BONUS 적립. */
+    @PostMapping("/admin/students/{id}/coins")
+    public String grantCoins(@PathVariable Long id,
+                             @RequestParam int amount,
+                             @RequestParam(required = false) String reason,
+                             RedirectAttributes ra) {
+        try {
+            coinService.grantByAdmin(id, amount, reason);
+            ra.addFlashAttribute("msg", amount + "코인을 지급했습니다.");
+        } catch (RuntimeException e) {
+            ra.addFlashAttribute("err", e.getMessage());
+        }
+        return "redirect:/admin/members/STUDENT/" + id;
+    }
+
+    /** 강사 학력 증빙 서류 열람 — 비공개 객체라 presigned URL로 리다이렉트(5분 유효). */
+    @GetMapping("/admin/tutors/{id}/verification-document")
+    @Transactional(readOnly = true)
+    public String viewVerificationDocument(@PathVariable Long id, RedirectAttributes ra) {
+        Tutor tutor = tutorRepository.findById(id).orElse(null);
+        if (tutor == null || tutor.getVerificationDocumentUrl() == null) {
+            ra.addFlashAttribute("err", "등록된 증빙 서류가 없습니다.");
+            return "redirect:/admin/members/TUTOR/" + id;
+        }
+        return "redirect:" + verificationStorage.viewUrl(tutor.getVerificationDocumentUrl());
     }
 
     // ─────────────── 3. 강의/매칭 관리 ───────────────
@@ -177,10 +281,27 @@ public class AdminConsoleController {
 
     @GetMapping("/admin/payments")
     @Transactional(readOnly = true)
-    public String payments(@RequestParam(defaultValue = "0") int page, Model model) {
+    public String payments(@RequestParam(required = false) String q,
+                           @RequestParam(defaultValue = "0") int page, Model model) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), PAGE_SIZE);
-        Page<Payment> payments = paymentRepository.findAllByOrderByCreatedAtDesc(pageable);
+        boolean hasQuery = q != null && !q.isBlank();
+        Page<Payment> payments;
+        if (hasQuery) {
+            // 결제자(학생) 이름/이메일로 검색 → 해당 학생들의 결제만.
+            List<Long> studentIds = studentRepository
+                    .findTop200ByNameContainingIgnoreCaseOrEmailContainingIgnoreCaseOrderByCreatedAtDesc(q, q)
+                    .stream().map(Student::getId).toList();
+            payments = studentIds.isEmpty()
+                    ? Page.empty(pageable)
+                    : paymentRepository.findByStudentIdInOrderByCreatedAtDesc(studentIds, pageable);
+        } else {
+            payments = paymentRepository.findAllByOrderByCreatedAtDesc(pageable);
+        }
         model.addAttribute("payments", payments);
+        model.addAttribute("q", q);
+        // 결제자 이름 표시용 (studentId → 이름). 결제는 학생만 하므로 전부 학생.
+        model.addAttribute("payerNames", nameMapStudents(payments.stream()
+                .map(Payment::getStudentId).filter(java.util.Objects::nonNull).distinct().toList()));
         addPaging(model, payments);
         model.addAttribute("revenue", paymentRepository.sumAmountByStatus(PaymentStatus.COMPLETED));
         return "admin/payments";
@@ -194,6 +315,42 @@ public class AdminConsoleController {
         model.addAttribute("coinTx", coinTx);
         addPaging(model, coinTx);
         return "admin/coins";
+    }
+
+    @GetMapping("/admin/subscriptions")
+    @Transactional(readOnly = true)
+    public String subscriptions(@RequestParam(defaultValue = "0") int page, Model model) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), PAGE_SIZE);
+        Page<Subscription> subs = subscriptionService.getSubscriptionsForAdmin(pageable);
+        model.addAttribute("subs", subs);
+        model.addAttribute("subscriberNames", nameMapStudents(subs.stream()
+                .map(Subscription::getStudentId).filter(java.util.Objects::nonNull).distinct().toList()));
+        addPaging(model, subs);
+        return "admin/subscriptions";
+    }
+
+    /** 구독 해지(자동갱신 OFF) — 기간까지 이용 유지. */
+    @PostMapping("/admin/subscriptions/{id}/cancel")
+    public String cancelSubscription(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            subscriptionService.cancelByAdmin(id);
+            ra.addFlashAttribute("msg", "구독 #" + id + " 자동갱신을 해지했습니다(기간까지 이용 유지).");
+        } catch (RuntimeException e) {
+            ra.addFlashAttribute("err", e.getMessage());
+        }
+        return "redirect:/admin/subscriptions";
+    }
+
+    /** 구독 즉시 만료 — active=false + 활성 슬롯 해제. */
+    @PostMapping("/admin/subscriptions/{id}/expire")
+    public String expireSubscription(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            subscriptionService.expireByAdmin(id);
+            ra.addFlashAttribute("msg", "구독 #" + id + " 을 즉시 만료했습니다.");
+        } catch (RuntimeException e) {
+            ra.addFlashAttribute("err", e.getMessage());
+        }
+        return "redirect:/admin/subscriptions";
     }
 
     // ─────────────── 내부 유틸 ───────────────

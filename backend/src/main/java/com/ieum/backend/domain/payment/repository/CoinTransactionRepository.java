@@ -10,6 +10,13 @@ public interface CoinTransactionRepository extends JpaRepository<CoinTransaction
 
     List<CoinTransaction> findByStudentIdOrderByCreatedAtDesc(Long studentId);
 
+    /** 학생 상세 — 코인 거래내역 페이지(최신순). */
+    org.springframework.data.domain.Page<CoinTransaction> findByStudentIdOrderByCreatedAtDesc(
+            Long studentId, org.springframework.data.domain.Pageable pageable);
+
+    /** 학생 현재 잔액 표시용 — 최신 거래 1건(없으면 잔액 0). */
+    java.util.Optional<CoinTransaction> findFirstByStudentIdOrderByCreatedAtDesc(Long studentId);
+
     List<CoinTransaction> findByStudentIdAndTypeOrderByCreatedAtDesc(Long studentId, TransactionType type);
 
     List<CoinTransaction> findByLessonIdAndType(Long lessonId, TransactionType type);

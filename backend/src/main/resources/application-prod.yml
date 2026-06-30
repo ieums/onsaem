@@ -17,7 +17,7 @@ spring:
 portone:
   api-secret: ${PORTONE_API_SECRET:}
   api-base-url: https://api.portone.io
-  verification-enabled: ${PORTONE_VERIFY:false}
+  verification-enabled: ${PORTONE_VERIFY}
 
 # 녹화 사용(prod) — S3 자격증명이 있을 때만 켤 것. 로컬은 기본 false.
 agora:

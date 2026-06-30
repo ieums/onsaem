@@ -17,6 +17,10 @@
         </h1>
     </div>
 
+    <div class="flash" th:if="${msg}" th:text="${msg}">완료</div>
+    <div class="flash" th:if="${err}" th:text="${err}"
+         style="color:var(--danger);border-color:#f3c2bf;background:#fdeeed;">오류</div>
+
     <div class="card" style="margin-bottom:20px;">
         <dl class="dl">
             <dt>신고자</dt>
@@ -62,6 +66,26 @@
             무효(처리완료/반려) 시 다음 정산 틱에서 자동으로 정산이 생성됩니다.
             인정 시 정산이 취소되며, 환불 플로우는 현재 수동 처리 대상입니다.
         </p>
+    </div>
+
+    <div class="section-title">신고자 답변</div>
+    <div class="card">
+        <p class="faint" style="margin-top:0;">
+            신고자의 '내 신고 내역'에 그대로 표시됩니다.
+            (예: "관련 내용 수정했습니다", "환불해드리겠습니다")
+        </p>
+        <div th:if="${report.adminReply != null and !report.adminReply.isBlank()}"
+             style="padding:12px 14px;border-radius:10px;background:var(--brand-tint);border:1px solid var(--brand-tint-line);margin-bottom:12px;white-space:pre-wrap;"
+             th:text="${report.adminReply}">기존 답변</div>
+        <form th:action="@{/admin/reports/{id}/reply(id=${report.id})}" method="post">
+            <textarea name="reply" rows="3" required
+                      placeholder="신고자에게 보낼 답변을 입력하세요"
+                      th:text="${report.adminReply}"
+                      style="width:100%;box-sizing:border-box;padding:11px 13px;border-radius:10px;border:1px solid var(--line);font-family:inherit;font-size:14px;resize:vertical;"></textarea>
+            <div style="margin-top:10px;">
+                <button class="btn primary sm" type="submit">답변 등록</button>
+            </div>
+        </form>
     </div>
 </div>
 </body>

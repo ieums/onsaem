@@ -103,6 +103,15 @@ public class ReportService {
         getReportForAdmin(reportId).markReviewing(adminId);
     }
 
+    /** 관리자 답변 작성(신고자에게 노출). 상태 전이는 하지 않음. */
+    @Transactional
+    public void writeReply(Long reportId, String reply, Long adminId) {
+        if (reply == null || reply.isBlank()) {
+            throw BusinessException.badRequest("답변 내용을 입력해 주세요.");
+        }
+        getReportForAdmin(reportId).writeReply(reply.trim(), adminId);
+    }
+
     /**
      * 처리완료(정상 수업 확인 = 신고 무효) → RESOLVED.
      * 부수효과: 그 강의의 출금 보류가 풀린다(다음 finalize 틱에 정산이 자동 생성되므로 강제 생성 불필요).

@@ -14,18 +14,25 @@ class MatchingState {
     this.matchRequestedProblemId,
     this.matchRequestedMessage,
     this.matchCancelledMessage,
+    this.verificationType,
+    this.verificationMessage,
   });
 
   final AsyncValue<List<SearchingProblemModel>> problems;
   final int? matchRequestedProblemId;
   final String? matchRequestedMessage;
   final String? matchCancelledMessage;
+  // 학력 인증 승인/반려 실시간 수신용 (VERIFICATION_APPROVED / VERIFICATION_REJECTED).
+  final String? verificationType;
+  final String? verificationMessage;
 
   MatchingState copyWith({
     AsyncValue<List<SearchingProblemModel>>? problems,
     Object? matchRequestedProblemId = _sentinel,
     Object? matchRequestedMessage = _sentinel,
     Object? matchCancelledMessage = _sentinel,
+    Object? verificationType = _sentinel,
+    Object? verificationMessage = _sentinel,
   }) {
     return MatchingState(
       problems: problems ?? this.problems,
@@ -38,6 +45,12 @@ class MatchingState {
       matchCancelledMessage: matchCancelledMessage == _sentinel
           ? this.matchCancelledMessage
           : matchCancelledMessage as String?,
+      verificationType: verificationType == _sentinel
+          ? this.verificationType
+          : verificationType as String?,
+      verificationMessage: verificationMessage == _sentinel
+          ? this.verificationMessage
+          : verificationMessage as String?,
     );
   }
 }
@@ -68,6 +81,7 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
       onMatchRequested: onMatchRequested,
       onMatchCancelled: onMatchCancelled,
       onNewProblem: _onNewProblem,
+      onVerification: _onVerification,
     );
     try {
       final list = await _repository.getSearchingProblems(_tutorId);
@@ -113,6 +127,21 @@ class MatchingNotifier extends StateNotifier<MatchingState> {
         ),
       );
     } catch (_) {}
+  }
+
+  /// 학력 인증 승인/반려 실시간 수신 — shell이 listen해 배너/알림 + me 갱신 처리.
+  void _onVerification(String type, String message) {
+    state = state.copyWith(
+      verificationType: type,
+      verificationMessage: message,
+    );
+  }
+
+  void clearVerification() {
+    state = state.copyWith(
+      verificationType: null,
+      verificationMessage: null,
+    );
   }
 
   void onMatchRequested(int problemId, int tutorId, String message) {

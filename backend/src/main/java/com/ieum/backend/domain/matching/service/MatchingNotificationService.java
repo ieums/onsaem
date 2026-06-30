@@ -103,6 +103,22 @@ public class MatchingNotificationService {
         );
     }
 
+    /** 관리자가 강사 학력 인증을 승인 → 강사 앱에 알림(프론트는 me 갱신해 피드 잠금 해제). */
+    public void notifyVerificationApproved(Long tutorId) {
+        messagingTemplate.convertAndSend(
+                "/topic/tutor/" + tutorId,
+                Map.of("type", "VERIFICATION_APPROVED", "tutorId", tutorId,
+                        "message", "학력 인증이 승인되었어요! 이제 강의를 신청할 수 있어요."));
+    }
+
+    /** 관리자가 강사 학력 인증을 반려 → 강사 앱에 알림. */
+    public void notifyVerificationRejected(Long tutorId) {
+        messagingTemplate.convertAndSend(
+                "/topic/tutor/" + tutorId,
+                Map.of("type", "VERIFICATION_REJECTED", "tutorId", tutorId,
+                        "message", "학력 인증이 반려되었어요. 마이페이지에서 증빙 서류를 다시 제출해 주세요."));
+    }
+
     public void notifyNewProblem(Long problemId) {
         messagingTemplate.convertAndSend(
                 "/topic/new-problem",

@@ -9,6 +9,7 @@ import 'package:ieum/features/student/widgets/student_problem_image_viewer.dart'
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/matching/models/searching_problem_model.dart';
 import 'package:ieum/features/matching/providers/matching_provider.dart';
+import 'package:ieum/features/student/providers/mypage_provider.dart';
 import 'package:ieum/features/student/utils/problem_enum_labels.dart';
 import 'package:ieum/features/tutor/providers/tutor_availability_provider.dart';
 import 'package:ieum/features/tutor/widgets/tutor_action_button_style.dart';
@@ -77,8 +78,15 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
         final shell = ShellTheme.of(context);
         final isOnline = ref.watch(tutorAvailabilityProvider);
         final problem = widget.problem;
+        // 학력 인증 상태 — 관리자 승인(VERIFIED)된 강사만 신청 가능(백엔드에서도 차단).
+        final verificationStatus =
+            ref.watch(meProvider).valueOrNull?['verificationStatus'] as String?;
+        // 상태를 아직 모르면(로딩 중·null) 막지 않고, 명확히 미인증일 때만 차단.
+        final isVerificationBlocked =
+            verificationStatus != null && verificationStatus != 'VERIFIED';
         // 오프라인이어도 버튼은 눌리게 해서 안내 다이얼로그를 띄운다.
-        final canTapApply = !problem.alreadyApplied && !_isApplying;
+        final canTapApply =
+            !problem.alreadyApplied && !_isApplying && !isVerificationBlocked;
 
         return Scaffold(
       backgroundColor: shell.scaffoldBackground,
@@ -93,7 +101,7 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
         title: Text(
           '문제 상세',
           style: TextStyle(
-            fontSize: 17,
+            fontSize: 20,
             fontWeight: FontWeight.w700,
             color: shell.titleColor,
           ),
@@ -141,6 +149,12 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
 
               const SizedBox(height: 16),
 
+              // 학력 인증 미완료 안내 — 신청 버튼 비활성 이유를 설명.
+              if (isVerificationBlocked) ...[
+                _buildVerificationNotice(verificationStatus, shell),
+                const SizedBox(height: 12),
+              ],
+
               // 버튼 — 신청: 통일 아웃라인(테두리만 특징색+흰/다크 배경). 넘기기: 가볍게(텍스트 버튼).
               Row(
                 children: [
@@ -162,7 +176,9 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
                               ),
                             )
                           : Text(
-                              problem.alreadyApplied ? '이미 신청됨' : '신청',
+                              isVerificationBlocked
+                                  ? '학력 인증 후 신청 가능'
+                                  : (problem.alreadyApplied ? '이미 신청됨' : '신청'),
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -339,6 +355,46 @@ class _ProblemDetailScreenState extends ConsumerState<ProblemDetailScreen> {
               fontSize: 14,
               height: 1.5,
               color: shell.titleColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 학력 인증 미완료 안내 배너 — 상태별 문구.
+  Widget _buildVerificationNotice(String status, ShellTheme shell) {
+    final bool rejected = status == 'REJECTED';
+    final String message = rejected
+        ? '학력 인증이 반려되었어요. 마이페이지에서 증빙 서류를 다시 제출해 주세요.'
+        : '학력 인증 심사 중이에요. 관리자 승인 후 강의를 신청할 수 있어요.';
+    final Color accent = rejected ? const Color(0xFFD9534F) : AppColors.primaryBlue;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            rejected ? Icons.error_outline_rounded : Icons.verified_user_outlined,
+            size: 18,
+            color: accent,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+                color: shell.titleColor,
+              ),
             ),
           ),
         ],

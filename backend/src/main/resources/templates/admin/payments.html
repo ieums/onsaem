@@ -14,6 +14,13 @@
         <h1>결제 내역</h1>
     </div>
 
+    <form th:action="@{/admin/payments}" method="get" class="filters" style="align-items:center;margin-bottom:14px;">
+        <input class="field" type="text" name="q" th:value="${q}" placeholder="결제자 이름 또는 이메일 검색"
+               style="margin:0;min-width:280px;padding:9px 13px;border-radius:9px;border:1px solid var(--line);">
+        <button class="btn primary sm" type="submit">검색</button>
+        <a class="btn ghost sm" th:href="@{/admin/payments}" th:if="${q != null and !q.isBlank()}">초기화</a>
+    </form>
+
     <div class="mini-strip" style="margin-top:0;margin-bottom:18px;">
         <span class="ms-title">완료 매출 합계</span>
         <span class="ms-item"><b th:text="'₩' + ${#numbers.formatInteger(revenue, 0, 'COMMA')}">₩0</b></span>
@@ -24,6 +31,7 @@
         <table>
             <thead>
             <tr>
+                <th>결제자</th>
                 <th>상품</th>
                 <th>유형</th>
                 <th class="num">금액(원)</th>
@@ -34,6 +42,7 @@
             </thead>
             <tbody>
             <tr th:each="p : ${payments}">
+                <td th:text="${payerNames.get(p.studentId) != null ? payerNames.get(p.studentId) : '(알 수 없음)'}">홍길동</td>
                 <td th:text="${p.productName != null ? p.productName : '-'}">코인 패키지</td>
                 <td class="faint" th:text="${p.targetType != null ? p.targetType.displayName : '-'}">코인 충전</td>
                 <td class="num" th:text="${#numbers.formatInteger(p.amount, 0, 'COMMA')}">0</td>
@@ -42,13 +51,13 @@
                 <td class="faint" th:text="${p.createdAt != null ? #temporals.format(p.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">-</td>
             </tr>
             <tr th:if="${payments.isEmpty()}">
-                <td colspan="6" class="faint" style="text-align:center;padding:28px;">결제 내역이 없습니다.</td>
+                <td colspan="7" class="faint" style="text-align:center;padding:28px;">결제 내역이 없습니다.</td>
             </tr>
             </tbody>
         </table>
     </div>
 
-    <div th:replace="~{admin/_layout :: pager('/admin/payments', null, null)}"></div>
+    <div th:replace="~{admin/_layout :: pager('/admin/payments', ${q}, null)}"></div>
 </div>
 </body>
 </html>

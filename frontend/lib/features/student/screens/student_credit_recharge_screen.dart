@@ -8,6 +8,9 @@ import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/models/payment_models.dart';
 import 'package:ieum/features/student/providers/payment_provider.dart';
 import 'package:ieum/features/student/widgets/student_coin_payments_sheet.dart';
+import 'package:portone_flutter_v2/portone_flutter_v2.dart' show PaymentResponse;
+import 'package:ieum/core/config/portone_config.dart';
+import 'package:ieum/features/student/screens/coin_payment_screen.dart';
 
 String formatWon(int n) {
   final s = n.abs().toString();
@@ -56,11 +59,37 @@ class _StudentCreditRechargeScreenState
         studentId: studentId,
         coinPackageId: pkg.id,
       );
-      // 2) 결제 완료 확인 — 테스트 모드(검증 OFF): merchantId를 그대로 사용.
-      //    실결제(모바일/JS SDK) 연동 시 이 자리에서 포트원 결제 후 받은 paymentId를 전달.
+      // 2) 결제ID 확정 — 실결제 설정이 있으면 PortOne SDK 결제창, 없으면 테스트(검증 스킵).
+      String portonePaymentId = payment.merchantId;
+      if (PortoneConfig.isConfigured) {
+        if (!mounted) return;
+        final result = await Navigator.of(context).push<PaymentResponse?>(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => CoinPaymentScreen(
+              paymentId: payment.merchantId,
+              orderName: '${formatWon(pkg.totalCoin)}P 충전',
+              amount: pkg.price,
+            ),
+          ),
+        );
+        if (result == null) {
+          if (mounted) setState(() => _paying = false);
+          _snack('결제가 취소되었어요.');
+          return;
+        }
+        if (result.code != null) {
+          if (mounted) setState(() => _paying = false);
+          _snack('결제 실패: ${result.message ?? result.code}');
+          return;
+        }
+        portonePaymentId = result.paymentId;
+      }
+
+      // 3) 백엔드 확정 — 실결제면 PortOne 검증, 테스트면 검증 스킵.
       await repo.completeCoinPayment(
         merchantId: payment.merchantId,
-        portonePaymentId: payment.merchantId,
+        portonePaymentId: portonePaymentId,
       );
       if (!mounted) return;
       ref.invalidate(coinBalanceProvider);
@@ -68,10 +97,12 @@ class _StudentCreditRechargeScreenState
       ref.invalidate(coinPaymentsProvider);
       setState(() => _paying = false);
       _snack('${formatWon(pkg.totalCoin)}P 충전 완료!');
-    } catch (_) {
+    } catch (e, st) {
+      // 진짜 원인 파악용 — 콘솔 로그 + 스낵바에 메시지 노출(임시).
+      debugPrint('coin charge failed: $e\n$st');
       if (!mounted) return;
       setState(() => _paying = false);
-      _snack('충전에 실패했어요. 잠시 후 다시 시도해 주세요.');
+      _snack('충전 실패: $e');
     }
   }
 
@@ -115,7 +146,7 @@ class _StudentCreditRechargeScreenState
                   title: Text(
                     '크레딧 충전',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 20,
                       fontWeight: FontWeight.w800,
                       color: shell.titleColor,
                     ),
@@ -190,13 +221,15 @@ class _StudentCreditRechargeScreenState
                               child: SizedBox(
                                 width: double.infinity,
                                 height: 52,
-                                child: FilledButton(
+                                child: OutlinedButton(
                                   onPressed:
                                       _paying ? null : () => _pay(selected),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: AppColors.studentPoint,
-                                    foregroundColor: Colors.black,
-                                    elevation: 0,
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: shell.cardBackground,
+                                    foregroundColor: shell.titleColor,
+                                    side: const BorderSide(
+                                        color: AppColors.studentPoint,
+                                        width: 1.6),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
                                     ),
@@ -262,16 +295,16 @@ class _StudentCreditRechargeScreenState
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppColors.studentPoint.withValues(alpha: 0.8),
+              color: Colors.black.withValues(alpha: 0.55),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             '$text P',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 30,
               fontWeight: FontWeight.w800,
-              color: AppColors.studentPoint,
+              color: Colors.black.withValues(alpha: 0.85),
               height: 1.1,
             ),
           ),

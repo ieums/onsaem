@@ -105,6 +105,30 @@ public class SubscriptionService {
         return SubscriptionResponse.from(subscription);
     }
 
+    // ── 관리자 콘솔: 구독 조회·해지 ──
+
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<Subscription> getSubscriptionsForAdmin(
+            org.springframework.data.domain.Pageable pageable) {
+        return subscriptionRepository.findAllByOrderByCreatedAtDesc(pageable);
+    }
+
+    /** 관리자 해지 — 자동갱신만 OFF(기간은 유지). */
+    @Transactional
+    public void cancelByAdmin(Long subscriptionId) {
+        subscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> BusinessException.notFound("구독을 찾을 수 없습니다."))
+                .cancel();
+    }
+
+    /** 관리자 즉시 만료 — active=false + 활성 슬롯 해제(재구독 가능). */
+    @Transactional
+    public void expireByAdmin(Long subscriptionId) {
+        subscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> BusinessException.notFound("구독을 찾을 수 없습니다."))
+                .expire();
+    }
+
     /**
      * 기간이 끝난(endDate 경과) 활성 구독을 만료 처리 — 스케줄러가 주기 호출.
      * active=false + 활성 슬롯 해제(재구독 가능). 해지(autoRenew OFF)한 구독은 여기서 자연 만료된다.

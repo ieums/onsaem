@@ -657,7 +657,7 @@ class _StudentProblemUploadScreenState
               title: Text(
                 '문제 업로드',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.w800,
                   color: shell.titleColor,
                 ),

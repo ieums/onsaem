@@ -24,6 +24,28 @@ public class CoinService {
     private final CoinTransactionRepository transactionRepository;
 
     /**
+     * 관리자 수동 코인 지급 (보상·환불 등). BONUS 트랜잭션으로 적립하며 사유를 설명으로 남긴다.
+     */
+    @Transactional
+    public CoinBalanceResponse grantByAdmin(Long studentId, int amount, String reason) {
+        if (amount <= 0) {
+            throw BusinessException.badRequest("지급 코인은 1 이상이어야 합니다.");
+        }
+        CoinWallet wallet = getWalletForUpdate(studentId);
+        wallet.charge(amount);
+        transactionRepository.save(CoinTransaction.builder()
+                .studentId(studentId)
+                .type(TransactionType.BONUS)
+                .amount(amount)
+                .balanceAfter(wallet.getBalance())
+                .description(reason != null && !reason.isBlank()
+                        ? reason.trim()
+                        : "관리자 지급")
+                .build());
+        return CoinBalanceResponse.from(wallet);
+    }
+
+    /**
      * 지갑 조회 (없으면 자동 생성)
      */
     @Transactional

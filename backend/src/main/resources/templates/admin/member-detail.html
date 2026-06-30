@@ -16,6 +16,8 @@
     </div>
 
     <div class="flash" th:if="${msg}" th:text="${msg}"></div>
+    <div class="flash" th:if="${err}" th:text="${err}"
+         style="color:var(--danger);border-color:#f3c2bf;background:#fdeeed;"></div>
 
     <!-- 학생 -->
     <div th:if="${role != 'TUTOR'}">
@@ -29,6 +31,86 @@
                 <dt>생년월일</dt><dd th:text="${student.birthDate != null ? student.birthDate : '-'}">-</dd>
                 <dt>가입일</dt><dd class="faint" th:text="${student.createdAt != null ? #temporals.format(student.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">-</dd>
             </dl>
+        </div>
+
+        <div class="card" th:if="${student != null}" style="margin-top:16px;">
+            <div class="card-head"><span>정보 수정</span></div>
+            <form th:action="@{/admin/students/{id}/edit(id=${student.id})}" method="post"
+                  style="display:flex;flex-direction:column;gap:10px;max-width:420px;">
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--ink-dim);margin-bottom:4px;">이름</label>
+                    <input type="text" name="name" th:value="${student.name}"
+                           style="width:100%;box-sizing:border-box;padding:9px 11px;border-radius:9px;border:1px solid var(--line);">
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--ink-dim);margin-bottom:4px;">전화번호</label>
+                    <input type="text" name="phone" th:value="${student.phone}"
+                           style="width:100%;box-sizing:border-box;padding:9px 11px;border-radius:9px;border:1px solid var(--line);">
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--ink-dim);margin-bottom:4px;">상태</label>
+                    <select name="status"
+                            style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line);">
+                        <option th:each="st : ${statuses}" th:value="${st.name()}"
+                                th:text="${st.displayName}" th:selected="${student.status == st}"></option>
+                    </select>
+                </div>
+                <div><button class="btn primary sm" type="submit">저장</button></div>
+            </form>
+        </div>
+
+        <div class="card" th:if="${student != null}" style="margin-top:16px;">
+            <div class="card-head"><span>코인 지급</span></div>
+            <p class="faint" style="margin:0 0 10px;">
+                보상·환불 등으로 학생에게 코인을 지급합니다. (코인 내역에 BONUS로 기록)
+            </p>
+            <form th:action="@{/admin/students/{id}/coins(id=${student.id})}" method="post"
+                  style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <input type="number" name="amount" min="1" required placeholder="지급 코인"
+                       style="width:120px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);">
+                <input type="text" name="reason" placeholder="사유 (예: 신고 보상)"
+                       style="flex:1;min-width:200px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);">
+                <button class="btn primary sm" type="submit">지급</button>
+            </form>
+        </div>
+
+        <div class="card" th:if="${student != null}" style="margin-top:16px;">
+            <div class="card-head"><span>코인 거래 내역</span></div>
+            <p class="faint" style="margin:0 0 12px;"
+               th:text="'현재 잔액 ' + ${coinBalance} + 'P'">현재 잔액 0P</p>
+            <div class="table-wrap" th:if="${coinTx != null and !coinTx.isEmpty()}">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>종류</th>
+                        <th class="num">금액</th>
+                        <th class="num">잔액</th>
+                        <th>사유</th>
+                        <th>일시</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="t : ${coinTx}">
+                        <td th:text="${t.type.displayName}">충전</td>
+                        <td class="num" th:text="${t.amount}">0</td>
+                        <td class="num" th:text="${t.balanceAfter}">0</td>
+                        <td class="faint" th:text="${t.description != null ? t.description : '-'}">-</td>
+                        <td class="faint" th:text="${t.createdAt != null ? #temporals.format(t.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">-</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" th:if="${txTotalPages != null and txTotalPages > 1}" style="margin-top:12px;">
+                <a th:if="${txHasPrev}" th:href="@{/admin/members/{role}/{id}(role=${role},id=${student.id},txPage=${txPageNo - 1})}">이전</a>
+                <span class="page-dis" th:unless="${txHasPrev}">이전</span>
+                <th:block th:each="i : ${#numbers.sequence(0, txTotalPages - 1)}">
+                    <span class="page-cur" th:if="${i == txPageNo}" th:text="${i + 1}">1</span>
+                    <a th:unless="${i == txPageNo}" th:href="@{/admin/members/{role}/{id}(role=${role},id=${student.id},txPage=${i})}" th:text="${i + 1}">2</a>
+                </th:block>
+                <a th:if="${txHasNext}" th:href="@{/admin/members/{role}/{id}(role=${role},id=${student.id},txPage=${txPageNo + 1})}">다음</a>
+                <span class="page-dis" th:unless="${txHasNext}">다음</span>
+            </div>
+            <p class="faint" th:if="${coinTx == null or coinTx.isEmpty()}" style="margin:0;">거래 내역이 없습니다.</p>
         </div>
         <p class="faint" th:if="${student == null}">해당 학생을 찾을 수 없습니다.</p>
     </div>
@@ -44,6 +126,13 @@
                 <dt>상태</dt><dd><span class="badge" th:classappend="${tutor.status}" th:text="${tutor.status.displayName}">ACTIVE</span></dd>
                 <dt>등급</dt><dd th:text="${tutor.grade != null ? tutor.grade.displayName : '-'}">루키</dd>
                 <dt>인증상태</dt><dd><span class="badge" th:classappend="${tutor.verificationStatus}" th:text="${tutor.verificationStatus != null ? tutor.verificationStatus.displayName : '-'}">대기</span></dd>
+                <dt>증빙 서류</dt>
+                <dd>
+                    <a th:if="${tutor.verificationDocumentUrl != null}"
+                       th:href="@{/admin/tutors/{id}/verification-document(id=${tutor.id})}"
+                       target="_blank" rel="noopener">증빙 서류 보기 ↗</a>
+                    <span th:if="${tutor.verificationDocumentUrl == null}" class="faint">미제출</span>
+                </dd>
                 <dt>학교</dt><dd th:text="${tutor.school != null ? tutor.school : '-'}">-</dd>
                 <dt>전공</dt><dd th:text="${tutor.major != null ? tutor.major : '-'}">-</dd>
                 <dt>과목</dt>
@@ -63,7 +152,51 @@
         </div>
 
         <div class="card" th:if="${tutor != null}" style="margin-top:16px;">
+            <div class="card-head"><span>정보 수정</span></div>
+            <form th:action="@{/admin/tutors/{id}/edit(id=${tutor.id})}" method="post"
+                  style="display:flex;flex-direction:column;gap:10px;max-width:420px;">
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--ink-dim);margin-bottom:4px;">이름</label>
+                    <input type="text" name="name" th:value="${tutor.name}"
+                           style="width:100%;box-sizing:border-box;padding:9px 11px;border-radius:9px;border:1px solid var(--line);">
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--ink-dim);margin-bottom:4px;">전화번호</label>
+                    <input type="text" name="phone" th:value="${tutor.phone}"
+                           style="width:100%;box-sizing:border-box;padding:9px 11px;border-radius:9px;border:1px solid var(--line);">
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <div style="flex:1;">
+                        <label style="display:block;font-size:12px;color:var(--ink-dim);margin-bottom:4px;">학교</label>
+                        <input type="text" name="school" th:value="${tutor.school}"
+                               style="width:100%;box-sizing:border-box;padding:9px 11px;border-radius:9px;border:1px solid var(--line);">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="display:block;font-size:12px;color:var(--ink-dim);margin-bottom:4px;">학과</label>
+                        <input type="text" name="major" th:value="${tutor.major}"
+                               style="width:100%;box-sizing:border-box;padding:9px 11px;border-radius:9px;border:1px solid var(--line);">
+                    </div>
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--ink-dim);margin-bottom:4px;">상태</label>
+                    <select name="status"
+                            style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line);">
+                        <option th:each="st : ${statuses}" th:value="${st.name()}"
+                                th:text="${st.displayName}" th:selected="${tutor.status == st}"></option>
+                    </select>
+                </div>
+                <div><button class="btn primary sm" type="submit">저장</button></div>
+            </form>
+        </div>
+
+        <div class="card" th:if="${tutor != null}" style="margin-top:16px;">
             <div class="card-head"><span>인증상태 변경</span></div>
+            <p class="faint" style="margin:0 0 10px;" th:if="${tutor.verificationDocumentUrl != null}">
+                승인 전 <a th:href="@{/admin/tutors/{id}/verification-document(id=${tutor.id})}" target="_blank" rel="noopener">증빙 서류 ↗</a> 를 확인하세요.
+            </p>
+            <p class="faint" style="margin:0 0 10px;" th:if="${tutor.verificationDocumentUrl == null}">
+                제출된 증빙 서류가 없습니다.
+            </p>
             <div class="actions">
                 <form th:action="@{/admin/tutors/{id}/verification(id=${tutor.id})}" method="post">
                     <input type="hidden" name="status" value="VERIFIED">

@@ -73,6 +73,28 @@ class MypageRepository {
     return data?['profileImageUrl'] as String?;
   }
 
+  /// 강사 학력 증빙 재제출 — POST /tutors/me/verification-document (multipart).
+  /// 재제출 시 서버가 인증 상태를 PENDING(검수 대기)으로 되돌린다.
+  Future<void> reuploadVerificationDocument(
+    Uint8List bytes, {
+    required String filename,
+  }) async {
+    final lower = filename.toLowerCase();
+    final DioMediaType mediaType = lower.endsWith('.pdf')
+        ? DioMediaType('application', 'pdf')
+        : lower.endsWith('.png')
+            ? DioMediaType('image', 'png')
+            : DioMediaType('image', 'jpeg');
+    final form = FormData.fromMap({
+      'document': MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: mediaType,
+      ),
+    });
+    await _dio.post('/tutors/me/verification-document', data: form);
+  }
+
   /// 강의 후기 작성 — POST /reviews. (강사는 lesson에서 서버가 판별)
   Future<void> createReview({
     required int lessonId,

@@ -13,6 +13,7 @@ import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
 import 'package:ieum/features/matching/providers/matching_provider.dart'
     show MatchingState, matchingProvider, tutorApplicationsProvider;
 import 'package:ieum/features/tutor/screens/tutor_home_screen.dart';
+import 'package:ieum/features/student/providers/mypage_provider.dart';
 import 'package:ieum/core/notifications/notification_center.dart';
 import 'package:ieum/features/tutor/providers/tutor_notification_provider.dart';
 import 'package:ieum/features/tutor/screens/tutor_my_page_screen.dart';
@@ -103,6 +104,27 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
               kind: NotificationKind.matching,
             );
         _showMatchCancelledDialog(context, next.matchCancelledMessage!);
+      }
+      // 학력 인증 승인/반려 도착 → 배너 + 인박스 + me 갱신(피드 잠금 해제).
+      if (next.verificationMessage != null &&
+          next.verificationMessage != prev?.verificationMessage) {
+        final approved = next.verificationType == 'VERIFICATION_APPROVED';
+        AppNotificationService.instance.showBanner(
+          dedupeKey:
+              'verification-${next.verificationType}-${DateTime.now().millisecondsSinceEpoch}',
+          title: approved ? '학력 인증이 승인됐어요 🎉' : '학력 인증이 반려됐어요',
+          body: next.verificationMessage!,
+        );
+        ref.read(tutorNotificationInboxProvider.notifier).add(
+              dedupeKey:
+                  'verification-${next.verificationType}-${DateTime.now().millisecondsSinceEpoch}',
+              title: approved ? '학력 인증 승인' : '학력 인증 반려',
+              body: next.verificationMessage!,
+              kind: NotificationKind.general,
+            );
+        // me 갱신 → 강사 홈 '심사 중' 박스 자동 해제(승인) / 갱신(반려).
+        ref.invalidate(meProvider);
+        ref.read(matchingProvider.notifier).clearVerification();
       }
     });
 

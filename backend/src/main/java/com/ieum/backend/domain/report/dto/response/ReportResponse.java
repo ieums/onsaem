@@ -19,13 +19,15 @@ public record ReportResponse(
         Set<ReportReason> reasons,
         String description,
         ReportStatus status,
+        String adminReply,
         LocalDateTime createdAt
 ) {
     public static ReportResponse from(Report r) {
         return new ReportResponse(
                 r.getId(), r.getReporterId(), r.getReporterType(),
                 r.getTargetType(), r.getTargetId(), r.getLessonId(),
-                r.getReasons(), r.getDescription(), r.getStatus(), r.getCreatedAt()
+                r.getReasons(), r.getDescription(), r.getStatus(),
+                r.getAdminReply(), r.getCreatedAt()
         );
     }
 }

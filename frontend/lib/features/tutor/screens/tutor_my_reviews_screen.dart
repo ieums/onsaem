@@ -84,7 +84,7 @@ class TutorMyReviewsScreen extends ConsumerWidget {
   PreferredSizeWidget _appBar() => AppBar(
         title: const Text('받은 리뷰',
             style:
-                TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
       );
 
   Widget _hint(ShellTheme shell, String text) => ListView(

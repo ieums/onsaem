@@ -8,8 +8,10 @@ import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
 import com.ieum.backend.domain.auth.service.TutorService;
 import com.ieum.backend.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/tutors")
@@ -44,5 +46,14 @@ public class TutorController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestBody SettlementAccountRequest request) {
         return ApiResponse.ok("정산 계좌가 저장되었습니다.", tutorService.updateSettlementAccount(principal.id(), request));
+    }
+
+    /** 학력 증빙 서류 재제출 — POST /api/v1/tutors/me/verification-document (multipart). 재제출 시 인증 PENDING 으로. */
+    @PostMapping(value = "/me/verification-document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<Void> reuploadVerificationDocument(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @RequestPart("document") MultipartFile document) {
+        tutorService.reuploadVerificationDocument(principal.id(), document);
+        return ApiResponse.ok("증빙 서류가 제출되었습니다. 관리자 승인을 기다려 주세요.", null);
     }
 }

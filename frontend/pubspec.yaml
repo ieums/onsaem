@@ -62,6 +62,7 @@ dependencies:
   video_player: ^2.9.2
   chewie: ^1.8.5
   device_info_plus: 9.1.2
+  portone_flutter_v2: ^1.2.1
 
 dev_dependencies:
   flutter_test:
