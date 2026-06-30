@@ -257,6 +257,10 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
       _showSnack('휴대폰 번호를 입력해주세요.');
       return;
     }
+    if (experienceYears == null) {                      
+      _showSnack('경력 연수를 입력해주세요. (신입이면 0)');  
+      return;                                            
+    }                            
     final pwError = passwordError(password);
     if (pwError != null) {
       _showSnack(pwError);
@@ -315,6 +319,10 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
       _showSnack('휴대폰 번호를 입력해주세요.');
       return;
     }
+    if (experienceYears == null) {                       
+      _showSnack('경력 연수를 입력해주세요. (신입이면 0)');   
+      return;                                            
+    }  
     if (_subjectKeywords.isEmpty) {
       _showSnack('과외 가능 과목을 1개 이상 선택해주세요.');
       return;
@@ -849,7 +857,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                   const SizedBox(height: 8),
                   _buildSubjectChips(context),
                   const SizedBox(height: 20),
-                  _buildLabel(context, '경력 연수'),
+                  _buildLabel(context, '경력 연수 (신입이면 0)', required: true),
                   const SizedBox(height: 8),
                   _buildTextField(
                     context,
