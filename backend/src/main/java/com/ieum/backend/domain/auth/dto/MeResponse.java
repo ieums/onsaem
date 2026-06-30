@@ -29,7 +29,12 @@ public record MeResponse(
         Integer experienceYears,
         BigDecimal ratingAvg,
         Integer lessonCount,
-        @JsonProperty("isAvailable") Boolean available
+        @JsonProperty("isAvailable") Boolean available,
+        // 강사 등급(표시용 한글) + 등급별 정산 수수료(%). 학생은 null.
+        String grade,
+        Integer gradeFeePercent,
+        // 강사 학력 인증 상태(PENDING/VERIFIED/REJECTED). 학생은 null.
+        String verificationStatus
 ) {
     /** 학생용 팩토리 (강사 전용 필드는 null). */
     public static MeResponse of(Account account, Role role) {
@@ -43,7 +48,8 @@ public record MeResponse(
                 account.getProfileImageUrl(),
                 account.getProvider() == null ? null : account.getProvider().name(),
                 account.getStatus().name(),
-                null, null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null,
+                null, null, null
         );
     }
 
@@ -67,7 +73,10 @@ public record MeResponse(
                 tutor.getExperienceYears(),
                 tutor.getRatingAvg(),
                 tutor.getLessonCount(),
-                tutor.isAvailable()
+                tutor.isAvailable(),
+                tutor.getGrade() != null ? tutor.getGrade().getDisplayName() : null,
+                tutor.getGrade() != null ? tutor.getGrade().getFeePercent() : null,
+                tutor.getVerificationStatus() != null ? tutor.getVerificationStatus().name() : null
         );
     }
 }

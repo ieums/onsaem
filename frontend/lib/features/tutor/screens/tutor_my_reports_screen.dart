@@ -19,12 +19,17 @@ const _statusLabels = {
   'REJECTED': '반려',
 };
 const _reasonLabels = {
-  'NO_SHOW': '무단 이탈/노쇼',
-  'ABUSE': '욕설/비방',
-  'INAPPROPRIATE': '불쾌한 콘텐츠',
-  'SPAM': '스팸/광고',
+  // 사람(강사/학생) 신고 사유
+  'ABUSE': '욕설/모욕',
+  'NO_SHOW': '노쇼/불참',
+  'INAPPROPRIATE': '부적절한 행동',
   'FRAUD': '사기/허위',
-  'OTHER': '기타',
+  'SPAM': '스팸/광고',
+  // 강의 신고 사유
+  'CONNECTION_ISSUE': '연결/음성·영상 문제',
+  'TECHNICAL_ISSUE': '기술 오류(녹화·판서 등)',
+  'LESSON_NOT_HELD': '강의 미진행/중단',
+  'ETC': '기타',
 };
 
 class TutorMyReportsScreen extends ConsumerWidget {
@@ -48,7 +53,7 @@ class TutorMyReportsScreen extends ConsumerWidget {
           appBar: AppBar(
             title: const Text('신고 내역',
                 style: TextStyle(
-                    fontWeight: FontWeight.w800, fontSize: 18)),
+                    fontWeight: FontWeight.w800, fontSize: 20)),
           ),
           body: SafeArea(
             child: RefreshIndicator(
@@ -164,6 +169,38 @@ class TutorMyReportsScreen extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     fontSize: 13, color: shell.hintColor)),
+          ],
+          if ((r.adminReply?.trim().isNotEmpty) ?? false) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlue.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppColors.primaryBlue.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Icon(Icons.support_agent_rounded,
+                        size: 15, color: AppColors.primaryBlue),
+                    const SizedBox(width: 5),
+                    const Text('관리자 답변',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primaryBlue)),
+                  ]),
+                  const SizedBox(height: 6),
+                  Text(r.adminReply!.trim(),
+                      style: TextStyle(
+                          fontSize: 13, height: 1.45, color: shell.titleColor)),
+                ],
+              ),
+            ),
           ],
           const SizedBox(height: 8),
           Text(_ymd(r.createdAt),

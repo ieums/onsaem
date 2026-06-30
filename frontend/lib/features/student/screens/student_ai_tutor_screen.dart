@@ -131,7 +131,7 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
               title: Text(
                 'AI 튜터',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: shell.titleColor,
                 ),
@@ -430,11 +430,14 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
   }
 
   Widget _buildInputBar(ShellTheme shell, AiTutorChatState state) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 주의: 이 메서드는 build의 Theme 오버라이드 '바깥'인 State.context를 쓰므로
+    // Theme.of(context)를 쓰면 라이트 테마가 잡혀 입력창만 흰색이 된다.
+    // 색은 항상 themed shell / shellDarkModeProvider 기준으로 가져온다.
+    final isDark = ref.read(shellDarkModeProvider);
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: shell.scaffoldBackground,
         border: Border(
           top: BorderSide(color: shell.cardBorder.withValues(alpha: 0.5)),
         ),

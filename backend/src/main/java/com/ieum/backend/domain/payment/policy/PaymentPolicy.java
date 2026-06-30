@@ -10,7 +10,7 @@ public final class PaymentPolicy {
     }
 
     /** 가입 축하 보너스 코인 */
-    public static final int SIGNUP_BONUS_COIN = 30;
+    public static final int SIGNUP_BONUS_COIN = 50;
 
     /** AI 튜터 1회 사용 비용 (코인) */
     public static final int AI_USE_COST_COIN = 3;

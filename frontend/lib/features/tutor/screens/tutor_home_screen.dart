@@ -4,8 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/matching/models/searching_problem_model.dart';
+import 'package:ieum/features/student/providers/mypage_provider.dart';
 import 'package:ieum/features/matching/providers/matching_provider.dart'
-    show matchingProvider, tutorApplicationsProvider;
+    show MatchingState, matchingProvider, tutorApplicationsProvider;
 import 'package:ieum/features/tutor/providers/tutor_availability_provider.dart';
 import 'package:ieum/features/tutor/providers/tutor_notification_provider.dart';
 import 'package:ieum/features/tutor/widgets/tutor_notification_dialog.dart';
@@ -63,6 +64,11 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
   Widget build(BuildContext context) {
     final shell = ShellTheme.of(context);
     final matchingState = ref.watch(matchingProvider);
+    // 학력 인증 미완료(심사중/반려) 강사는 질문 피드를 반투명 막으로 가린다.
+    final verificationStatus =
+        ref.watch(meProvider).valueOrNull?['verificationStatus'] as String?;
+    final isPending =
+        verificationStatus != null && verificationStatus != 'VERIFIED';
 
     final visibleList = matchingState.problems.whenOrNull(
           // 학생 홈(최신순)과 정렬을 맞춤 — 백엔드 searching 쿼리엔 ORDER BY가 없어
@@ -107,71 +113,146 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
               const SizedBox(height: 24),
               _buildQuestionListHeader(visibleList.length),
               const SizedBox(height: 12),
-              matchingState.problems.when(
-                loading: () => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32),
-                    child: CircularProgressIndicator(
-                      color: AppColors.primaryBlue,
-                    ),
-                  ),
-                ),
-                error: (_, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '불러오기에 실패했습니다.',
-                          style: TextStyle(
-                            color: shell.hintColor,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () =>
-                              ref.read(matchingProvider.notifier).refresh(),
-                          child: const Text(
-                            '다시 시도',
-                            style: TextStyle(color: AppColors.primaryBlue),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                data: (_) {
-                  if (visibleList.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 32),
-                        child: Text(
-                          _rejectedProblemIds.isNotEmpty
-                              ? '표시할 새 질문이 없습니다.'
-                              : '탐색 중인 질문이 없습니다.',
-                          style:
-                              TextStyle(color: shell.hintColor, fontSize: 14),
-                        ),
-                      ),
-                    );
-                  }
-                  return Column(
-                    children: [
-                      for (final problem in _pagedProblems(visibleList)) ...[
-                        _buildQuestionCard(problem),
-                        const SizedBox(height: 12),
-                      ],
-                      _buildQuestionPagination(visibleList.length),
-                    ],
-                  );
-                },
-              ),
+              if (isPending)
+                _buildPendingArea(
+                    shell, verificationStatus, matchingState, visibleList)
+              else
+                _buildFeed(shell, matchingState, visibleList),
             ],
           ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// 질문 피드(로딩/에러/데이터). 일반 표시 + 심사중 막의 '뒤 배경'으로도 재사용.
+  Widget _buildFeed(ShellTheme shell, MatchingState matchingState,
+      List<SearchingProblemModel> visibleList) {
+    return matchingState.problems.when(
+      loading: () => Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          child: CircularProgressIndicator(color: AppColors.primaryBlue),
+        ),
+      ),
+      error: (_, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('불러오기에 실패했습니다.',
+                  style: TextStyle(color: shell.hintColor, fontSize: 14)),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () =>
+                    ref.read(matchingProvider.notifier).refresh(),
+                child: const Text('다시 시도',
+                    style: TextStyle(color: AppColors.primaryBlue)),
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (_) {
+        if (visibleList.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Text(
+                _rejectedProblemIds.isNotEmpty
+                    ? '표시할 새 질문이 없습니다.'
+                    : '탐색 중인 질문이 없습니다.',
+                style: TextStyle(color: shell.hintColor, fontSize: 14),
+              ),
+            ),
+          );
+        }
+        return Column(
+          children: [
+            for (final problem in _pagedProblems(visibleList)) ...[
+              _buildQuestionCard(problem),
+              const SizedBox(height: 12),
+            ],
+            _buildQuestionPagination(visibleList.length),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 학력 인증 미완료 시 — 학생 문제 카드(뒤) 위에 반투명 막을 덮어 보여준다.
+  Widget _buildPendingArea(ShellTheme shell, String? status,
+      MatchingState matchingState, List<SearchingProblemModel> visibleList) {
+    final bool rejected = status == 'REJECTED';
+    final String title =
+        rejected ? '학력 인증이 반려됐어요' : '학력 인증 심사 중이에요';
+    final String sub = rejected
+        ? '마이페이지에서 증빙 서류를 다시 제출해 주세요.'
+        : '관리자 승인 후 강의를 신청할 수 있어요.\n심사는 최대 2일까지 걸릴 수 있어요.';
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: MediaQuery.of(context).size.height * 0.48,
+      ),
+      child: Stack(
+        children: [
+          // 뒤에 학생 문제 카드(살짝 비치게 + 터치 차단).
+          IgnorePointer(
+            child: _buildFeed(shell, matchingState, visibleList),
+          ),
+          // 그 위를 덮는 반투명 막 + 안내.
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.42),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.16),
+                      ),
+                      child: Icon(
+                        rejected
+                            ? Icons.error_outline_rounded
+                            : Icons.hourglass_top_rounded,
+                        size: 32,
+                        color: rejected ? AppColors.logoutRed : Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      sub,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.5,
+                        color: Colors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -18,12 +18,12 @@
             </nav>
         </details>
 
-        <details class="side-group" th:attr="open=${active == 'lessons' or active == 'payments' or active == 'coins'} ? 'open' : null">
+        <details class="side-group" th:attr="open=${active == 'lessons' or active == 'payments' or active == 'subscriptions'} ? 'open' : null">
             <summary>강의·결제 <span class="chev">▶</span></summary>
             <nav class="side-nav">
                 <a th:href="@{/admin/lessons}" th:classappend="${active == 'lessons'} ? ' active' : ''">강의</a>
                 <a th:href="@{/admin/payments}" th:classappend="${active == 'payments'} ? ' active' : ''">결제</a>
-                <a th:href="@{/admin/coins}" th:classappend="${active == 'coins'} ? ' active' : ''">코인</a>
+                <a th:href="@{/admin/subscriptions}" th:classappend="${active == 'subscriptions'} ? ' active' : ''">구독</a>
             </nav>
         </details>
 

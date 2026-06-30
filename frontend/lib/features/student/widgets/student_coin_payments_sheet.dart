@@ -90,7 +90,12 @@ class _CoinPaymentsSheetState extends ConsumerState<_CoinPaymentsSheet> {
     final bottom = MediaQuery.paddingOf(context).bottom;
     final payments = ref.watch(coinPaymentsProvider).valueOrNull ?? const [];
 
-    return Stack(
+    // 내역이 많아도 시트가 화면을 꽉 채우지 않게 최대 높이를 제한(헤더 고정 + 리스트만 스크롤).
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+      ),
+      child: Stack(
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + bottom),
@@ -143,6 +148,7 @@ class _CoinPaymentsSheetState extends ConsumerState<_CoinPaymentsSheet> {
             ),
           ),
       ],
+      ),
     );
   }
 

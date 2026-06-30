@@ -270,6 +270,10 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
       setState(() => _showPasswordMismatch = true);
       return;
     }
+    if (_proofFileBytes == null) {
+      _showSnack('학력 증빙 서류를 첨부해주세요. (필수)');
+      return;
+    }
 
     // 백엔드 LocalDate 형식 "yyyy-MM-dd" 로 조합 (월·일 zero-pad)
     final birthDate =
@@ -327,6 +331,10 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     }  
     if (_subjectKeywords.isEmpty) {
       _showSnack('과외 가능 과목을 1개 이상 선택해주세요.');
+      return;
+    }
+    if (_proofFileBytes == null) {
+      _showSnack('학력 증빙 서류를 첨부해주세요. (필수)');
       return;
     }
     String? email;

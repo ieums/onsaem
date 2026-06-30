@@ -4,6 +4,7 @@ import com.ieum.backend.domain.auth.dto.TutorProfileResponse;
 import com.ieum.backend.domain.auth.dto.SettlementAccountRequest;
 import com.ieum.backend.domain.auth.dto.SettlementAccountResponse;
 import com.ieum.backend.domain.auth.entity.Tutor;
+import com.ieum.backend.domain.auth.entity.VerificationStatus;
 import com.ieum.backend.domain.auth.repository.StudentRepository;
 import com.ieum.backend.domain.auth.repository.TutorRepository;
 import com.ieum.backend.domain.matching.entity.ApplicationStatus;
@@ -33,12 +34,31 @@ public class TutorService {
     private final MatchingApplicationRepository matchingApplicationRepository;
     private final MatchingNotificationService notificationService;
     private final ReviewRepository reviewRepository;
+    private final VerificationDocumentStorage verificationStorage;
 
     /** 관리자 콘솔 — 강사 인증상태(VERIFIED/REJECTED/PENDING) 변경. */
-    public void updateVerificationStatus(Long tutorId, com.ieum.backend.domain.auth.entity.VerificationStatus status) {
+    public void updateVerificationStatus(Long tutorId, VerificationStatus status) {
         Tutor tutor = tutorRepository.findById(tutorId)
                 .orElseThrow(() -> BusinessException.notFound("강사를 찾을 수 없습니다."));
         tutor.updateVerificationStatus(status);
+
+        // 승인/반려 시 강사 앱으로 실시간 알림(프론트가 me 갱신 → 피드 잠금 자동 해제).
+        if (status == VerificationStatus.VERIFIED) {
+            notificationService.notifyVerificationApproved(tutorId);
+        } else if (status == VerificationStatus.REJECTED) {
+            notificationService.notifyVerificationRejected(tutorId);
+        }
+    }
+
+    /** 강사 본인 학력 증빙 서류 재제출 → S3 업로드 후 URL 교체 + 인증 PENDING. */
+    public void reuploadVerificationDocument(Long tutorId, org.springframework.web.multipart.MultipartFile document) {
+        if (document == null || document.isEmpty()) {
+            throw BusinessException.badRequest("증빙 서류 파일을 첨부해 주세요.");
+        }
+        Tutor tutor = tutorRepository.findById(tutorId)
+                .orElseThrow(() -> BusinessException.notFound("강사를 찾을 수 없습니다."));
+        String url = verificationStorage.store(document);
+        tutor.updateVerificationDocument(url);
     }
 
     public void updateAvailability(Long tutorId, boolean available) {

@@ -194,7 +194,7 @@ class _TutorProfileEditScreenState
           appBar: AppBar(
             title: const Text('프로필 수정',
                 style:
-                    TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                    TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new_rounded),
               onPressed: () => Navigator.of(context).pop(),

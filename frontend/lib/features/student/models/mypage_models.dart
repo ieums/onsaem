@@ -48,6 +48,7 @@ class MyReport {
     this.reasons = const [],
     this.description,
     this.status,
+    this.adminReply,
     this.createdAt,
   });
 
@@ -58,6 +59,7 @@ class MyReport {
   final List<String> reasons; // ReportReason enum names
   final String? description;
   final String? status; // PENDING 등
+  final String? adminReply; // 관리자 답변(있으면 표시)
   final DateTime? createdAt;
 
   factory MyReport.fromJson(Map<String, dynamic> j) => MyReport(
@@ -68,6 +70,7 @@ class MyReport {
         reasons: List<String>.from(j['reasons'] as List? ?? const []),
         description: j['description'] as String?,
         status: j['status'] as String?,
+        adminReply: j['adminReply'] as String?,
         createdAt: _date(j['createdAt']),
       );
 }

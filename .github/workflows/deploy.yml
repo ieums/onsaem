@@ -77,5 +77,8 @@ jobs:
           export MAIL_ENABLED="true"
           export MAIL_USERNAME="${{ secrets.MAIL_USERNAME }}"
           export MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}"
+          export PORTONE_API_SECRET="${{ secrets.PORTONE_API_SECRET }}"
+          # 프론트 포트원 SDK 실결제 연동 완료 후에만 true로 — 지금 true면 가짜 결제ID라 검증이 404로 실패함
+          export PORTONE_VERIFY="false"
           nohup java -jar /home/ubuntu/backend-0.0.1-SNAPSHOT.jar \
             --spring.profiles.active=prod > app.log 2>&1 &

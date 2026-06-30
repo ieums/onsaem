@@ -27,7 +27,7 @@ public class AuthService {
     private final OAuthClientResolver oauthClientResolver;
     private final TokenService tokenService;
     private final ImageStorageService imageStorageService;
-    private final com.ieum.backend.global.s3.S3Service s3Service;
+    private final VerificationDocumentStorage verificationStorage;
 
     @Transactional
     public TokenResponse signupStudent(StudentSignupRequest request) {
@@ -51,10 +51,11 @@ public class AuthService {
         if (tutorRepository.existsByEmail(request.email())) {
             throw BusinessException.badRequest("이미 가입된 이메일입니다.");
         }
-        // 증빙 서류(선택) → S3 업로드 후 URL 확보
-        String verificationDocumentUrl = (document != null && !document.isEmpty())
-                ? s3Service.uploadVerificationDocument(document)
-                : null;
+        // 증빙 서류(필수) → S3 업로드 후 URL 확보
+        if (document == null || document.isEmpty()) {
+            throw BusinessException.badRequest("학력 증빙 서류를 첨부해야 가입할 수 있습니다.");
+        }
+        String verificationDocumentUrl = verificationStorage.store(document);
         Tutor tutor = Tutor.builder()
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
@@ -173,10 +174,11 @@ public class AuthService {
                 if (req.educationStatus() == null || req.educationStatus().isBlank()) {
                     throw BusinessException.badRequest("최종학력을 선택해주세요.");
                 }
-                // 증빙 서류(선택) → S3 업로드
-                String verificationDocumentUrl = (document != null && !document.isEmpty())
-                        ? s3Service.uploadVerificationDocument(document)
-                        : null;
+                // 증빙 서류(필수) → S3 업로드
+                if (document == null || document.isEmpty()) {
+                    throw BusinessException.badRequest("학력 증빙 서류를 첨부해야 가입할 수 있습니다.");
+                }
+                String verificationDocumentUrl = verificationStorage.store(document);
                 Tutor tutor = tutorRepository.save(
                         Tutor.builder()
                                 .provider(info.provider())

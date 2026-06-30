@@ -8,8 +8,11 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -19,6 +22,7 @@ import java.util.stream.Collectors;
 public class S3Service {
 
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
 
     @Value("${spring.cloud.aws.s3.bucket}")
     private String bucket;
@@ -95,6 +99,36 @@ public class S3Service {
         }
 
         return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key);
+    }
+
+    /**
+     * 비공개 객체(증빙 서류 등)의 임시 조회용 presigned URL 발급.
+     * @param storedUrl 저장된 전체 URL(https://{bucket}.s3.{region}.amazonaws.com/{key}) 또는 key
+     * @return 5분간 유효한 presigned GET URL
+     */
+    public String presignGetUrl(String storedUrl) {
+        String key = extractKey(storedUrl);
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .build();
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(5))
+                .getObjectRequest(getObjectRequest)
+                .build();
+        return s3Presigner.presignGetObject(presignRequest).url().toString();
+    }
+
+    /** 전체 S3 URL이면 key만 추출, 이미 key면 그대로 반환. */
+    private String extractKey(String storedUrl) {
+        if (storedUrl == null) {
+            return null;
+        }
+        int idx = storedUrl.indexOf(".amazonaws.com/");
+        if (idx >= 0) {
+            return storedUrl.substring(idx + ".amazonaws.com/".length());
+        }
+        return storedUrl;
     }
 
     /**

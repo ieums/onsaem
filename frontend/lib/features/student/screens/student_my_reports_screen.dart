@@ -161,6 +161,38 @@ class StudentMyReportsScreen extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 13, color: shell.hintColor)),
           ],
+          if ((r.adminReply?.trim().isNotEmpty) ?? false) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.studentPoint.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppColors.studentPoint.withValues(alpha: 0.5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Icon(Icons.support_agent_rounded,
+                        size: 15, color: shell.titleColor),
+                    const SizedBox(width: 5),
+                    Text('관리자 답변',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: shell.titleColor)),
+                  ]),
+                  const SizedBox(height: 6),
+                  Text(r.adminReply!.trim(),
+                      style: TextStyle(
+                          fontSize: 13, height: 1.45, color: shell.titleColor)),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           Text(_ymd(r.createdAt),
               style: TextStyle(fontSize: 12, color: shell.hintColor)),

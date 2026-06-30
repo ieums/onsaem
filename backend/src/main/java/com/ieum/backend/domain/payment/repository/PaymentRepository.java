@@ -43,6 +43,11 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     org.springframework.data.domain.Page<Payment> findAllByOrderByCreatedAtDesc(
             org.springframework.data.domain.Pageable pageable);
 
+    /** 관리자 결제 검색 — 특정 학생들(이름 검색 결과)의 결제만(최신순). */
+    org.springframework.data.domain.Page<Payment> findByStudentIdInOrderByCreatedAtDesc(
+            List<Long> studentIds,
+            org.springframework.data.domain.Pageable pageable);
+
     long countByStatus(PaymentStatus status);
 
     /** 완료된 결제 매출 합계(원). 없으면 0 */

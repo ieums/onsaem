@@ -14,6 +14,7 @@ class MatchingStompService {
     void Function(int problemId, int tutorId, String message)? onMatchRequested,
     void Function(int problemId, String message)? onMatchCancelled,
     void Function(int problemId)? onNewProblem,
+    void Function(String type, String message)? onVerification,
     List<int> matchingProblemIds = const [],
     void Function(int problemId, String channelName, List<String> imageUrls, String? subject, String? tutorProfileImageUrl, String? studentProfileImageUrl)? onMatched,
   }) {
@@ -42,6 +43,12 @@ class MatchingStompService {
                 } else if (type == 'MATCH_CANCELLED') {
                   onMatchCancelled?.call(
                     json['problemId'] as int,
+                    json['message'] as String? ?? '',
+                  );
+                } else if (type == 'VERIFICATION_APPROVED' ||
+                    type == 'VERIFICATION_REJECTED') {
+                  onVerification?.call(
+                    type!,
                     json['message'] as String? ?? '',
                   );
                 }

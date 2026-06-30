@@ -97,6 +97,12 @@ public class Tutor extends Account {
         this.verificationStatus = status;
     }
 
+    /** 강사 본인 증빙 서류 재제출 — 새 URL로 교체하고 다시 검수 대기(PENDING). */
+    public void updateVerificationDocument(String documentUrl) {
+        this.verificationDocumentUrl = documentUrl;
+        this.verificationStatus = VerificationStatus.PENDING;
+    }
+
     /** 강사 전용 프로필 수정 — null이 아닌 값만 갱신. */
     public void updateTutorProfile(String bio, String school, String major,
                                    List<String> subjects, EducationStatus educationStatus,

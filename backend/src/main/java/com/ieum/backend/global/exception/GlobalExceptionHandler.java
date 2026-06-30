@@ -37,6 +37,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(ApiResponse.fail(e.getMessage()));
     }
 
+    /**
+     * 존재하지 않는 정적 리소스 요청(예: 로컬 uploads/ 에 없는 옛 이미지) — 스택트레이스 없이 404.
+     * (다른 환경에서 올린 이미지 URL을 로컬에서 열 때 흔히 발생하는 무해한 404)
+     */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResource(
+            org.springframework.web.servlet.resource.NoResourceFoundException e) {
+        log.debug("[NoResource] 정적 리소스 없음: {}", e.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.fail("리소스를 찾을 수 없습니다."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
         // 미처리 예외는 반드시 스택트레이스를 남겨 원인을 추적할 수 있게 한다

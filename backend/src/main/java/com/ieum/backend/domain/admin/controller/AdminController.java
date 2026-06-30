@@ -216,6 +216,21 @@ public class AdminController {
         return "redirect:/admin/reports";
     }
 
+    /** 신고자에게 보낼 답변 작성. 신고자 '내 신고 내역'에 노출된다. */
+    @PostMapping("/admin/reports/{id}/reply")
+    public String replyToReport(@PathVariable Long id,
+                                @RequestParam String reply,
+                                @AuthenticationPrincipal UserDetails admin,
+                                RedirectAttributes ra) {
+        try {
+            reportService.writeReply(id, reply, adminId(admin));
+            ra.addFlashAttribute("msg", "신고 #" + id + " 에 답변을 등록했습니다.");
+        } catch (RuntimeException e) {
+            ra.addFlashAttribute("err", e.getMessage());
+        }
+        return "redirect:/admin/reports/" + id;
+    }
+
     // ── 정산 처리(POST) ──
 
     @PostMapping("/admin/settlements/{id}/complete")

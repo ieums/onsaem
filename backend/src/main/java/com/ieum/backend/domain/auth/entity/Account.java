@@ -105,6 +105,14 @@ public abstract class Account {
         this.password = encodedPassword;
     }
 
+    /** 관리자 콘솔 — 계정 상태 변경(활동중/휴면/정지). 탈퇴는 withdraw() 사용. */
+    public void changeStatus(AccountStatus status) {
+        if (status == AccountStatus.WITHDRAWN) {
+            throw new IllegalArgumentException("탈퇴 처리는 이 방법으로 변경할 수 없습니다.");
+        }
+        this.status = status;
+    }
+
     /** 탈퇴 — 행은 남기고 개인정보만 파기 + 상태 전환 (soft delete) */
     public void withdraw() {
         this.status = AccountStatus.WITHDRAWN;
