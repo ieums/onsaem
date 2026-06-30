@@ -234,6 +234,31 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         Row(
           children: [
             _buildSectionTitle(context, shell, '내 질문'),
+            const SizedBox(width: 8),
+            // 진행 중(매칭 대기) 질문 수 / 최대 3개.
+            async.maybeWhen(
+              data: (items) {
+                final active =
+                    items.where((p) => p.status == 'PENDING').length;
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.studentPoint.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '진행 중 $active/$maxOnHome',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: shell.titleColor,
+                    ),
+                  ),
+                );
+              },
+              orElse: () => const SizedBox.shrink(),
+            ),
             const Spacer(),
             async.maybeWhen(
               data: (items) => items

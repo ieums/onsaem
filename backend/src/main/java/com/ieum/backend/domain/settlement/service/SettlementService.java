@@ -4,13 +4,17 @@ import com.ieum.backend.domain.auth.entity.Tutor;
 import com.ieum.backend.domain.auth.repository.TutorRepository;
 import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.domain.lesson.repository.LessonRepository;
+import com.ieum.backend.domain.problem.repository.ProblemRepository;
 import com.ieum.backend.domain.report.entity.enums.ReportStatus;
 import com.ieum.backend.domain.report.repository.ReportRepository;
 import com.ieum.backend.domain.settlement.dto.request.CalculateSettlementRequest;
+import com.ieum.backend.domain.lesson.entity.Lesson.LessonStatus;
 import com.ieum.backend.domain.settlement.dto.response.BulkWithdrawResponse;
+import com.ieum.backend.domain.settlement.dto.response.PendingSettlementResponse;
 import com.ieum.backend.domain.settlement.dto.response.SettlementResponse;
 import com.ieum.backend.domain.settlement.dto.response.SettlementSummaryResponse;
 import com.ieum.backend.domain.settlement.entity.Settlement;
+import com.ieum.backend.domain.settlement.entity.enums.PendingSettlementReason;
 import com.ieum.backend.domain.settlement.entity.enums.SettlementStatus;
 import com.ieum.backend.domain.settlement.policy.SettlementPolicy;
 import com.ieum.backend.domain.settlement.repository.SettlementRepository;
@@ -20,8 +24,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -33,6 +41,7 @@ public class SettlementService {
     private final LessonRepository lessonRepository;   // 정산 대상 강사를 강의에서 권위있게 가져오기 위함
     private final TutorRepository tutorRepository;      // 출금 전 정산 계좌 등록 확인용
     private final ReportRepository reportRepository;    // 출금 전 신고 보류 확인용
+    private final ProblemRepository problemRepository;  // 표시용 과목 조회
 
     /** 출금을 막아야 하는 '처리 중' 신고 상태. */
     private static final List<ReportStatus> OPEN_REPORTS =
@@ -77,6 +86,14 @@ public class SettlementService {
                     "정산할 코인 금액이 없습니다(과금 강의가 아님). lessonId: " + request.getLessonId());
         }
 
+        // 표시용 과목(강의의 문제에서) — 조회 실패해도 정산은 진행(과목만 비움).
+        String subjectLabel = null;
+        if (lesson.getProblemId() != null) {
+            subjectLabel = problemRepository.findById(lesson.getProblemId())
+                    .map(p -> p.getSubject() == null ? null : p.getSubject().getDisplayName())
+                    .orElse(null);
+        }
+
         SettlementPolicy.Distribution dist = SettlementPolicy.distribute(coinCost);
         Settlement settlement = Settlement.builder()
                 .tutorId(tutorId)
@@ -85,6 +102,9 @@ public class SettlementService {
                 .platformFeeCoin(dist.platformFeeCoin())
                 .tutorCoin(dist.tutorCoin())
                 .tutorAmount(dist.tutorAmount())
+                .subject(subjectLabel)
+                // 실제 수업 날짜(종료 시각, 없으면 시작 시각).
+                .lessonDate(lesson.getEndedAt() != null ? lesson.getEndedAt() : lesson.getStartedAt())
                 .build();
 
         // 2차 방어: 동시 호출로 위 체크를 둘 다 통과해도
@@ -108,6 +128,67 @@ public class SettlementService {
                 .map(s -> SettlementResponse.from(s,
                         s.getStatus() == SettlementStatus.CALCULATED
                                 && openReports.contains(s.getLessonId())))
+                .toList();
+    }
+
+    /** 정산 보류 기간(수업 종료 후 이 시간 동안은 신고 대비로 정산을 미룬다). */
+    private static final long SETTLEMENT_HOLD_HOURS = 24;
+
+    /**
+     * 정산 예정 목록 — 완료된 과금 강의 중 '아직 정산 레코드가 없는' 건.
+     * 각 건의 보류 사유(24h 대기 / 신고 보류 / 처리 예정)와 예상 정산금을 함께 내려준다.
+     * (24h 보류 구간엔 정산 레코드가 아직 없어 강사가 화면에서 확인할 방법이 없던 문제 해결)
+     */
+    public List<PendingSettlementResponse> getPendingByTutor(Long tutorId) {
+        List<Lesson> completed = lessonRepository
+                .findByTutorIdAndStatusAndCoinCostIsNotNull(tutorId, LessonStatus.COMPLETED);
+        if (completed.isEmpty()) return List.of();
+
+        // 이미 정산 레코드가 있는 강의는 제외.
+        Set<Long> settledLessonIds = new HashSet<>();
+        for (Settlement s : settlementRepository.findByTutorIdOrderByCreatedAtDesc(tutorId)) {
+            settledLessonIds.add(s.getLessonId());
+        }
+        List<Lesson> pending = completed.stream()
+                .filter(l -> !settledLessonIds.contains(l.getId()))
+                .toList();
+        if (pending.isEmpty()) return List.of();
+
+        // 신고 보류 강의 집합(1회 조회) + 표시용 과목(문제별 1회 조회).
+        List<Long> lessonIds = pending.stream().map(Lesson::getId).toList();
+        Set<Long> reported = new HashSet<>(
+                reportRepository.findLessonIdsWithStatusIn(lessonIds, OPEN_REPORTS));
+
+        Map<Long, String> subjectByProblem = new HashMap<>();
+        pending.stream()
+                .map(Lesson::getProblemId)
+                .filter(pid -> pid != null && !subjectByProblem.containsKey(pid))
+                .distinct()
+                .forEach(pid -> problemRepository.findById(pid).ifPresent(p ->
+                        subjectByProblem.put(pid,
+                                p.getSubject() == null ? null : p.getSubject().getDisplayName())));
+
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(SETTLEMENT_HOLD_HOURS);
+
+        return pending.stream()
+                .map(l -> {
+                    PendingSettlementReason reason;
+                    if (reported.contains(l.getId())) {
+                        reason = PendingSettlementReason.REPORT_HOLD;
+                    } else if (l.getEndedAt() != null && l.getEndedAt().isAfter(cutoff)) {
+                        reason = PendingSettlementReason.WAITING_PERIOD;
+                    } else {
+                        reason = PendingSettlementReason.PROCESSING;
+                    }
+                    int expected = SettlementPolicy.distribute(l.getCoinCost()).tutorAmount();
+                    String subject = l.getProblemId() == null
+                            ? null : subjectByProblem.get(l.getProblemId());
+                    return new PendingSettlementResponse(
+                            l.getId(), l.getCoinCost(), expected, subject, l.getEndedAt(), reason);
+                })
+                // 최근 수업이 위로(종료 시각 내림차순, null은 뒤로).
+                .sorted(Comparator.comparing(PendingSettlementResponse::lessonDate,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
     }
 

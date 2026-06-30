@@ -93,6 +93,7 @@ class SignupRoleScreen extends StatelessWidget {
                           _RoleCard(
                             iconBackgroundColor: AppColors.primaryBlue,
                             borderColor: AppColors.primaryBlue.withValues(alpha: 0.35),
+                            titleColor: AppColors.primaryBlue,
                             leadingIcon: const _WhiteboardIcon(),
                             title: '강사로 회원가입하기',
                             description: '학생들의 질문에 답하고 수익을 창출해요',

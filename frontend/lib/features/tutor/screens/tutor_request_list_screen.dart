@@ -249,186 +249,166 @@ class _TutorRequestListScreenState
     return '$primary · $secondary';
   }
 
-  /// 대분류·소분류 키워드 칩 (강사 홈 카드와 동일).
-  Widget _keywordChip(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: _shell.hintColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: _shell.titleColor,
-        ),
-      ),
-    );
-  }
-
+  /// 강사 홈 카드와 동일: 카드 전체를 눌러 상세로 진입(+ 오른쪽 ›).
+  /// '자세히' 버튼은 제거하고, 신청 리스트 고유 액션(수업시작/신청취소)만 아래에 둔다.
   Widget _buildRequestCard(TutorApplicationModel app) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _shell.menuSheetBackground,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final category = _cardTitle(app);
+    final desc = (app.studentDescription ?? '').trim();
+    return Material(
+      color: _shell.cardBackground,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push(
+          '/problem-detail',
+          extra: app.toSearchingProblem(),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TutorRequestProblemThumbnail(
-                imageUrls: app.imageUrls,
-                title: _cardTitle(app),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 과목 · 대분류 · 소분류 → 키워드 칩 (강사 홈 카드와 동일)
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  TutorRequestProblemThumbnail(
+                    imageUrls: app.imageUrls,
+                    title: _cardTitle(app),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TutorSubjectBadge(subject: app.subjectLabel),
-                        if ((app.primaryType ?? '').isNotEmpty)
-                          _keywordChip(app.primaryType!),
-                        if ((app.secondaryType ?? '').isNotEmpty)
-                          _keywordChip(app.secondaryType!),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // 본문 = 문제 요약(summary)
-                    Text(
-                      (app.summary?.trim().isNotEmpty ?? false)
-                          ? app.summary!.trim()
-                          : '문제 요약 없음',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: _shell.titleColor,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    // 부가 = 학생이 입력한 설명 — 있을 때만
-                    if ((app.studentDescription ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        app.studentDescription!.trim(),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: _shell.hintColor,
-                          height: 1.3,
+                        // 과목 배지 + 대/소분류 한 줄 (강사 홈 카드와 동일)
+                        Row(
+                          children: [
+                            TutorSubjectBadge(subject: app.subjectLabel),
+                            if (category.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  category,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: _shell.hintColor,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    const SizedBox(height: 4),
-                    // 시간 + 상태 (신청 리스트 고유 정보는 유지)
-                    Row(
-                      children: [
+                        const SizedBox(height: 8),
+                        // 본문 = 문제 요약(summary)
                         Text(
-                          _timeAgo(app.appliedAt),
-                          style:
-                              TextStyle(fontSize: 11, color: _shell.hintColor),
-                        ),
-                        const Spacer(),
-                        Text(
-                          app.statusLabel,
+                          (app.summary?.trim().isNotEmpty ?? false)
+                              ? app.summary!.trim()
+                              : '문제 요약 없음',
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: app.status == 'ACCEPTED'
-                                ? AppColors.primaryBlue
-                                : _shell.hintColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: _shell.titleColor,
+                            height: 1.3,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        // 부가 = 학생이 입력한 설명 — 있을 때만
+                        if (desc.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            desc,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _shell.hintColor,
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        const SizedBox(height: 4),
+                        // 시간 + 상태 (신청 리스트 고유 정보는 유지)
+                        Row(
+                          children: [
+                            Text(
+                              _timeAgo(app.appliedAt),
+                              style: TextStyle(
+                                  fontSize: 11, color: _shell.hintColor),
+                            ),
+                            const Spacer(),
+                            Text(
+                              app.statusLabel,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: app.status == 'ACCEPTED'
+                                    ? AppColors.primaryBlue
+                                    : _shell.hintColor,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(Icons.chevron_right, size: 22, color: _shell.hintColor),
+                ],
               ),
+              const SizedBox(height: 14),
+              _buildContextualAction(app),
             ],
           ),
-          const SizedBox(height: 14),
-          _buildActionButtons(app),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildActionButtons(TutorApplicationModel app) {
-    return Row(
-      children: [
-        Expanded(
-          child: FilledButton(
-            onPressed: () => context.push(
-              '/problem-detail',
-              extra: app.toSearchingProblem(),
+  /// 신청 리스트 고유 액션 — CONFIRMING이면 '수업 시작하기', 아니면 '신청 취소'.
+  Widget _buildContextualAction(TutorApplicationModel app) {
+    if (app.status == 'CONFIRMING') {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: () => _startLesson(app),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primaryBlue,
+            foregroundColor: AppColors.onPrimaryFill(
+              Theme.of(context).brightness,
             ),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-              foregroundColor: AppColors.onPrimaryFill(
-                Theme.of(context).brightness,
-              ),
-              elevation: 0,
-              minimumSize: const Size.fromHeight(44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              '자세히',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            elevation: 0,
+            minimumSize: const Size.fromHeight(44),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
+          child: const Text(
+            '수업 시작하기',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: app.status == 'CONFIRMING'
-              ? FilledButton(
-                  onPressed: () => _startLesson(app),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primaryBlue,
-                    foregroundColor: AppColors.onPrimaryFill(
-                      Theme.of(context).brightness,
-                    ),
-                    elevation: 0,
-                    minimumSize: const Size.fromHeight(44),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    '수업 시작하기',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  ),
-                )
-              : OutlinedButton(
-                  onPressed: () => _cancelApplication(app),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _shell.titleColor,
-                    minimumSize: const Size.fromHeight(44),
-                    side: BorderSide(color: _shell.borderColor, width: 1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    '신청 취소',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
-                ),
+      );
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: () => _cancelApplication(app),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _shell.titleColor,
+          minimumSize: const Size.fromHeight(44),
+          side: BorderSide(color: _shell.borderColor, width: 1),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
-      ],
+        child: const Text(
+          '신청 취소',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+      ),
     );
   }
 }

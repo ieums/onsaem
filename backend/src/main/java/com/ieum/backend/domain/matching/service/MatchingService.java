@@ -51,6 +51,9 @@ public class MatchingService {
         // 만료된 질문 '다시 요청' → 탐색 대기로 되돌림
         if (status == ProblemStatus.EXPIRED) {
             problem.reopen();
+            // 이전 탐색 라운드의 신청(거절 포함) 기록 제거 — 새 라운드로 모든 강사가 다시 볼 수 있게.
+            // (남겨두면 existsByProblemIdAndTutorId=true라 강사 피드에서 alreadyApplied로 필터링돼 안 뜸)
+            applicationRepository.deleteByProblemId(problemId);
         }
 
         problem.startSearching(LocalDateTime.now().plusMinutes(minutes));

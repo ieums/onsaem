@@ -165,27 +165,72 @@ public class LessonSummaryService {
     private String fetchAsDataUri(String imageUrl) {
         try {
             byte[] bytes;
+            String contentType = null;
             if (imageUrl.startsWith("/")) {
-                // 로컬 상대경로(/uploads/xxx.jpg) → 디스크(uploads/)에서 직접 읽음. (prod는 http(s) URL)
+                // 로컬 상대경로(/uploads/xxx.jpg) → 디스크(uploads/)에서 직접 읽음.
                 String rel = imageUrl.startsWith("/uploads/")
                         ? imageUrl.substring("/uploads/".length())
                         : imageUrl.replaceFirst("^/+", "");
                 bytes = java.nio.file.Files.readAllBytes(
                         java.nio.file.Paths.get("uploads").resolve(rel));
             } else {
-                try (var in = new java.net.URL(imageUrl).openStream()) {
+                // 절대 URL(S3 등) → 비공개 S3면 presigned로 변환(403 방지) 후 HTTP로 받아옴.
+                String fetchUrl = lessonMediaStorage.imageDisplayUrl(imageUrl);
+                java.net.HttpURLConnection conn =
+                        (java.net.HttpURLConnection) new java.net.URL(fetchUrl).openConnection();
+                conn.setInstanceFollowRedirects(true);
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(10000);
+                conn.setRequestProperty("User-Agent", "ieum-pdf");
+                int code = conn.getResponseCode();
+                if (code != 200) {
+                    log.warn("[SummaryPDF] 이미지 응답 코드 {} - {}", code, imageUrl);
+                    return null;
+                }
+                contentType = conn.getContentType();
+                try (var in = conn.getInputStream()) {
                     bytes = in.readAllBytes();
                 }
             }
-            String lower = imageUrl.toLowerCase();
-            String mime = lower.endsWith(".png") ? "image/png"
-                    : lower.endsWith(".webp") ? "image/webp"
-                    : "image/jpeg";
+            String mime = mimeFor(bytes, imageUrl, contentType);
             return "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
         } catch (Exception e) {
             log.warn("[SummaryPDF] 이미지 가져오기 실패: {}", imageUrl, e);
             return null;
         }
+    }
+
+    /**
+     * 실제 바이트(매직넘버)로 MIME을 먼저 판별한다.
+     * S3가 잘못된 Content-Type(예: PNG인데 image/jpeg)을 돌려줘도 PDF 렌더러가
+     * 헤더만 믿고 디코드에 실패하지 않도록, 헤더/확장자보다 바이트를 우선한다.
+     */
+    private String mimeFor(byte[] bytes, String url, String contentType) {
+        String sniffed = sniffImageMime(bytes);
+        if (sniffed != null) return sniffed;
+        // 바이트로 못 알아내면(아주 드묾) 헤더 → 확장자 순으로 폴백.
+        if (contentType != null && contentType.startsWith("image/")) return contentType;
+        String lower = url.toLowerCase();
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".webp")) return "image/webp";
+        return "image/jpeg";
+    }
+
+    /** 매직넘버로 이미지 포맷 판별. 모르면 null. */
+    private static String sniffImageMime(byte[] b) {
+        if (b == null || b.length < 12) return null;
+        // PNG: 89 50 4E 47 0D 0A 1A 0A
+        if ((b[0] & 0xFF) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G') return "image/png";
+        // JPEG: FF D8 FF
+        if ((b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF) return "image/jpeg";
+        // GIF: 47 49 46 38 (GIF8)
+        if (b[0] == 'G' && b[1] == 'I' && b[2] == 'F' && b[3] == '8') return "image/gif";
+        // WEBP: RIFF....WEBP
+        if (b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
+                && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P') return "image/webp";
+        // BMP: 42 4D (BM)
+        if (b[0] == 'B' && b[1] == 'M') return "image/bmp";
+        return null;
     }
 
     private byte[] htmlToPdf(String html) throws Exception {

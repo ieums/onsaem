@@ -163,13 +163,13 @@ class _StudentReviewWriteScreenState
                               children: [
                                 // 움직이는 체크 링 대신 마스코트 이미지(학생=연두 a).
                                 SizedBox(
-                                  width: 120,
-                                  height: 120,
+                                  width: 150,
+                                  height: 150,
                                   child: Image.asset(
                                     'assets/images/review_student.png',
                                     fit: BoxFit.contain,
                                     errorBuilder: (_, _, _) =>
-                                        const SizedBox(width: 120, height: 120),
+                                        const SizedBox(width: 150, height: 150),
                                   ),
                                 ),
                           const SizedBox(height: 16),
@@ -295,48 +295,6 @@ class _StudentReviewWriteScreenState
                               ],
                             ),
                           ),
-                          const SizedBox(height: 28),
-                          Column(
-                            children: [
-                              Text(
-                                '수업 진행에 불편한 점이 있으셨나요?',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: shell.subtitleColor,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              GestureDetector(
-                                onTap: () async {
-                                  // 신고 제출 성공(true)이면 리뷰 화면으로 안 돌아오고 바로 홈으로.
-                                  final reported = await context.push<bool>(
-                                    RoutePaths.studentReport,
-                                    extra: StudentReportArgs(
-                                      lessonId: widget.args.lessonId,
-                                      personType: ReportPersonType.tutor,
-                                      personId: widget.args.tutorId,
-                                      personName: widget.args.tutorName,
-                                    ),
-                                  );
-                                  if (reported == true && mounted) {
-                                    _finish(submitted: false);
-                                  }
-                                },
-                                child: const Text(
-                                  '신고하기',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.logoutRed,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: AppColors.logoutRed,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
                               ],
                             ),
                           ),
@@ -346,35 +304,79 @@ class _StudentReviewWriteScreenState
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                    child: Row(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        TextButton(
-                          onPressed: () => _finish(submitted: false),
-                          child: Text(
-                            '건너뛰기',
+                        // 신고 안내 + 링크 — 강사 완료화면과 동일 위치(버튼 바로 위).
+                        Text(
+                          '수업 진행에 불편한 점이 있으셨나요?',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: shell.subtitleColor,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        GestureDetector(
+                          onTap: () async {
+                            // 신고 제출 성공(true)이면 리뷰 화면으로 안 돌아오고 바로 홈으로.
+                            final reported = await context.push<bool>(
+                              RoutePaths.studentReport,
+                              extra: StudentReportArgs(
+                                lessonId: widget.args.lessonId,
+                                personType: ReportPersonType.tutor,
+                                personId: widget.args.tutorId,
+                                personName: widget.args.tutorName,
+                              ),
+                            );
+                            if (reported == true && mounted) {
+                              _finish(submitted: false);
+                            }
+                          },
+                          child: const Text(
+                            '신고하기',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 15,
+                              fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: shell.subtitleColor,
+                              color: AppColors.logoutRed,
+                              decoration: TextDecoration.underline,
+                              decorationColor: AppColors.logoutRed,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _submit,
-                            // 통일 스타일: 테두리 특징색 + 흰/다크 배경 + 검정/특징색 글씨.
-                            style: studentOutlinedButtonStyle(isDark,
-                                radius: 26,
-                                minimumSize: const Size.fromHeight(52)),
-                            child: const Text(
-                              '제출하기',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () => _finish(submitted: false),
+                              child: Text(
+                                '건너뛰기',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: shell.subtitleColor,
+                                ),
                               ),
                             ),
-                          ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _submit,
+                                // 통일 스타일: 테두리 특징색 + 흰/다크 배경 + 검정/특징색 글씨. 네모(라운드 14).
+                                style: studentOutlinedButtonStyle(isDark,
+                                    radius: 14,
+                                    minimumSize: const Size.fromHeight(52)),
+                                child: const Text(
+                                  '제출하기',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

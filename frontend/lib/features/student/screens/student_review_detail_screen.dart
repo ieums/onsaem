@@ -44,6 +44,7 @@ class _StudentReviewDetailScreenState
   bool _videoLoading = false;
   String? _videoError;
   bool _videoExpanded = true;
+  double _videoAspectRatio = 16 / 9;
   String? _pdfLocalPath;
   bool _isPdfLoading = false;
   String? _pdfError;
@@ -77,17 +78,24 @@ class _StudentReviewDetailScreenState
     try {
       // 녹음은 인증+소유권 체크 엔드포인트(local)라 JWT를 함께 보낸다.
       // (prod의 presigned S3 URL은 헤더가 있어도 무시되므로 안전)
-      final token = await tokenStorage.readAccessToken();
+      // prod는 presigned S3 URL이라 Authorization 헤더를 함께 보내면
+      // S3가 '이중 인증'으로 거부(403/400)한다 → 헤더는 local 인증 엔드포인트일 때만.
+      final isPresignedS3 =
+          url.contains('amazonaws.com') || url.contains('X-Amz-');
+      final token = isPresignedS3 ? null : await tokenStorage.readAccessToken();
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(url),
         httpHeaders:
             token != null ? {'Authorization': 'Bearer $token'} : const {},
       );
       await controller.initialize();
+      // 녹화가 세로(9:16)일 수 있으므로 실제 영상 비율을 그대로 쓴다(16/9 고정 X).
+      final ratio = controller.value.aspectRatio;
+      _videoAspectRatio = (ratio.isFinite && ratio > 0) ? ratio : 16 / 9;
       _videoPlayerController = controller;
       _chewieController = ChewieController(
         videoPlayerController: controller,
-        aspectRatio: 16 / 9,
+        aspectRatio: _videoAspectRatio,
         autoPlay: false,
         looping: false,
       );
@@ -181,9 +189,14 @@ class _StudentReviewDetailScreenState
     // 펼침: 영상 + 우상단 접기 버튼('키우기'는 영상 컨트롤의 전체화면 버튼 사용)
     return Stack(
       children: [
-        AspectRatio(
-          aspectRatio: 16 / 9,
-          child: Chewie(controller: _chewieController!),
+        Container(
+          color: Colors.black,
+          constraints: const BoxConstraints(maxHeight: 380),
+          alignment: Alignment.center,
+          child: AspectRatio(
+            aspectRatio: _videoAspectRatio,
+            child: Chewie(controller: _chewieController!),
+          ),
         ),
         Positioned(
           top: 4,
@@ -218,9 +231,8 @@ class _StudentReviewDetailScreenState
       final dir = await getTemporaryDirectory();
       final file = File(
           '${dir.path}/review_${widget.lessonId}.pdf');
-      if (!file.existsSync()) {
-        await Dio().download(url, file.path);
-      }
+      // 요약 PDF가 재생성될 수 있으므로 매번 최신본을 받는다(캐시 staleness 방지).
+      await Dio().download(url, file.path);
       if (mounted) {
         setState(() {
           _pdfLocalPath = file.path;

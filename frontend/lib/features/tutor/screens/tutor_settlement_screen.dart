@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:ieum/core/network/api_error.dart';
 import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
@@ -177,6 +178,7 @@ class _CalendarTransaction {
     required this.date,
     required this.label,
     required this.amount,
+    this.subject,
     this.filledFromPriorYear = false,
   });
 
@@ -187,6 +189,7 @@ class _CalendarTransaction {
       date: transaction.date,
       label: transaction.label,
       amount: transaction.amount,
+      subject: transaction.subject,
       filledFromPriorYear: transaction.filledFromPriorYear,
     );
   }
@@ -194,6 +197,7 @@ class _CalendarTransaction {
   final DateTime date;
   final String label;
   final int amount;
+  final String? subject;
   final bool filledFromPriorYear;
 
   bool get isDeposit => amount > 0;
@@ -212,7 +216,10 @@ class TutorSettlementScreen extends ConsumerStatefulWidget {
 class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
     with SingleTickerProviderStateMixin {
   /// 포인트 컬러(#BFA2DB)와 어울리는 입금(녹색)·출금(붉은) 톤
-  static const _incomeColor = AppColors.incomeGreen;
+  // 수입(입금) 강조색 — '학생 색(studentPoint 연두)' 계열.
+  // studentPoint(0xFFC5D48C)는 글씨로 쓰면 너무 옅어 가독성이 떨어져, 같은 연두 계열을
+  // 텍스트로 읽히게 진하게 보정한 값.
+  static const _incomeColor = Color(0xFF7E9B3E);
   static const _expenseColor = Color(0xFFD46878);
 
   late final TabController _tabController;
@@ -299,7 +306,13 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
       for (final tx in sorted)
         _SettlementHistoryItem(
           date: tx.date,
-          title: tx.isDeposit ? '수업 완료' : '출금',
+          // 입금은 과목으로 어떤 수업 정산금인지 식별, 출금은 '정산금 출금'.
+          // (입금/출금 구분은 카드의 태그로 한눈에 보이게 한다)
+          title: tx.isDeposit
+              ? ((tx.subject?.isNotEmpty ?? false)
+                  ? '${tx.subject} 수업'
+                  : '수업 정산금')
+              : '정산금 출금',
           amount: tx.amount,
         ),
     ];
@@ -310,6 +323,9 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
 
   /// 상태 뱃지·출금 요청에 쓰는 원본 정산 건 목록.
   List<SettlementResponse> _records = const [];
+
+  /// 정산 예정(완료됐지만 미정산) 강의 목록 — 24h 대기/신고 보류 표시용.
+  List<PendingSettlementResponse> _pending = const [];
   SettlementSummaryResponse? _summary;
 
   /// provider가 새 데이터를 내려주면 캐시를 비우고 소스를 교체한다.
@@ -317,6 +333,7 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
     if (identical(_sourceTransactions, data.transactions)) return;
     _sourceTransactions = data.transactions;
     _records = data.records;
+    _pending = data.pending;
     _summary = data.summary;
     _allCalendarTransactionsCache = null;
     _transactionsByDayCache = null;
@@ -417,23 +434,19 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
     });
   }
 
-  int get _lastMonthDepositTotal {
+  int get _thisMonthDepositTotal {
     final ref = _chartReferenceDate;
-    final lastMonth = ref.month == 1 ? 12 : ref.month - 1;
-    final lastYear = ref.month == 1 ? ref.year - 1 : ref.year;
     return _sumDeposits(
       _depositTransactions.where(
-        (tx) => tx.date.year == lastYear && tx.date.month == lastMonth,
+        (tx) => tx.date.year == ref.year && tx.date.month == ref.month,
       ),
     );
   }
 
-  int get _lastMonthLessonCount {
+  int get _thisMonthLessonCount {
     final ref = _chartReferenceDate;
-    final lastMonth = ref.month == 1 ? 12 : ref.month - 1;
-    final lastYear = ref.month == 1 ? ref.year - 1 : ref.year;
     return _depositTransactions
-        .where((tx) => tx.date.year == lastYear && tx.date.month == lastMonth)
+        .where((tx) => tx.date.year == ref.year && tx.date.month == ref.month)
         .length;
   }
 
@@ -512,7 +525,7 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
                 const SizedBox(height: 12),
                 _buildSummaryCard(context),
                 const SizedBox(height: 12),
-                _buildLastMonthCard(context),
+                _buildThisMonthCard(context),
                 const SizedBox(height: 20),
                 _buildChartSection(context),
                 const SizedBox(height: 8),
@@ -657,6 +670,9 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
   int _dayWithdrawalTotal(DateTime day) => _transactionsOnDay(day)
       .where((t) => !t.isDeposit)
       .fold<int>(0, (sum, t) => sum + t.amount);
+
+  /// 정산 카드 식별용 짧은 날짜("6월 29일").
+  String _shortDate(DateTime d) => '${d.month}월 ${d.day}일';
 
   String _formatSignedWon(int amount) {
     final sign = amount >= 0 ? '+' : '-';
@@ -1558,7 +1574,7 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
           const SizedBox(height: 6),
           if (withdrawableCount > 0)
             Text(
-              '정산 대기 $withdrawableCount건',
+              '출금 가능 $withdrawableCount건',
               style: TextStyle(
                 fontSize: 13,
                 color: scheme.onSurfaceVariant,
@@ -1652,12 +1668,16 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
     } catch (error) {
       if (!mounted) return;
       // 정산 계좌 미등록은 단순 실패가 아니라 '계좌 등록'으로 유도해야 한다.
-      final msg = error.toString();
+      // DioException.toString()엔 서버 메시지가 없으므로 응답 본문 message로 판별.
+      final msg = apiErrorMessage(error, fallback: '출금 요청에 실패했어요.');
       if (msg.contains('계좌')) {
+        // 다이얼로그 동안 잠금 해제 → 계좌 등록 후 재시도(_onBulkWithdraw)가 실제로 동작.
+        // (다이얼로그가 모달이라 그 사이 버튼 중복 탭은 불가)
+        if (mounted) setState(() => _withdrawBusy = false);
         await _showAccountRequiredDialog(_onBulkWithdraw);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('출금 요청 실패: $error')),
+          SnackBar(content: Text(msg)),
         );
       }
     } finally {
@@ -1700,7 +1720,7 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
     }
   }
 
-  Widget _buildLastMonthCard(BuildContext context) {
+  Widget _buildThisMonthCard(BuildContext context) {
     final scheme = _scheme(context);
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1714,12 +1734,12 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
           Row(
             children: [
               Text(
-                '저번 달 수입',
+                '이번 달 수입',
                 style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
               ),
               const Spacer(),
               Text(
-                _formatSignedWon(_lastMonthDepositTotal),
+                _formatSignedWon(_thisMonthDepositTotal),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -1738,13 +1758,13 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '총 수업 수',
+                      '이번 달 수업 수',
                       style:
                           TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '$_lastMonthLessonCount회',
+                      '$_thisMonthLessonCount회',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -2024,13 +2044,30 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: Text(
-              item.title,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: scheme.onSurface,
-              ),
+            child: Row(
+              children: [
+                // 입금/출금을 한눈에 — 공용 상태 태그로 통일.
+                _statusTag(
+                  item.isIncome ? '입금' : '출금',
+                  color,
+                  item.isIncome
+                      ? Icons.arrow_downward_rounded
+                      : Icons.arrow_upward_rounded,
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           Column(
@@ -2074,7 +2111,8 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
           _buildSummaryDivider(scheme),
           _buildSummaryItem(context, '송금 완료', summary?.transferredAmount ?? 0),
           _buildSummaryDivider(scheme),
-          _buildSummaryItem(context, '정산 대기', summary?.pendingAmount ?? 0),
+          // CALCULATED+PENDING = 아직 안 받은 금액. '출금 가능'과 구분되게 '받을 금액'.
+          _buildSummaryItem(context, '받을 금액', summary?.pendingAmount ?? 0),
         ],
       ),
     );
@@ -2109,43 +2147,252 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
         color: scheme.outline,
       );
 
-  /// 상태별 (라벨, 색).
-  (String, Color) _statusBadge(SettlementStatus status) {
+  /// 공용 상태 태그 — 정산 예정/출금 상태/내역 입출금이 모두 같은 룩(아이콘+라벨 pill)으로 통일.
+  Widget _statusTag(String label, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 정산 건 상태별 (라벨, 색, 아이콘).
+  (String, Color, IconData) _statusBadge(SettlementStatus status) {
     switch (status) {
       case SettlementStatus.calculated:
-        return ('출금 가능', AppColors.primaryBlue);
+        return ('출금 가능', AppColors.primaryBlue,
+            Icons.account_balance_wallet_rounded);
       case SettlementStatus.pending:
-        return ('송금 대기', const Color(0xFFE08E3C));
+        return ('송금 대기', const Color(0xFFE08E3C), Icons.hourglass_bottom);
       case SettlementStatus.transferred:
-        return ('송금 완료', _incomeColor);
+        return ('송금 완료', _incomeColor, Icons.check_circle_rounded);
       case SettlementStatus.failed:
-        return ('실패', _expenseColor);
+        return ('실패', _expenseColor, Icons.error_outline_rounded);
       case SettlementStatus.canceled:
-        return ('정산 취소', _scheme(context).onSurfaceVariant);
+        return ('정산 취소', _scheme(context).onSurfaceVariant,
+            Icons.cancel_outlined);
       case SettlementStatus.unknown:
-        return ('알 수 없음', _scheme(context).onSurfaceVariant);
+        return ('알 수 없음', _scheme(context).onSurfaceVariant,
+            Icons.help_outline_rounded);
     }
   }
 
   Widget _buildSettlementRecordsSection(BuildContext context) {
     final scheme = _scheme(context);
-    final records = [..._records]
+    // 정산관리 = '처리할 것'만: 출금 가능(CALCULATED)·송금 대기(PENDING)·실패(FAILED).
+    // 송금 완료/취소된 건은 '정산내역' 타임라인에 있으므로 여기선 제외(중복 제거).
+    final actionable = _records
+        .where((r) =>
+            r.status == SettlementStatus.calculated ||
+            r.status == SettlementStatus.pending ||
+            r.status == SettlementStatus.failed)
+        .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (_pending.isEmpty && actionable.isEmpty) {
+      return Text(
+        '처리할 정산이 없어요.',
+        style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (records.isEmpty)
+        if (_pending.isNotEmpty) _buildPendingSection(context),
+        if (actionable.isNotEmpty) ...[
+          if (_pending.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Divider(height: 1, color: scheme.outline),
+            const SizedBox(height: 14),
+          ],
           Text(
-            '정산 건이 없습니다.',
-            style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
-          )
-        else
-          for (final record in records) ...[
+            '출금 가능 · 대기',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (final record in actionable) ...[
             _buildSettlementRecordCard(context, record),
             const SizedBox(height: 10),
           ],
+        ],
       ],
+    );
+  }
+
+  /// 정산 예정(완료됐지만 미정산) 섹션 — 24h 대기/신고 보류 사유와 예상 금액.
+  Widget _buildPendingSection(BuildContext context) {
+    if (_pending.isEmpty) return const SizedBox.shrink();
+    final scheme = _scheme(context);
+    final total =
+        _pending.fold<int>(0, (sum, p) => sum + p.expectedTutorAmount);
+    final sorted = [..._pending]..sort((a, b) {
+        final ad = a.lessonDate;
+        final bd = b.lessonDate;
+        if (ad == null) return 1;
+        if (bd == null) return -1;
+        return bd.compareTo(ad);
+      });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.schedule, size: 16, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Text(
+              '정산 예정 (${_pending.length}건)',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurface,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '+${formatWon(total)} 예정',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        for (final p in sorted) ...[
+          _buildPendingCard(context, p),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+
+  /// 정산 예정 사유별 (라벨, 색, 아이콘, 설명).
+  (String, Color, IconData, String) _pendingReasonStyle(
+    PendingSettlementReason reason,
+  ) {
+    switch (reason) {
+      case PendingSettlementReason.waitingPeriod:
+        return (
+          '정산 대기',
+          const Color(0xFFE08E3C),
+          Icons.hourglass_bottom,
+          '수업 종료 후 24시간이 지나면 자동으로 정산돼요.',
+        );
+      case PendingSettlementReason.reportHold:
+        return (
+          '신고 보류',
+          _expenseColor,
+          Icons.gavel_outlined,
+          '신고 처리 중이라 정산이 보류됐어요. 처리 완료 후 정산돼요.',
+        );
+      case PendingSettlementReason.processing:
+        return (
+          '처리 예정',
+          AppColors.primaryBlue,
+          Icons.sync,
+          '곧 자동으로 정산될 예정이에요.',
+        );
+      case PendingSettlementReason.unknown:
+        return (
+          '정산 예정',
+          _scheme(context).onSurfaceVariant,
+          Icons.schedule,
+          '정산 예정인 수업이에요.',
+        );
+    }
+  }
+
+  Widget _buildPendingCard(BuildContext context, PendingSettlementResponse p) {
+    final scheme = _scheme(context);
+    final (label, color, icon, desc) = _pendingReasonStyle(p.reason);
+    final title = (p.subject != null && p.subject!.isNotEmpty)
+        ? '${p.subject} 수업'
+        : '${_shortDate(p.lessonDate ?? DateTime.now())} 수업';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+              _statusTag(label, color, icon),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                p.lessonDate != null
+                    ? formatDotDateTime(p.lessonDate!)
+                    : '날짜 미정',
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ),
+              const Spacer(),
+              Text(
+                '+${formatWon(p.expectedTutorAmount)} 예정',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(icon, size: 15, color: color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  desc,
+                  style: TextStyle(fontSize: 12, color: color),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -2154,7 +2401,7 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
     SettlementResponse record,
   ) {
     final scheme = _scheme(context);
-    final (badgeLabel, badgeColor) = _statusBadge(record.status);
+    final (badgeLabel, badgeColor, badgeIcon) = _statusBadge(record.status);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2170,7 +2417,11 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
             children: [
               Expanded(
                 child: Text(
-                  '수업 #${record.lessonId}',
+                  // 과목이 있으면 "수학 수업", 없으면 수업 날짜로 식별
+                  // ("수업 #12"는 강사가 알아볼 수 없어 날짜로 대체).
+                  record.subject != null && record.subject!.isNotEmpty
+                      ? '${record.subject} 수업'
+                      : '${_shortDate(record.lessonDate ?? record.createdAt)} 수업',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -2178,29 +2429,15 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
                   ),
                 ),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  badgeLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: badgeColor,
-                  ),
-                ),
-              ),
+              _statusTag(badgeLabel, badgeColor, badgeIcon),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: [
               Text(
-                formatDotDateTime(record.createdAt),
+                // 수업 했던 날짜(없으면 정산 생성일).
+                formatDotDateTime(record.lessonDate ?? record.createdAt),
                 style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
               const Spacer(),
@@ -2272,12 +2509,15 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
       }
     } catch (error) {
       if (!mounted) return;
-      // 계좌 미등록은 그 자리에서 등록 → 같은 정산 건 출금 재시도.
-      if (error.toString().contains('계좌')) {
+      // 계좌 미등록은 그 자리에서 등록 → 같은 정산 건 출금 재시도. (응답 본문 message로 판별)
+      final msg = apiErrorMessage(error, fallback: '출금 요청에 실패했어요.');
+      if (msg.contains('계좌')) {
+        // 다이얼로그 동안 잠금 해제 → 계좌 등록 후 단건 출금 재시도가 동작.
+        if (mounted) setState(() => _withdrawBusy = false);
         await _showAccountRequiredDialog(() => _onRequestWithdraw(settlementId));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('출금 요청에 실패했습니다: $error')),
+          SnackBar(content: Text(msg)),
         );
       }
     } finally {
