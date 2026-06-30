@@ -91,6 +91,23 @@ public class GeminiFileClient {
         }
         throw new RuntimeException("Gemini 파일이 ACTIVE 상태로 전환되지 않음 (타임아웃): " + fileName);
     }
+    /** 전사 후 Gemini File API 파일 삭제 — 저장 할당량(20GB) 회수. 실패해도 무시. */
+    public void deleteFile(String fileUri) {
+        if (fileUri == null || fileUri.isBlank()) return;
+        int idx = fileUri.indexOf("/files/");
+        if (idx < 0) return;
+        String simpleName = fileUri.substring(idx + "/files/".length());
+        try {
+            apiClient.delete()
+                    .uri("/files/{name}", simpleName)
+                    .header("x-goog-api-key", properties.api().key())
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("[GeminiFile] 삭제 완료: {}", simpleName);
+        } catch (Exception e) {
+            log.warn("[GeminiFile] 삭제 실패(무시): {} - {}", simpleName, e.getMessage());
+        }
+    }
 
     /** 업로드한 파일로 generateContent 호출 (전사 등). */
     public String generateWithFile(String model, String prompt, String fileUri, String mimeType) {
