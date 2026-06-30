@@ -5,6 +5,7 @@ import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/permissions/lesson_permission_dialog.dart';
 import 'package:ieum/core/permissions/media_permissions.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/storage/welcome_bonus_flag.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
@@ -57,9 +58,93 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
   void initState() {
     super.initState();
     // 권한 자동 요청은 하지 않는다(온보딩 일괄 화면/마이페이지 토글에서만). 초기화만.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       AppNotificationService.instance.initialize();
+      // 가입 직후 1회: 환영 보너스 안내 다이얼로그.
+      if (await consumePendingWelcomeBonus() && mounted) {
+        _showWelcomeBonusDialog();
+      }
     });
+  }
+
+  /// 가입 축하 보너스 안내 — 가입 직후 홈 진입 시 1회만(로컬 플래그로 소비됨).
+  void _showWelcomeBonusDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final shell = ShellTheme.of(ctx);
+        return Dialog(
+          backgroundColor: shell.cardBackground,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🎉', style: TextStyle(fontSize: 44)),
+                const SizedBox(height: 10),
+                Text('가입을 환영해요!',
+                    style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: shell.titleColor)),
+                const SizedBox(height: 8),
+                Text.rich(
+                  TextSpan(children: [
+                    const TextSpan(text: '가입 축하 '),
+                    TextSpan(
+                        text: '50코인',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.studentPoint)),
+                    const TextSpan(
+                        text: '을 선물로 드렸어요.\nAI 튜터에게 바로 질문해보세요!'),
+                  ]),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 14, height: 1.5, color: shell.subtitleColor),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text('나중에',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: shell.hintColor)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          ref
+                              .read(studentShellTabIndexProvider.notifier)
+                              .state = studentShellAiTutorTabIndex;
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.studentPoint,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text('AI튜터 써보기',
+                            style: TextStyle(fontWeight: FontWeight.w800)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override

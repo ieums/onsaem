@@ -7,6 +7,7 @@ import 'package:ieum/core/utils/phone_input_formatter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/core/storage/welcome_bonus_flag.dart';
 import 'package:ieum/core/widgets/profile_image.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
@@ -387,6 +388,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
             birthDate: birthDate,
             phone: phone,
           );
+      await markPendingWelcomeBonus(); // 가입 직후 홈에서 환영 보너스 안내 1회
       if (!mounted) return;
       context.go(RoutePaths.studentHome);
     } catch (e) {
@@ -428,6 +430,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
             phone: phone,
             email: email,
           );
+      await markPendingWelcomeBonus(); // 가입 직후 홈에서 환영 보너스 안내 1회
       if (!mounted) return;
       context.go(RoutePaths.studentHome);
     } catch (e) {

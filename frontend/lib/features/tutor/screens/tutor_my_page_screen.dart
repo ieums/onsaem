@@ -57,6 +57,10 @@ class _TutorMyPageScreenState
       answer: '신청 유형·수업 시간에 따라 플랫폼 요금 기준이 적용됩니다. 수업 수락 전 예상 정산 금액을 확인할 수 있습니다.',
     ),
     (
+      question: '등급에 따라 정산 수수료가 다른가요?',
+      answer: '네. 등급이 높을수록 플랫폼 수수료가 낮아집니다. 등급은 경력·수업 수·평점으로 자동 산정돼요. 등급별 수수료는 아래와 같습니다.',
+    ),
+    (
       question: '학생 신청을 거절할 수 있나요?',
       answer: '가능합니다. 다만 잦은 거절은 매칭 우선순위에 영향을 줄 수 있으니 사유를 신중히 선택해 주세요.',
     ),
@@ -194,6 +198,62 @@ class _TutorMyPageScreenState
     if (mounted) context.go(RoutePaths.login);
   }
 
+  /// 등급별 정산 수수료 표 (FAQ 안에서 사용).
+  Widget _buildFeeTierTable() {
+    const rows = [
+      ('루키', '30%'),
+      ('주니어', '25%'),
+      ('시니어', '20%'),
+      ('마스터', '10%'),
+    ];
+    final head = TextStyle(
+        fontSize: 12.5, fontWeight: FontWeight.w800, color: _shell.titleColor);
+    final cell = TextStyle(
+        fontSize: 13, fontWeight: FontWeight.w600, color: _shell.subtitleColor);
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: _shell.cardBorder),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: AppColors.primaryBlue.withValues(alpha: 0.08),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(10)),
+            ),
+            child: Row(
+              children: [
+                Expanded(child: Text('등급', style: head)),
+                Text('정산 수수료', style: head),
+              ],
+            ),
+          ),
+          for (final (g, f) in rows)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                border: Border(
+                    top: BorderSide(
+                        color: _shell.cardBorder.withValues(alpha: 0.6))),
+              ),
+              child: Row(
+                children: [
+                  Expanded(child: Text(g, style: cell)),
+                  Text(f, style: cell),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProfileCard(Map<String, dynamic>? me) {
     final name = (me?['name'] as String?)?.trim();
     final email = (me?['email'] as String?)?.trim();
@@ -201,7 +261,6 @@ class _TutorMyPageScreenState
     final school = (me?['school'] as String?)?.trim();
     final major = (me?['major'] as String?)?.trim();
     final grade = (me?['grade'] as String?)?.trim();       // 등급 한글(예: 주니어)
-    final fee = me?['gradeFeePercent'] as int?;            // 등급별 정산 수수료(%)
     final resolved = (imageUrl != null && imageUrl.isNotEmpty)
         ? ApiConstants.resolveImageUrl(imageUrl)
         : null;
@@ -288,17 +347,6 @@ class _TutorMyPageScreenState
                       fontSize: 13,
                       color: _shell.hintColor,
                       fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-                if (fee != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '정산 수수료 $fee%',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: _shell.hintColor,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -853,6 +901,8 @@ class _TutorMyPageScreenState
                                             .subtitleColor,
                                         height: 1.45)),
                               ),
+                              if (item.question.contains('등급'))
+                                _buildFeeTierTable(),
                             ],
                           ),
                         ),
