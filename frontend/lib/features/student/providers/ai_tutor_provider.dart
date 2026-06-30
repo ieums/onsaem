@@ -5,6 +5,18 @@ import '../data/models/ai_tutor_message.dart';
 import '../data/models/ai_tutor_session.dart';
 import '../data/models/ai_tutor_problem.dart';
 
+/// 진행 중(종료 안 됐고 질문을 한 번이라도 한) AI 튜터 세션 — 목록 상단 '진행 중' 섹션용.
+/// 입장만 하고 질문 안 한 빈 세션(messageCount==0)은 제외해 '이어서'가 잘못 뜨지 않게 한다.
+/// 최근 활동순.
+final aiTutorActiveSessionsProvider =
+    FutureProvider.autoDispose<List<AiTutorSession>>((ref) async {
+  final repo = ref.watch(aiTutorRepositoryProvider);
+  final sessions = await repo.listSessions();
+  return sessions.where((s) => !s.status.isClosed && s.hasStarted).toList()
+    ..sort((a, b) => (b.updatedAt ?? b.createdAt)
+        .compareTo(a.updatedAt ?? a.createdAt));
+});
+
 class AiTutorChatState {
   final AiTutorSession? session;
   final AiTutorProblem? problem;

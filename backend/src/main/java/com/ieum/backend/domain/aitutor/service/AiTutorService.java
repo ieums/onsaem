@@ -122,14 +122,33 @@ public class AiTutorService {
     public List<SessionListItemResponse> listSessions(Long studentId) {
         return sessionRepository.findByStudentIdOrderByUpdatedAtDesc(studentId)
                 .stream()
-                .map(s -> new SessionListItemResponse(
-                        s.getId(),
-                        s.getProblemId(),
-                        s.getTitle(),
-                        s.getStatus().name(),
-                        s.getCreatedAt(),
-                        s.getUpdatedAt()))
+                .map(s -> {
+                    int messageCount = messageRepository.countBySessionId(s.getId());
+                    String lastMessage = messageCount == 0 ? null
+                            : messageRepository.findFirstBySessionIdOrderByIdDesc(s.getId())
+                                    .map(m -> previewOf(m.getContent()))
+                                    .orElse(null);
+                    return new SessionListItemResponse(
+                            s.getId(),
+                            s.getProblemId(),
+                            s.getTitle(),
+                            s.getStatus().name(),
+                            s.getCreatedAt(),
+                            s.getUpdatedAt(),
+                            messageCount,
+                            lastMessage);
+                })
                 .toList();
+    }
+
+    /** 카톡식 미리보기 — 첫 줄만, 너무 길면 잘라 payload를 줄인다. */
+    private static String previewOf(String content) {
+        if (content == null) return null;
+        String firstLine = content.strip();
+        int nl = firstLine.indexOf('\n');
+        if (nl >= 0) firstLine = firstLine.substring(0, nl).strip();
+        if (firstLine.length() > 120) firstLine = firstLine.substring(0, 120) + "…";
+        return firstLine.isEmpty() ? null : firstLine;
     }
 
     @Transactional(readOnly = true)

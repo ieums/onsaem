@@ -395,16 +395,18 @@ class StudentFlowAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: pageBg,
       elevation: 0,
-      centerTitle: false,
+      // 상세 페이지 제목은 중앙정렬로 통일(탭 메인 홈은 AppBar가 아니라 영향 없음).
+      centerTitle: true,
       leading: IconButton(
         onPressed: onBack ?? () => Navigator.of(context).maybePop(),
         icon: Icon(Icons.arrow_back_rounded, color: shell.titleColor),
       ),
       title: Text(
         title,
+        // 상세 페이지 제목 크기를 테마 기본(18)에 맞춰 통일(20, bold).
         style: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w800,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
           color: shell.titleColor,
         ),
       ),
