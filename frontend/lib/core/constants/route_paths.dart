@@ -1,6 +1,9 @@
 /// go_router 경로 상수
 abstract final class RoutePaths {
   static const onboarding = '/onboarding';
+  static const onboardingStudent = '/onboarding/student';
+  static const onboardingTutor = '/onboarding/tutor';
+  static const onboardingPermissions = '/onboarding/permissions';
   static const login = '/login';
   static const signup = '/signup';
   static const signupStudent = '/signup/student';

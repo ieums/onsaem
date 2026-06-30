@@ -3,6 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:ieum/core/providers/onboarding_seen_provider.dart';
+import 'package:ieum/core/providers/permissions_gate.dart';
+import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/features/onboarding/onboarding_review_args.dart';
+import 'package:ieum/features/onboarding/screens/onboarding_permissions_screen.dart';
+import 'package:ieum/features/onboarding/screens/student_onboarding_themed_screen.dart';
+import 'package:ieum/features/onboarding/screens/tutor_onboarding_themed_screen.dart';
 import 'package:ieum/features/auth/screens/login_screen.dart';
 import 'package:ieum/features/auth/screens/signup_role_screen.dart';
 import 'package:ieum/features/auth/screens/student_signup_screen.dart';
@@ -50,6 +58,18 @@ final appRouter = GoRouter(
     }
     // 미로그인인데 보호 화면이면 → 시작(/)으로
     if (user == null && isProtected) return '/';
+
+    // 로그인됨 + 역할 홈으로 가는데 해당 역할 온보딩을 아직 안 봤으면 → 온보딩 1회.
+    // (온보딩 경로 '/onboarding/...'는 역할 홈과 다르고 isProtected도 아니라 루프 없음)
+    if (user != null) {
+      final seen = container.read(onboardingSeenProvider);
+      if (loc == RoutePaths.studentHome && !user.isTutor && !seen.student) {
+        return RoutePaths.onboardingStudent;
+      }
+      if (loc == RoutePaths.tutorHome && user.isTutor && !seen.tutor) {
+        return RoutePaths.onboardingTutor;
+      }
+    }
     return null;
   },
   routes: [
@@ -57,6 +77,36 @@ final appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.onboarding,
       builder: (_, _) => const OnboardingScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.onboardingStudent,
+      builder: (context, state) =>
+          _buildRoleOnboarding(context, state, isTutor: false),
+    ),
+    GoRoute(
+      path: RoutePaths.onboardingTutor,
+      builder: (context, state) =>
+          _buildRoleOnboarding(context, state, isTutor: true),
+    ),
+    GoRoute(
+      path: RoutePaths.onboardingPermissions,
+      builder: (context, state) {
+        final isTutor = state.extra is bool ? state.extra as bool : false;
+        return Theme(
+          data: AppTheme.light, // 첫 실행이라 라이트 고정
+          child: OnboardingPermissionsScreen(
+            isTutor: isTutor,
+            onDone: () async {
+              await markPermissionsPrompted();
+              if (context.mounted) {
+                context.go(isTutor
+                    ? RoutePaths.tutorHome
+                    : RoutePaths.studentHome);
+              }
+            },
+          ),
+        );
+      },
     ),
     GoRoute(
       path: RoutePaths.login,
@@ -226,3 +276,57 @@ final appRouter = GoRouter(
     body: Center(child: Text('페이지를 찾을 수 없습니다: ${state.uri}')),
   ),
 );
+
+/// 역할별 온보딩(themed) 화면 빌더 — 첫 실행 게이팅과 마이페이지 다시보기를 함께 처리.
+///  - extra 없음(첫 실행): 항상 라이트 + 완료/건너뛰기 시 "봤음" 저장 후 역할 홈으로.
+///  - extra=[OnboardingReviewArgs](다시보기): 전달된 밝기로 렌더 + 플래그 불변 + pop 복귀.
+Widget _buildRoleOnboarding(
+  BuildContext context,
+  GoRouterState state, {
+  required bool isTutor,
+}) {
+  final args = state.extra is OnboardingReviewArgs
+      ? state.extra as OnboardingReviewArgs
+      : null;
+  final isReview = args != null;
+  final brightness = args?.brightness ?? Brightness.light; // 첫 실행은 항상 라이트
+  final themeData =
+      brightness == Brightness.dark ? AppTheme.shellDark : AppTheme.light;
+
+  void finish() {
+    if (isReview) {
+      if (context.canPop()) context.pop();
+      return;
+    }
+    // 첫 실행: "봤음" 저장 후, 일괄 권한 화면을 거쳐 홈으로(이미 띄웠거나 web이면 바로 홈).
+    markOnboardingSeen(ProviderScope.containerOf(context), isTutor: isTutor);
+    _goAfterOnboarding(context, isTutor: isTutor);
+  }
+
+  final screen = isTutor
+      ? TutorOnboardingThemedScreen(onStart: finish, onSkip: finish)
+      : StudentOnboardingThemedScreen(onStart: finish, onSkip: finish);
+
+  return Theme(data: themeData, child: screen);
+}
+
+/// 온보딩 완료/건너뛰기 후: 첫 실행 1회만 일괄 권한 화면을 거쳐 역할 홈으로.
+///  - web: 권한 화면 스킵(permission_handler 미지원) → 바로 홈.
+///  - 이미 권한 안내를 띄웠으면(permissions_prompted) → 바로 홈(거부자는 기능별 게이트가 처리).
+Future<void> _goAfterOnboarding(
+  BuildContext context, {
+  required bool isTutor,
+}) async {
+  final home = isTutor ? RoutePaths.tutorHome : RoutePaths.studentHome;
+  if (kIsWeb) {
+    context.go(home);
+    return;
+  }
+  final prompted = await wasPermissionsPrompted();
+  if (!context.mounted) return;
+  if (prompted) {
+    context.go(home);
+    return;
+  }
+  context.go(RoutePaths.onboardingPermissions, extra: isTutor);
+}

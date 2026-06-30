@@ -3,10 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
-import 'package:ieum/core/notifications/app_notification_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-const _notificationPromptedKey = 'notification_permission_prompted';
 
 /// 온보딩(스플래시) 화면 — 로고 영역 제외, 이미지와 동일한 텍스트 레이아웃
 class OnboardingScreen extends StatefulWidget {
@@ -25,24 +21,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _timer = Timer(const Duration(seconds: 3), _goToLogin);
   }
 
-  Future<void> _goToLogin() async {
+  void _goToLogin() {
     if (!mounted) return;
-    await _requestNotificationPermissionIfNeeded();
-    if (!mounted) return;
+    // 알림 권한은 온보딩 후 "일괄 권한 화면"이 담당한다(여기선 요청 안 함).
     context.go(RoutePaths.login);
-  }
-
-  Future<void> _requestNotificationPermissionIfNeeded() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool(_notificationPromptedKey) == true) return;
-
-      await AppNotificationService.instance.requestPermission();
-      await prefs.setBool(_notificationPromptedKey, true);
-    } catch (error, stackTrace) {
-      debugPrint('[Onsaem] 알림 권한 요청 실패: $error');
-      debugPrint('$stackTrace');
-    }
   }
 
   @override

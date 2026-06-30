@@ -6,12 +6,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_error.dart';
-import '../../../core/utils/simulator_detector.dart';
 import '../../student/providers/payment_provider.dart';
 import '../data/lesson_repository.dart';
 import '../domain/lesson_model.dart';
@@ -260,30 +258,9 @@ class LessonNotifier extends StateNotifier<LessonState> {
       }
 
       if (!kIsWeb) {
-        // iOS 시뮬레이터엔 카메라/마이크 하드웨어가 없어 권한을 받을 수 없다.
-        // 수업은 오디오 전용이고 채널 입장(join)은 네트워크라 권한 없이도 되므로,
-        // 시뮬에선 권한 게이트를 통째로 건너뛰고 바로 입장한다(테스트 목적).
-        // 실기기는 기존대로 카메라+마이크 권한을 요구한다.
-        final isSim = await isIosSimulator();
-        if (!mounted) return;
-        if (!isSim) {
-          final statuses = await [
-            Permission.camera,
-            Permission.microphone,
-          ].request();
-          if (!mounted) return;
-          if (statuses[Permission.camera] != PermissionStatus.granted ||
-              statuses[Permission.microphone] != PermissionStatus.granted) {
-            state = state.copyWith(
-              isLoading: false,
-              error: '카메라/마이크 권한이 필요합니다',
-            );
-            return;
-          }
-        } else {
-          debugPrint('[Lesson] iOS 시뮬레이터 → 권한 게이트 스킵, 바로 입장');
-        }
-
+        // 카메라·마이크 권한은 입장 상류(매칭 "수락" 시점)에서 게이트한다.
+        // 여기선 권한을 재확인하지 않는다 — 미허용이어도 오류방을 띄우지 않고
+        // 그대로 진행(권한 없으면 Agora가 degraded로 동작). 오류방 재발 방지.
         _engine = createAgoraRtcEngine();
         await _engine!.initialize(RtcEngineContext(appId: tokenResp.appId));
 
