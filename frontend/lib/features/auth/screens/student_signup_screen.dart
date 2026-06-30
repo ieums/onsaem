@@ -39,7 +39,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   static const _profileSize = 96.0;
   static const _profileAddButtonSize = 24.0;
 
-  static const _domainOptions = ['직접입력', '@gmail.com', '@naver.com'];
+  static const _domainOptions = ['직접입력', 'gmail.com', 'naver.com'];
   static const _presetDomainsForWidth = ['gmail.com', 'naver.com'];
   static const _domainTextStyle = TextStyle(
     fontSize: 14,
@@ -495,7 +495,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                   _buildProfilePhotoSection(context),
                   const SizedBox(height: 24),
                     if (!_isSocial) ...[
-                    _buildLabel(context, '이름'),
+                    _buildLabel(context, '이름', required: true),
                     const SizedBox(height: 8),
                     _buildTextField(
                       context,
@@ -504,7 +504,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                     ),
                     const SizedBox(height: 20),
                   ],
-                  _buildLabel(context, '생년월일'),
+                  _buildLabel(context, '생년월일', required: true),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -553,7 +553,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                   ),
                   const SizedBox(height: 20),
                   if (!_isSocial) ...[
-                    _buildLabel(context, '이메일'),
+                    _buildLabel(context, '이메일', required: true),
                     const SizedBox(height: 8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,7 +579,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                     const SizedBox(height: 20),
                   ],
                   if (_needsSocialEmail) ...[
-                    _buildLabel(context, '이메일'),
+                    _buildLabel(context, '이메일', required: true),
                     const SizedBox(height: 8),
                     _buildTextField(
                       context,
@@ -589,7 +589,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                     ),
                     const SizedBox(height: 20),
                   ],
-                  _buildLabel(context, '휴대폰'),
+                  _buildLabel(context, '휴대폰', required: true),
                   const SizedBox(height: 8),
                   _buildTextField(
                     context,
@@ -603,7 +603,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                   ),
                   if (!widget.isEditMode && !_isSocial) ...[
                     const SizedBox(height: 20),
-                    _buildLabel(context, '비밀번호'),
+                    _buildLabel(context, '비밀번호', required: true),
                     const SizedBox(height: 8),
                     _buildTextField(
                       context,
@@ -624,7 +624,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
                       accent: AppColors.studentPoint, // 페이지 특징색(연두)
                     ),
                     const SizedBox(height: 20),
-                    _buildLabel(context, '비밀번호 확인'),
+                    _buildLabel(context, '비밀번호 확인', required: true),
                     const SizedBox(height: 8),
                     _buildTextField(
                       context,
@@ -656,6 +656,25 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
             ),
           ),
           Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: Row(
+              children: [
+                const Text(
+                  '* ',
+                  style: TextStyle(
+                    color: _errorColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '필수 입력 항목입니다',
+                  style: TextStyle(color: _textHint(context), fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
             child: SizedBox(
               height: 54,
@@ -679,13 +698,23 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
     );
   }
 
-  Widget _buildLabel(BuildContext context, String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: _textPrimary(context),
+  Widget _buildLabel(BuildContext context, String text, {bool required = false}) {
+    return Text.rich(
+      TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: _textPrimary(context),
+        ),
+        children: required
+            ? const [
+                TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: _errorColor),
+                ),
+              ]
+            : null,
       ),
     );
   }

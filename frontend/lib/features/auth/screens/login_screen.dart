@@ -165,6 +165,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final result = await FlutterNaverLogin.logIn();
       if (result.status.name != 'loggedIn') {
+        if (!mounted) return;
+        // 사용자가 취소(loggedOut)면 조용히, 실제 실패(error)만 안내
+        if (result.status.name == 'error') {
+          _showMessage('네이버 로그인에 실패했어요. 잠시 후 다시 시도해주세요.');
+        }
         return;
       }
       final naverToken = await FlutterNaverLogin.getCurrentAccessToken();

@@ -256,6 +256,10 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
       _showSnack('휴대폰 번호를 입력해주세요.');
       return;
     }
+    if (experienceYears == null) {                      
+      _showSnack('경력 연수를 입력해주세요. (신입이면 0)');  
+      return;                                            
+    }                            
     final pwError = passwordError(password);
     if (pwError != null) {
       _showSnack(pwError);
@@ -314,6 +318,10 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
       _showSnack('휴대폰 번호를 입력해주세요.');
       return;
     }
+    if (experienceYears == null) {                       
+      _showSnack('경력 연수를 입력해주세요. (신입이면 0)');   
+      return;                                            
+    }  
     if (_subjectKeywords.isEmpty) {
       _showSnack('과외 가능 과목을 1개 이상 선택해주세요.');
       return;
@@ -695,7 +703,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                   _buildProfilePhotoSection(context),
                   const SizedBox(height: 24),
                   if (!_isSocial) ...[
-                    _buildLabel(context, '이름'),
+                    _buildLabel(context, '이름', required: true),
                     const SizedBox(height: 8),
                     _buildTextField(
                       context,
@@ -704,7 +712,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                     ),
                     const SizedBox(height: 20),
                   ],
-                  _buildLabel(context, '생년월일'),
+                  _buildLabel(context, '생년월일', required: true),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -753,13 +761,13 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                   ),
                   const SizedBox(height: 20),
                   if (!_isSocial) ...[
-                    _buildLabel(context, '이메일'),
+                    _buildLabel(context, '이메일', required: true),
                     const SizedBox(height: 8),
                     _buildDomainRow(context),
                     const SizedBox(height: 20),
                   ],
                   if (_needsSocialEmail) ...[
-                    _buildLabel(context, '이메일'),
+                    _buildLabel(context, '이메일', required: true),
                     const SizedBox(height: 8),
                     _buildTextField(
                       context,
@@ -769,7 +777,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                     ),
                     const SizedBox(height: 20),
                   ],
-                  _buildLabel(context, '휴대폰'),
+                  _buildLabel(context, '휴대폰', required: true),
                   const SizedBox(height: 8),
                   _buildTextField(
                     context,
@@ -783,7 +791,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                   ),
                   const SizedBox(height: 20),
                   if (!_isSocial) ...[
-                    _buildLabel(context, '비밀번호'),
+                    _buildLabel(context, '비밀번호', required: true),
                     const SizedBox(height: 8),
                     _buildTextField(
                       context,
@@ -804,7 +812,7 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                       accent: AppColors.primaryBlue, // 페이지 특징색(보라)
                     ),
                     const SizedBox(height: 20),
-                    _buildLabel(context, '비밀번호 확인'),
+                    _buildLabel(context, '비밀번호 확인', required: true),
                     const SizedBox(height: 8),
                     _buildTextField(
                       context,
@@ -862,11 +870,11 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                     hint: '전공을 입력하세요',
                   ),
                   const SizedBox(height: 20),
-                  _buildLabel(context, '과외 가능 과목'),
+                  _buildLabel(context, '과외 가능 과목', required: true),
                   const SizedBox(height: 8),
                   _buildSubjectChips(context),
                   const SizedBox(height: 20),
-                  _buildLabel(context, '경력 연수'),
+                  _buildLabel(context, '경력 연수 (신입이면 0)', required: true),
                   const SizedBox(height: 8),
                   _buildTextField(
                     context,
@@ -898,6 +906,25 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
                   ),
                 ],
               ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: Row(
+              children: [
+                const Text(
+                  '* ',
+                  style: TextStyle(
+                    color: _errorColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '필수 입력 항목입니다',
+                  style: TextStyle(color: _textHint(context), fontSize: 12),
+                ),
+              ],
             ),
           ),
           Padding(
@@ -1016,13 +1043,23 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
     );
   }
 
-  Widget _buildLabel(BuildContext context, String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: _textPrimary(context),
+  Widget _buildLabel(BuildContext context, String text, {bool required = false}) {
+    return Text.rich(
+      TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: _textPrimary(context),
+        ),
+        children: required
+            ? const [
+                TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: _errorColor),
+                ),
+              ]
+            : null,
       ),
     );
   }
