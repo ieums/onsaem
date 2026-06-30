@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온샘 관리자 · 회원 상세</title>
+    <link rel="stylesheet" th:href="@{/admin/admin.css}">
+</head>
+<body>
+<div th:replace="~{admin/_layout :: shell(${role == 'TUTOR' ? 'tutors' : 'students'})}"></div>
+
+<div class="container">
+    <div class="page-head">
+        <a class="back" th:href="@{${role == 'TUTOR' ? '/admin/tutors' : '/admin/students'}}" th:text="${role == 'TUTOR' ? '← 강사 목록' : '← 학생 목록'}">← 회원 목록</a>
+        <h1 style="margin-top:8px;" th:text="${role == 'TUTOR' ? '강사 상세' : '학생 상세'}">회원 상세</h1>
+    </div>
+
+    <div class="flash" th:if="${msg}" th:text="${msg}"></div>
+
+    <!-- 학생 -->
+    <div th:if="${role != 'TUTOR'}">
+        <div class="card" th:if="${student != null}">
+            <dl class="dl">
+                <dt>이름</dt><dd th:text="${student.name != null ? student.name : '-'}">홍길동</dd>
+                <dt>이메일</dt><dd th:text="${student.email != null ? student.email : '-'}">a@b.com</dd>
+                <dt>전화번호</dt><dd th:text="${student.phone != null ? student.phone : '-'}">-</dd>
+                <dt>가입경로</dt><dd th:text="${student.provider != null ? student.provider.displayName : '-'}">이메일</dd>
+                <dt>상태</dt><dd><span class="badge" th:classappend="${student.status}" th:text="${student.status.displayName}">ACTIVE</span></dd>
+                <dt>생년월일</dt><dd th:text="${student.birthDate != null ? student.birthDate : '-'}">-</dd>
+                <dt>가입일</dt><dd class="faint" th:text="${student.createdAt != null ? #temporals.format(student.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">-</dd>
+            </dl>
+        </div>
+        <p class="faint" th:if="${student == null}">해당 학생을 찾을 수 없습니다.</p>
+    </div>
+
+    <!-- 강사 -->
+    <div th:if="${role == 'TUTOR'}">
+        <div class="card" th:if="${tutor != null}">
+            <dl class="dl">
+                <dt>이름</dt><dd th:text="${tutor.name != null ? tutor.name : '-'}">김강사</dd>
+                <dt>이메일</dt><dd th:text="${tutor.email != null ? tutor.email : '-'}">a@b.com</dd>
+                <dt>전화번호</dt><dd th:text="${tutor.phone != null ? tutor.phone : '-'}">-</dd>
+                <dt>가입경로</dt><dd th:text="${tutor.provider != null ? tutor.provider.displayName : '-'}">이메일</dd>
+                <dt>상태</dt><dd><span class="badge" th:classappend="${tutor.status}" th:text="${tutor.status.displayName}">ACTIVE</span></dd>
+                <dt>등급</dt><dd th:text="${tutor.grade != null ? tutor.grade.displayName : '-'}">루키</dd>
+                <dt>인증상태</dt><dd><span class="badge" th:classappend="${tutor.verificationStatus}" th:text="${tutor.verificationStatus != null ? tutor.verificationStatus.displayName : '-'}">대기</span></dd>
+                <dt>학교</dt><dd th:text="${tutor.school != null ? tutor.school : '-'}">-</dd>
+                <dt>전공</dt><dd th:text="${tutor.major != null ? tutor.major : '-'}">-</dd>
+                <dt>과목</dt>
+                <dd>
+                    <th:block th:if="${tutor.subjects != null and !tutor.subjects.isEmpty()}">
+                        <span th:each="sub,it : ${tutor.subjects}"
+                              th:text="${T(com.ieum.backend.domain.problem.entity.enums.Subject).displayNameOf(sub)} + (${it.last} ? '' : ', ')">국어</span>
+                    </th:block>
+                    <span th:if="${tutor.subjects == null or tutor.subjects.isEmpty()}">-</span>
+                </dd>
+                <dt>경력(년)</dt><dd th:text="${tutor.experienceYears != null ? tutor.experienceYears : '-'}">-</dd>
+                <dt>평점</dt><dd th:text="${tutor.ratingAvg != null ? tutor.ratingAvg : '-'} + ' (' + ${tutor.reviewCount} + '건)'">-</dd>
+                <dt>수업 완료 수</dt><dd th:text="${tutor.lessonCount}">0</dd>
+                <dt>매칭 가능</dt><dd th:text="${tutor.available ? '가능' : '불가'}">가능</dd>
+                <dt>가입일</dt><dd class="faint" th:text="${tutor.createdAt != null ? #temporals.format(tutor.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">-</dd>
+            </dl>
+        </div>
+
+        <div class="card" th:if="${tutor != null}" style="margin-top:16px;">
+            <div class="card-head"><span>인증상태 변경</span></div>
+            <div class="actions">
+                <form th:action="@{/admin/tutors/{id}/verification(id=${tutor.id})}" method="post">
+                    <input type="hidden" name="status" value="VERIFIED">
+                    <button class="btn primary sm" type="submit"
+                            th:disabled="${tutor.verificationStatus != null and tutor.verificationStatus.name() == 'VERIFIED'}">인증완료</button>
+                </form>
+                <form th:action="@{/admin/tutors/{id}/verification(id=${tutor.id})}" method="post">
+                    <input type="hidden" name="status" value="REJECTED">
+                    <button class="btn danger sm" type="submit"
+                            th:disabled="${tutor.verificationStatus != null and tutor.verificationStatus.name() == 'REJECTED'}">반려</button>
+                </form>
+                <form th:action="@{/admin/tutors/{id}/verification(id=${tutor.id})}" method="post">
+                    <input type="hidden" name="status" value="PENDING">
+                    <button class="btn ghost sm" type="submit"
+                            th:disabled="${tutor.verificationStatus != null and tutor.verificationStatus.name() == 'PENDING'}">대기</button>
+                </form>
+            </div>
+        </div>
+
+        <p class="faint" th:if="${tutor == null}">해당 강사를 찾을 수 없습니다.</p>
+    </div>
+</div>
+</body>
+</html>

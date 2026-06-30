@@ -8,10 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/route_paths.dart';
 import '../../../core/providers/current_user_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/profile_image.dart';
 import '../../student/providers/problem_provider.dart';
 import '../../student/providers/student_matching_session_provider.dart';
 import '../../student/screens/student_review_write_screen.dart';
@@ -818,12 +818,12 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
         children: [
           _Avatar(
             imageUrl: widget.tutorProfileImageUrl,
-            color: AppColors.primaryBlue,
+            role: ProfileRole.tutor,
           ),
           const SizedBox(width: 6),
           _Avatar(
             imageUrl: widget.studentProfileImageUrl,
-            color: AppColors.roleStudentAccent,
+            role: ProfileRole.student,
           ),
           const SizedBox(width: 20),
           _ControlBtn(
@@ -1048,34 +1048,20 @@ class _ColorDot extends StatelessWidget {
 
 class _Avatar extends StatelessWidget {
   final String? imageUrl;
-  final Color color;
+  final ProfileRole role;
 
-  const _Avatar({required this.color, this.imageUrl});
+  const _Avatar({required this.role, this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
     const size = 36.0;
-    final url = imageUrl;
-    if (url != null) {
-      return ClipOval(
-        child: Image.network(
-          ApiConstants.resolveImageUrl(url),
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (ctx, err, stack) => _placeholder(size),
-        ),
-      );
-    }
-    return _placeholder(size);
-  }
-
-  Widget _placeholder(double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: const Icon(Icons.person_rounded, size: 20, color: Colors.white),
+    // 이미지 없으면 역할별 기본 프로필 이미지로 폴백(예전 사람 아이콘 대신).
+    return ClipOval(
+      child: ProfileImage(
+        imageUrl: imageUrl,
+        role: role,
+        size: size,
+      ),
     );
   }
 }

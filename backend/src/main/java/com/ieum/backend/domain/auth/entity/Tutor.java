@@ -92,6 +92,11 @@ public class Tutor extends Account {
         this.available = available;
     }
 
+    /** 관리자 콘솔 — 강사 자격 검수 상태 변경. */
+    public void updateVerificationStatus(VerificationStatus status) {
+        this.verificationStatus = status;
+    }
+
     /** 강사 전용 프로필 수정 — null이 아닌 값만 갱신. */
     public void updateTutorProfile(String bio, String school, String major,
                                    List<String> subjects, EducationStatus educationStatus,

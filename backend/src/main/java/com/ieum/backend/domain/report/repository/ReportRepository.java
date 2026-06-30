@@ -27,4 +27,22 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
             + "where r.lessonId in :lessonIds and r.status in :statuses")
     List<Long> findLessonIdsWithStatusIn(@Param("lessonIds") Collection<Long> lessonIds,
                                          @Param("statuses") Collection<ReportStatus> statuses);
+
+    // ── 관리자 콘솔용 ──
+
+    /** 전체 신고(최신순) — 상태 필터 없음. */
+    List<Report> findAllByOrderByCreatedAtDesc();
+
+    /** 상태별 신고(최신순) — 관리자 신고 목록 필터. */
+    List<Report> findByStatusOrderByCreatedAtDesc(ReportStatus status);
+
+    /** 관리자 신고 목록(페이지) — 전체/상태별. */
+    org.springframework.data.domain.Page<Report> findAllByOrderByCreatedAtDesc(
+            org.springframework.data.domain.Pageable pageable);
+
+    org.springframework.data.domain.Page<Report> findByStatusOrderByCreatedAtDesc(
+            ReportStatus status, org.springframework.data.domain.Pageable pageable);
+
+    /** 상태별 건수 — 대시보드 집계. */
+    long countByStatus(ReportStatus status);
 }

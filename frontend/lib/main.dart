@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/network/health_provider.dart';
 import 'package:ieum/core/providers/app_lifecycle_provider.dart';
+import 'package:ieum/core/providers/onboarding_seen_provider.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/auth/data/auth_controller.dart'; 
 import 'package:ieum/routes/app_router.dart';
@@ -51,6 +52,9 @@ Future<void> main() async {
   try {
     await container.read(authControllerProvider).restoreSession();
   } catch (_) {}
+
+  // 온보딩 "봤음" 플래그를 미리 로드(redirect 가 동기로 읽을 수 있게).
+  await loadOnboardingSeen(container);
 
   runApp(
     UncontrolledProviderScope(

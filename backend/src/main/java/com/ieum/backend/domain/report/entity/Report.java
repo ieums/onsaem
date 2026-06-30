@@ -100,4 +100,37 @@ public class Report {
         this.status = ReportStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }
+
+    // ── 운영자 처리(상태 전이) — 누가 처리했는지(handledBy)와 처리 시각을 함께 기록 ──
+
+    /** 상태를 직접 지정해 전이하며 처리자/시각을 남긴다(감사용). */
+    private void transitionTo(ReportStatus next, Long adminId) {
+        this.status = next;
+        this.handledBy = adminId;
+        this.handledAt = LocalDateTime.now();
+    }
+
+    /** 검토중으로 변경 (PENDING → REVIEWING). */
+    public void markReviewing(Long adminId) {
+        transitionTo(ReportStatus.REVIEWING, adminId);
+    }
+
+    /** 처리완료=정상수업 확인(신고 무효) → RESOLVED. 출금 보류 해제됨. */
+    public void resolve(Long adminId) {
+        transitionTo(ReportStatus.RESOLVED, adminId);
+    }
+
+    /** 반려(신고 무효) → REJECTED. 출금 보류 해제됨. */
+    public void reject(Long adminId) {
+        transitionTo(ReportStatus.REJECTED, adminId);
+    }
+
+    /**
+     * 신고 인정(uphold) → RESOLVED로 마감.
+     * 별도 UPHELD 상태는 없으므로 처리완료(RESOLVED)로 마감하고,
+     * 환불·정산 취소 등 부수효과는 서비스가 수행한다.
+     */
+    public void uphold(Long adminId) {
+        transitionTo(ReportStatus.RESOLVED, adminId);
+    }
 }

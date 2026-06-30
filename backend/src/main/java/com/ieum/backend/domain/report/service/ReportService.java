@@ -8,6 +8,7 @@ import com.ieum.backend.domain.report.entity.Report;
 import com.ieum.backend.domain.report.entity.enums.ReportTargetType;
 import com.ieum.backend.domain.report.entity.enums.ReporterType;
 import com.ieum.backend.domain.report.repository.ReportRepository;
+import com.ieum.backend.domain.settlement.service.SettlementService;
 import com.ieum.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -21,6 +22,7 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final LessonRepository lessonRepository;   // 강의 기반 신고의 당사자 검증용
+    private final SettlementService settlementService; // 신고 인정 시 정산 취소 연동
 
     /**
      * 신고 접수 — PENDING으로 저장. (v1: 접수까지만, 운영자 처리는 추후)
@@ -66,6 +68,75 @@ public class ReportService {
                 .stream()
                 .map(ReportResponse::from)
                 .toList();
+    }
+
+    // ── 관리자 콘솔: 조회 ──
+
+    /** 관리자 신고 목록 — status가 null이면 전체, 아니면 상태 필터(최신순). */
+    public java.util.List<Report> getReportsForAdmin(
+            com.ieum.backend.domain.report.entity.enums.ReportStatus status) {
+        return (status == null)
+                ? reportRepository.findAllByOrderByCreatedAtDesc()
+                : reportRepository.findByStatusOrderByCreatedAtDesc(status);
+    }
+
+    /** 관리자 신고 목록(페이지) — status가 null이면 전체, 아니면 상태 필터(최신순). */
+    public org.springframework.data.domain.Page<Report> getReportsForAdmin(
+            com.ieum.backend.domain.report.entity.enums.ReportStatus status,
+            org.springframework.data.domain.Pageable pageable) {
+        return (status == null)
+                ? reportRepository.findAllByOrderByCreatedAtDesc(pageable)
+                : reportRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
+    }
+
+    /** 관리자 신고 상세 — 엔티티 그대로(템플릿이 join 정보를 별도 조회). */
+    public Report getReportForAdmin(Long reportId) {
+        return reportRepository.findById(reportId)
+                .orElseThrow(() -> BusinessException.notFound("신고를 찾을 수 없습니다. reportId: " + reportId));
+    }
+
+    // ── 관리자 콘솔: 상태 변경(부수효과 포함) ──
+
+    /** PENDING → REVIEWING (검토중). */
+    @Transactional
+    public void markReviewing(Long reportId, Long adminId) {
+        getReportForAdmin(reportId).markReviewing(adminId);
+    }
+
+    /**
+     * 처리완료(정상 수업 확인 = 신고 무효) → RESOLVED.
+     * 부수효과: 그 강의의 출금 보류가 풀린다(다음 finalize 틱에 정산이 자동 생성되므로 강제 생성 불필요).
+     */
+    @Transactional
+    public void resolve(Long reportId, Long adminId) {
+        getReportForAdmin(reportId).resolve(adminId);
+    }
+
+    /**
+     * 반려(신고 무효) → REJECTED.
+     * 부수효과: resolve와 동일하게 출금 보류 해제(상태만 변경).
+     */
+    @Transactional
+    public void reject(Long reportId, Long adminId) {
+        getReportForAdmin(reportId).reject(adminId);
+    }
+
+    /**
+     * 신고 인정(uphold) → 강의 환불 + 정산 취소.
+     * - 정산 취소: settlementService.cancelByLesson(lessonId) (정산이 없으면 조용히 무시됨).
+     * - 환불: 기존에 환불(코인 반환) 플로우가 별도로 존재하지 않으므로 여기서 임의 구현하지 않고
+     *   TODO로 남긴다. (코인 hold 반환/PG 환불 연동은 별도 작업)
+     * 신고는 RESOLVED로 마감한다.
+     */
+    @Transactional
+    public void uphold(Long reportId, Long adminId) {
+        Report report = getReportForAdmin(reportId);
+        if (report.getLessonId() != null) {
+            // 정산 취소(존재 시). 이미 송금 완료(TRANSFERRED)면 엔티티 cancel()이 막아 예외.
+            settlementService.cancelByLesson(report.getLessonId());
+        }
+        // TODO: 환불(코인 hold 반환 / PG 결제 취소) 플로우 연동 — 현재 코드에 환불 진입점이 없어 미구현.
+        report.uphold(adminId);
     }
 
     /**

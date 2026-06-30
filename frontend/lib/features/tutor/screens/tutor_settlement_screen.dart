@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:ieum/core/network/api_error.dart';
 import 'package:ieum/core/widgets/confirm_dialog.dart';
+import 'package:ieum/core/widgets/shell_filter_chip.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/theme/app_colors.dart';
@@ -1689,30 +1690,16 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
   /// [onRegistered]: 계좌 저장 성공 후 실행할 재시도(일괄/단건 출금).
   Future<void> _showAccountRequiredDialog(
       Future<void> Function() onRegistered) async {
-    final goRegister = await showDialog<bool>(
+    // 표준 confirm 다이얼로그로 통일(강사=보라 역할색).
+    final goRegister = await showConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('정산 계좌 등록이 필요해요'),
-        content: const Text(
-          '출금하려면 먼저 정산 계좌를 등록해야 해요.\n지금 등록할까요?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('닫기'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('계좌 등록하기'),
-          ),
-        ],
-      ),
+      title: '정산 계좌 등록이 필요해요',
+      message: '출금하려면 먼저 정산 계좌를 등록해야 해요.\n지금 등록할까요?',
+      cancelText: '닫기',
+      confirmText: '계좌 등록하기',
+      isTutor: true,
     );
-    if (goRegister != true || !mounted) return;
+    if (!goRegister || !mounted) return;
     // 마이페이지와 동일한 계좌 등록 다이얼로그를 그대로 사용.
     final saved = await showSettlementAccountDialog(context, ref);
     if (saved && mounted) {
@@ -1992,20 +1979,23 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
       children: [
         Row(
           children: [
-            _buildPeriodChip('전체', _historyFilter == _HistoryFilter.all, () {
-              _setHistoryFilter(_HistoryFilter.all);
-            }),
+            // 정산내역 필터 — '선별 과목' 칩과 동일 디자인(ShellFilterChip, 테두리만 특징색).
+            ShellFilterChip(
+              label: '전체',
+              selected: _historyFilter == _HistoryFilter.all,
+              onTap: () => _setHistoryFilter(_HistoryFilter.all),
+            ),
             const SizedBox(width: 6),
-            _buildPeriodChip('입금', _historyFilter == _HistoryFilter.deposit, () {
-              _setHistoryFilter(_HistoryFilter.deposit);
-            }),
+            ShellFilterChip(
+              label: '입금',
+              selected: _historyFilter == _HistoryFilter.deposit,
+              onTap: () => _setHistoryFilter(_HistoryFilter.deposit),
+            ),
             const SizedBox(width: 6),
-            _buildPeriodChip(
-              '출금',
-              _historyFilter == _HistoryFilter.withdrawal,
-              () {
-                _setHistoryFilter(_HistoryFilter.withdrawal);
-              },
+            ShellFilterChip(
+              label: '출금',
+              selected: _historyFilter == _HistoryFilter.withdrawal,
+              onTap: () => _setHistoryFilter(_HistoryFilter.withdrawal),
             ),
           ],
         ),

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온샘 관리자 · 로그인</title>
+    <link rel="stylesheet" th:href="@{/admin/admin.css}">
+</head>
+<body>
+<div class="login-wrap">
+    <div class="card login-card">
+        <h1>온샘</h1>
+        <div class="login-error" th:if="${param.error}">아이디 또는 비밀번호가 올바르지 않습니다.</div>
+        <div class="flash" th:if="${param.logout}">로그아웃되었습니다.</div>
+        <form th:action="@{/admin/login}" method="post">
+            <div class="field">
+                <label for="username">아이디</label>
+                <input type="text" id="username" name="username" autocomplete="username" autofocus required>
+            </div>
+            <div class="field">
+                <label for="password">비밀번호</label>
+                <input type="password" id="password" name="password" autocomplete="current-password" required>
+            </div>
+            <button class="btn primary" type="submit">로그인</button>
+        </form>
+    </div>
+</div>
+</body>
+</html>
