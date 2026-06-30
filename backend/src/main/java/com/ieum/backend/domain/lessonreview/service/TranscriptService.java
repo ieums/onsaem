@@ -70,13 +70,14 @@ public class TranscriptService {
         transcript.markProcessing();
 
         Path videoPath = null;
+        String fileUri = null;
         try {
             videoPath = lessonMediaStorage.fetchRecordingToTemp(lessonId, lesson.recordingUrl());
             // 실제 파일 확장자에 맞는 MIME으로 업로드 (mp3를 video/mp4로 올리면 Gemini가 처리 실패).
             String mime = mimeOf(videoPath);
             log.info("[Transcript] 강의 {} 녹음 다운로드 완료: {} (mime={})", lessonId, videoPath, mime);
 
-            String fileUri = geminiFileClient.uploadAndWaitActive(videoPath, mime);
+            fileUri = geminiFileClient.uploadAndWaitActive(videoPath, mime);
             log.info("[Transcript] 강의 {} Gemini 업로드/ACTIVE 완료: {}", lessonId, fileUri);
 
             String text = geminiFileClient.generateWithFile(
@@ -90,6 +91,9 @@ public class TranscriptService {
             transcript.markFailed(e.getMessage());
             // throw 안 함 — 트랜잭션 커밋해서 FAILED 영속화. 다음 폴링에서 재시도 가능.
         } finally {
+            if (fileUri != null) {
+                geminiFileClient.deleteFile(fileUri);    // ← Gemini 저장소에서 삭제(할당량 회수)
+            }
             if (videoPath != null) {
                 try { Files.deleteIfExists(videoPath); }
                 catch (IOException ignored) { }

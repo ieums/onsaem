@@ -33,72 +33,91 @@ class StudentOnboardingThemedScreen extends StatelessWidget {
       sections: [
         (c, r) => _Hero(revealed: r),
         (c, r) => OnbSection(
-              revealed: r,
-              point: _role.point,
-              onPoint: _role.onPoint,
-              stepNo: '1',
-              label: '문제 올리기',
-              title: [
-                const TextSpan(text: '사진 한 장이면\n'),
-                TextSpan(text: '질문 끝', style: TextStyle(color: _role.point)),
-              ],
-              sub: '막히는 문제를 찍어 올리기만 하면\n과목과 유형은 AI가 알아서 분류해요.',
-              viz: const FloatingPhone(role: _role),
+          revealed: r,
+          point: _role.point,
+          onPoint: _role.onPoint,
+          stepNo: '1',
+          label: '문제 올리기',
+          title: [
+            const TextSpan(text: '사진 한 장이면\n'),
+            TextSpan(
+              text: '질문 끝',
+              style: TextStyle(color: _role.point),
             ),
+          ],
+          sub: '막히는 문제를 찍어 올리기만 하면\n과목과 유형은 AI가 알아서 분류해요.',
+          viz: const FloatingPhone(role: _role),
+        ),
         (c, r) => OnbSection(
-              revealed: r,
-              point: _role.point,
-              onPoint: _role.onPoint,
-              stepNo: '2',
-              label: '강사 매칭',
-              title: [
-                const TextSpan(text: '강사가 '),
-                TextSpan(text: '먼저', style: TextStyle(color: _role.point)),
-                const TextSpan(text: ' 손들어요'),
-              ],
-              sub: '올린 문제에 강사들이 신청하면\n프로필을 보고 내 강사를 직접 골라요.',
-              viz: _TutorListViz(revealed: r),
+          revealed: r,
+          point: _role.point,
+          onPoint: _role.onPoint,
+          stepNo: '2',
+          label: '강사 매칭',
+          title: [
+            const TextSpan(text: '강사가 '),
+            TextSpan(
+              text: '먼저',
+              style: TextStyle(color: _role.point),
             ),
+            const TextSpan(text: ' 손들어요'),
+          ],
+          sub: '올린 문제에 강사들이 신청하면\n프로필을 보고 내 강사를 직접 골라요.',
+          viz: _TutorListViz(revealed: r),
+        ),
         (c, r) => OnbSection(
-              revealed: r,
-              point: _role.point,
-              onPoint: _role.onPoint,
-              stepNo: '3',
-              label: '실시간 강의',
-              title: [
-                const TextSpan(text: '칠판을 '),
-                TextSpan(text: '함께', style: TextStyle(color: _role.point)),
-                const TextSpan(text: ' 보며\n그 자리에서'),
-              ],
-              sub: '공유 화이트보드와 음성으로\n막힌 문제를 실시간 1:1로 풀어요.',
-              viz: WhiteboardViz(revealed: r, accent: _role.point),
+          revealed: r,
+          point: _role.point,
+          onPoint: _role.onPoint,
+          stepNo: '3',
+          label: '실시간 강의',
+          title: [
+            const TextSpan(text: '칠판을 '),
+            TextSpan(
+              text: '함께',
+              style: TextStyle(color: _role.point),
             ),
+            const TextSpan(text: ' 보며\n그 자리에서'),
+          ],
+          sub: '공유 화이트보드와 음성으로\n막힌 문제를 실시간 1:1로 풀어요.',
+          viz: WhiteboardViz(revealed: r, accent: _role.point),
+        ),
         (c, r) => OnbSection(
-              revealed: r,
-              point: _role.point,
-              onPoint: _role.onPoint,
-              stepNo: '4',
-              label: 'AI 튜터',
-              title: [
-                const TextSpan(text: '강사가 없어도\n'),
-                TextSpan(text: '지금 바로', style: TextStyle(color: _role.point)),
-              ],
-              sub: '올린 문제 그대로 AI 튜터에게\n24시간 언제든 물어보세요.',
-              viz: TypingChat(revealed: r, point: _role.point, onPoint: _role.onPoint),
+          revealed: r,
+          point: _role.point,
+          onPoint: _role.onPoint,
+          stepNo: '4',
+          label: 'AI 튜터',
+          title: [
+            const TextSpan(text: '강사가 없어도\n'),
+            TextSpan(
+              text: '지금 바로',
+              style: TextStyle(color: _role.point),
             ),
+          ],
+          sub: '올린 문제 그대로 AI 튜터에게\n24시간 언제든 물어보세요.',
+          viz: TypingChat(
+            revealed: r,
+            point: _role.point,
+            onPoint: _role.onPoint,
+          ),
+        ),
         (c, r) => OnbSection(
-              revealed: r,
-              point: _role.point,
-              onPoint: _role.onPoint,
-              stepNo: '5',
-              label: '복습',
-              title: [
-                const TextSpan(text: '끝나도\n'),
-                TextSpan(text: '끝이 아니에요', style: TextStyle(color: _role.point)),
-              ],
-              sub: '녹화 영상과 강사 필기를 다시 보고\n이해 안 된 부분은 복습 질문까지.',
-              viz: _ReplayViz(revealed: r),
+          revealed: r,
+          point: _role.point,
+          onPoint: _role.onPoint,
+          stepNo: '5',
+          label: '복습',
+          title: [
+            const TextSpan(text: '끝나도\n'),
+            TextSpan(
+              text: '끝이 아니에요',
+              style: TextStyle(color: _role.point),
             ),
+          ],
+          sub: '녹화 영상과 강사 필기를 다시 보고\n이해 안 된 부분은 복습 질문까지.',
+          viz: _ReplayViz(revealed: r),
+        ),
         (c, r) => _Final(revealed: r),
       ],
     );
@@ -123,7 +142,11 @@ class _Hero extends StatelessWidget {
             Positioned.fill(
               child: Align(
                 alignment: const Alignment(0, -0.45),
-                child: BreathingGlow(size: 360, color: _role.point, maxAlpha: 0.16),
+                child: BreathingGlow(
+                  size: 360,
+                  color: _role.point,
+                  maxAlpha: 0.16,
+                ),
               ),
             ),
             // 빼꼼 마스코트 — 우상단 가장자리(헤드라인 안 가림)
@@ -142,10 +165,15 @@ class _Hero extends StatelessWidget {
                       revealed: revealed,
                       order: 1,
                       child: Text.rich(
-                        TextSpan(children: [
-                          const TextSpan(text: '모르면 바로,\n'),
-                          TextSpan(text: '지금 바로', style: TextStyle(color: _role.point)),
-                        ]),
+                        TextSpan(
+                          children: [
+                            const TextSpan(text: '모르면 바로,\n'),
+                            TextSpan(
+                              text: '지금 바로',
+                              style: TextStyle(color: _role.point),
+                            ),
+                          ],
+                        ),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 40,
@@ -163,14 +191,23 @@ class _Hero extends StatelessWidget {
                       child: Text(
                         '실시간 1:1 온라인 과외, 온샘',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: p.textSub),
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w500,
+                          color: p.textSub,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            Positioned(bottom: 40, left: 0, right: 0, child: const _ScrollHint()),
+            Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: const _ScrollHint(),
+            ),
           ],
         );
       },
@@ -183,12 +220,20 @@ class _ScrollHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 폰 가로(낮은 높이)에선 bottom 고정 힌트가 가운데 콘텐츠와 겹치므로 숨긴다.
+    if (onbIsShortLandscape(context)) return const SizedBox.shrink();
     final p = OnbPalette.of(context);
     final hint = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('아래로 밀어보세요',
-            style: TextStyle(color: p.textDim, fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(
+          '아래로 밀어보세요',
+          style: TextStyle(
+            color: p.textDim,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         const SizedBox(height: 8),
         Icon(Icons.keyboard_arrow_down_rounded, size: 22, color: p.textDim),
       ],
@@ -219,7 +264,12 @@ class _TutorListViz extends StatelessWidget {
     );
   }
 
-  Widget _row(BuildContext context, String name, String meta, {required bool selected}) {
+  Widget _row(
+    BuildContext context,
+    String name,
+    String meta, {
+    required bool selected,
+  }) {
     final p = OnbPalette.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
@@ -228,7 +278,12 @@ class _TutorListViz extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: selected ? _role.point : p.line),
         boxShadow: selected
-            ? [BoxShadow(color: _role.point.withValues(alpha: 0.22), blurRadius: 24)]
+            ? [
+                BoxShadow(
+                  color: _role.point.withValues(alpha: 0.22),
+                  blurRadius: 24,
+                ),
+              ]
             : null,
       ),
       child: Row(
@@ -239,9 +294,23 @@ class _TutorListViz extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: TextStyle(color: p.text, fontSize: 15, fontWeight: FontWeight.w700)),
+                Text(
+                  name,
+                  style: TextStyle(
+                    color: p.text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(meta, style: TextStyle(color: p.textSub, fontSize: 13, fontWeight: FontWeight.w500)),
+                Text(
+                  meta,
+                  style: TextStyle(
+                    color: p.textSub,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ],
             ),
           ),
@@ -252,8 +321,14 @@ class _TutorListViz extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(color: _role.point, width: 1.5),
               ),
-              child: Text('선택',
-                  style: TextStyle(color: _role.point, fontSize: 12, fontWeight: FontWeight.w800)),
+              child: Text(
+                '선택',
+                style: TextStyle(
+                  color: _role.point,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
         ],
       ),
@@ -264,7 +339,8 @@ class _TutorListViz extends StatelessWidget {
 /// 역할 테마에 맞춘 인물 아바타(46x46).
 Widget _personAva(BuildContext context, Color stroke) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  final hex = '#${(stroke.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+  final hex =
+      '#${(stroke.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
   return Container(
     width: 46,
     height: 46,
@@ -311,7 +387,7 @@ class _ReplayViz extends StatelessWidget {
         _item(
           context,
           '<svg viewBox="0 0 24 24" fill="none"><path d="M6 4h9l4 4v12H6V4z" stroke="$pointHex" stroke-width="2" stroke-linejoin="round"/>'
-          '<path d="M9 12h6M9 16h4" stroke="$pointHex" stroke-width="2" stroke-linecap="round"/></svg>',
+              '<path d="M9 12h6M9 16h4" stroke="$pointHex" stroke-width="2" stroke-linecap="round"/></svg>',
           '강사 필기 노트',
           'PDF · 3페이지',
         ),
@@ -352,9 +428,23 @@ class _ReplayViz extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: TextStyle(color: p.text, fontSize: 14, fontWeight: FontWeight.w700)),
+                Text(
+                  name,
+                  style: TextStyle(
+                    color: p.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(meta, style: TextStyle(color: p.textSub, fontSize: 12, fontWeight: FontWeight.w500)),
+                Text(
+                  meta,
+                  style: TextStyle(
+                    color: p.textSub,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ],
             ),
           ),
@@ -375,51 +465,83 @@ class _Final extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = OnbPalette.of(context);
+    final glow = Positioned.fill(
+      child: Align(
+        alignment: const Alignment(0, 0.55),
+        child: BreathingGlow(size: 340, color: _role.point, maxAlpha: 0.14),
+      ),
+    );
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const OnbJumpMascot(
+          asset: 'assets/images/student_jump.png',
+          width: 150,
+        ),
+        const SizedBox(height: 28),
+        OnbReveal(
+          revealed: revealed,
+          order: 0,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(text: '이제 첫 문제를\n'),
+                TextSpan(
+                  text: '올려볼까요?',
+                  style: TextStyle(color: _role.point),
+                ),
+              ],
+            ),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.64,
+              height: 1.3,
+              color: p.text,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        OnbReveal(
+          revealed: revealed,
+          order: 1,
+          child: Text(
+            '온샘과 함께 막힘 없이 공부해요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: p.textSub,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    // 폰 가로(낮은 높이): 콘텐츠를 흐름에 두고(minHeight만 보장된 박스에서 성장→스크롤)
+    // 하단에 CTA 높이만큼 여백을 확보해 "시작하기" 버튼과 겹치지 않게 한다.
+    // Center 대신 Stack(alignment center)+min Column → minHeight∞ 맥락 크래시 회피.
+    if (onbIsShortLandscape(context)) {
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          glow,
+          Padding(
+            padding: const EdgeInsets.only(
+              bottom: onbShortLandscapeCtaClearance,
+            ),
+            child: content,
+          ),
+        ],
+      );
+    }
+
+    // 세로·태블릿: 기존과 100% 동일.
     return Stack(
       children: [
-        Positioned.fill(
-          child: Align(
-            alignment: const Alignment(0, 0.55),
-            child: BreathingGlow(size: 340, color: _role.point, maxAlpha: 0.14),
-          ),
-        ),
-        Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const OnbJumpMascot(asset: 'assets/images/student_jump.png', width: 150),
-              const SizedBox(height: 28),
-              OnbReveal(
-                revealed: revealed,
-                order: 0,
-                child: Text.rich(
-                  TextSpan(children: [
-                    const TextSpan(text: '이제 첫 문제를\n'),
-                    TextSpan(text: '올려볼까요?', style: TextStyle(color: _role.point)),
-                  ]),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.64,
-                    height: 1.3,
-                    color: p.text,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              OnbReveal(
-                revealed: revealed,
-                order: 1,
-                child: Text(
-                  '온샘과 함께 막힘 없이 공부해요.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: p.textSub),
-                ),
-              ),
-            ],
-          ),
-        ),
+        glow,
+        Center(child: content),
       ],
     );
   }

@@ -189,3 +189,54 @@ class OnbDur {
   /// 스태거 dropIn 각 항목 (0.6s)
   static const Duration drop = Duration(milliseconds: 600);
 }
+
+/// 화면 높이가 낮은 가로(폰 가로) 여부.
+///
+/// 고정 위치 오버레이(스크롤 힌트·하단 CTA)가 콘텐츠와 충돌하는 케이스를
+/// 분기할 때 쓴다. 세로(폰·태블릿)와 태블릿 가로(높이 충분)는 모두 false →
+/// 해당 화면들은 분기 코드를 타지 않아 기존과 100% 동일하게 유지된다.
+bool onbIsShortLandscape(BuildContext context) {
+  final s = MediaQuery.of(context).size;
+  return s.width > s.height && s.height < 500;
+}
+
+/// 폰 가로에서 마지막(Final) 섹션 콘텐츠가 하단 CTA 버튼과 겹치지 않도록
+/// 확보하는 하단 여백(버튼 ~54 + 상하 패딩 40 + 하단 세이프영역 여유).
+const double onbShortLandscapeCtaClearance = 120;
+
+/// AspectRatio 기반 비주얼(예: 1.5)이 **가로(landscape)**에서 폭이 넓어지며
+/// 세로 높이(폭/비율)가 화면 높이를 넘겨 폭주하는 것을 막는 래퍼.
+///
+///  - **세로(portrait)**: [child]를 그대로 반환 → 지금 보이는 크기/비율 100% 유지.
+///  - **가로(landscape)**: 화면 높이의 [landscapeHeightFactor] 비율로 maxHeight 상한.
+///    AspectRatio가 비율을 지킨 채 높이에 맞춰 폭을 줄이고, 줄어든 폭은
+///    가로축 가운데 정렬해 자연스럽게 배치한다([Align.heightFactor]=1로 세로 확장 방지).
+class OnbVizHeightCap extends StatelessWidget {
+  const OnbVizHeightCap({
+    super.key,
+    required this.child,
+    this.landscapeHeightFactor = 0.5,
+  });
+
+  final Widget child;
+
+  /// 가로에서 viz 최대 높이 = 화면 높이 × 이 값.
+  final double landscapeHeightFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    // 세로에서는 손대지 않는다(크기/비율 유지).
+    if (mq.orientation != Orientation.landscape) return child;
+    return Align(
+      alignment: Alignment.center,
+      heightFactor: 1, // 자식 높이만큼만 → 세로로 무한 확장 방지
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: mq.size.height * landscapeHeightFactor,
+        ),
+        child: child,
+      ),
+    );
+  }
+}

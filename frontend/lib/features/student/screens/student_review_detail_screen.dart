@@ -191,12 +191,10 @@ class _StudentReviewDetailScreenState
       children: [
         Container(
           color: Colors.black,
-          constraints: const BoxConstraints(maxHeight: 380),
-          alignment: Alignment.center,
-          child: AspectRatio(
-            aspectRatio: _videoAspectRatio,
-            child: Chewie(controller: _chewieController!),
-          ),
+          width: double.infinity,
+          height: (MediaQuery.of(context).size.width / _videoAspectRatio)
+              .clamp(0.0, 380.0),          // 폭÷비율로 높이 자동, 너무 길면 380까지
+          child: Chewie(controller: _chewieController!),
         ),
         Positioned(
           top: 4,
@@ -361,7 +359,7 @@ class _StudentReviewDetailScreenState
           ),
           Expanded(
             child: Text(
-              state.session?.title ?? widget.title,
+              widget.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

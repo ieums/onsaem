@@ -7,7 +7,8 @@ import 'pulse_glow_button.dart';
 
 /// 온보딩 한 섹션의 콘텐츠를 만드는 빌더. [revealed]는 해당 섹션이 뷰포트에
 /// 들어와 등장 애니메이션을 재생해야 하는지 여부.
-typedef OnbSectionBuilder = Widget Function(BuildContext context, bool revealed);
+typedef OnbSectionBuilder =
+    Widget Function(BuildContext context, bool revealed);
 
 /// 학생/강사 공통 온보딩 셸.
 ///  - 세로 스크롤(섹션마다 뷰포트 높이)
@@ -40,14 +41,19 @@ class OnboardingScaffold extends StatefulWidget {
 }
 
 class _OnboardingScaffoldState extends State<OnboardingScaffold> {
-  late final List<bool> _revealed = List<bool>.filled(widget.sections.length, false);
+  late final List<bool> _revealed = List<bool>.filled(
+    widget.sections.length,
+    false,
+  );
   int _current = 0;
 
   @override
   void initState() {
     super.initState();
     // 진행점/CTA가 스크롤에 빠르게 따라오도록 감지 주기 단축
-    VisibilityDetectorController.instance.updateInterval = const Duration(milliseconds: 100);
+    VisibilityDetectorController.instance.updateInterval = const Duration(
+      milliseconds: 100,
+    );
   }
 
   void _onVis(int i, double fraction, bool reduce) {
@@ -64,13 +70,60 @@ class _OnboardingScaffoldState extends State<OnboardingScaffold> {
     if (changed && mounted) setState(() {});
   }
 
+  /// 한 섹션을 세로 스크롤 본문에 배치한다.
+  ///  - 일반 [OnbSection](제목+부제+비주얼): 콘텐츠가 한 화면보다 길어질 수 있어
+  ///    (가로 등) 높이를 고정하지 않고 **최소 한 화면(minHeight: vh)**만 보장한다.
+  ///    내부 Column이 [MainAxisSize.min]이라 넘치는 만큼 섹션이 늘어나고,
+  ///    바깥 [SingleChildScrollView]가 자연스럽게 스크롤한다 → BOTTOM OVERFLOWED 제거.
+  ///  - Hero/Final(Stack+Center 기반)은 기존처럼 정확히 한 화면 높이를 유지한다.
+  Widget _buildSection(
+    BuildContext context,
+    int i,
+    double vh,
+    bool reduce,
+    double gap,
+  ) {
+    final section = widget.sections[i](context, _revealed[i] || reduce);
+    final detector = VisibilityDetector(
+      key: ValueKey('onb_sec_$i'),
+      onVisibilityChanged: (info) => _onVis(i, info.visibleFraction, reduce),
+      child: section,
+    );
+
+    final isLast = i == widget.sections.length - 1;
+    // 폰 가로의 마지막(Final) 섹션은 콘텐츠+CTA 여백이 한 화면보다 커질 수 있어
+    // 높이를 고정하지 않고 minHeight만 보장(넘치면 바깥 스크롤). Final은 그 맥락에서
+    // 크래시 없이 늘어나는 분기(onbIsShortLandscape)를 자체적으로 갖는다.
+    // 일반 [OnbSection]도 동일하게 minHeight만 보장한다.
+    final grow = section is OnbSection || (gap > 0 && isLast);
+    final box = grow
+        ? ConstrainedBox(
+            constraints: BoxConstraints(minHeight: vh),
+            child: detector,
+          )
+        : SizedBox(height: vh, child: detector);
+
+    // 화면 높이가 낮은 가로(폰 가로)에서만 섹션 사이 여백을 둔다.
+    // gap == 0(세로·태블릿 가로)이면 래퍼 없이 그대로 → 기존과 100% 동일.
+    if (gap <= 0 || isLast) return box;
+    return Padding(
+      padding: EdgeInsets.only(bottom: gap),
+      child: box,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = OnbPalette.of(context);
     final reduce = MediaQuery.of(context).disableAnimations;
-    final vh = MediaQuery.of(context).size.height;
+    final size = MediaQuery.of(context).size;
+    final vh = size.height;
     final last = widget.sections.length - 1;
     final showCta = _current == last;
+
+    // 폰 가로처럼 화면 높이가 낮은 가로에서만 섹션 사이 여백을 추가한다.
+    // (세로·태블릿 가로는 높이가 충분 → gap 0 → 기존 레이아웃 그대로)
+    final sectionGap = onbIsShortLandscape(context) ? 48.0 : 0.0;
 
     return Scaffold(
       backgroundColor: p.bg,
@@ -81,14 +134,7 @@ class _OnboardingScaffoldState extends State<OnboardingScaffold> {
             child: Column(
               children: [
                 for (var i = 0; i < widget.sections.length; i++)
-                  SizedBox(
-                    height: vh,
-                    child: VisibilityDetector(
-                      key: ValueKey('onb_sec_$i'),
-                      onVisibilityChanged: (info) => _onVis(i, info.visibleFraction, reduce),
-                      child: widget.sections[i](context, _revealed[i] || reduce),
-                    ),
-                  ),
+                  _buildSection(context, i, vh, reduce, sectionGap),
               ],
             ),
           ),
@@ -128,12 +174,19 @@ class _OnboardingScaffoldState extends State<OnboardingScaffold> {
               child: Align(
                 alignment: Alignment.centerRight,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
                   child: TextButton(
                     onPressed: widget.onSkip,
                     child: Text(
                       '건너뛰기',
-                      style: TextStyle(color: p.textDim, fontSize: 14, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: p.textDim,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -187,7 +240,12 @@ class _OnboardingScaffoldState extends State<OnboardingScaffold> {
 /// 섹션 내 요소 하나를 reveal(페이드인 + 40px 슬라이드업, onbToss 900ms,
 /// [order]*80ms stagger)로 감싼다.
 class OnbReveal extends StatelessWidget {
-  const OnbReveal({super.key, required this.revealed, required this.order, required this.child});
+  const OnbReveal({
+    super.key,
+    required this.revealed,
+    required this.order,
+    required this.child,
+  });
 
   final bool revealed;
   final int order;
@@ -200,7 +258,13 @@ class OnbReveal extends StatelessWidget {
     return child
         .animate(target: revealed ? 1 : 0)
         .fadeIn(duration: OnbDur.reveal, delay: delay, curve: onbToss)
-        .moveY(begin: 40, end: 0, duration: OnbDur.reveal, delay: delay, curve: onbToss);
+        .moveY(
+          begin: 40,
+          end: 0,
+          duration: OnbDur.reveal,
+          delay: delay,
+          curve: onbToss,
+        );
   }
 }
 
@@ -242,6 +306,9 @@ class OnbSection extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
+        // minHeight만 보장된 박스 안에서 동작 → 한 화면보다 짧으면 가운데 정렬,
+        // 길면(가로 등) 콘텐츠 높이만큼 늘어나 바깥 스크롤로 흐른다.
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -294,11 +361,17 @@ class OnbSection extends StatelessWidget {
           decoration: BoxDecoration(
             color: point,
             borderRadius: BorderRadius.circular(9),
-            boxShadow: [BoxShadow(color: point.withValues(alpha: 0.4), blurRadius: 16)],
+            boxShadow: [
+              BoxShadow(color: point.withValues(alpha: 0.4), blurRadius: 16),
+            ],
           ),
           child: Text(
             stepNo,
-            style: TextStyle(color: onPoint ?? p.bg, fontSize: 13, fontWeight: FontWeight.w800),
+            style: TextStyle(
+              color: onPoint ?? p.bg,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
         const SizedBox(width: 10),

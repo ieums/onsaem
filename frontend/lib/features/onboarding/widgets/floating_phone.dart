@@ -27,13 +27,15 @@ class FloatingPhone extends StatefulWidget {
 class _FloatingPhoneState extends State<FloatingPhone>
     with TickerProviderStateMixin {
   // float + ground (3.5s 왕복 = 1.75s reverse)
-  late final AnimationController _float =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1750))
-        ..repeat(reverse: true);
+  late final AnimationController _float = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1750),
+  )..repeat(reverse: true);
   // shutter + flash + sparkle (2.8s 1방향 루프)
-  late final AnimationController _pulse =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 2800))
-        ..repeat();
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2800),
+  )..repeat();
 
   @override
   void dispose() {
@@ -65,89 +67,89 @@ class _FloatingPhoneState extends State<FloatingPhone>
     final role = widget.role;
     final fx = role.phoneFx(Theme.of(context).brightness);
 
-    return AspectRatio(
-      aspectRatio: 1.5,
-      child: LayoutBuilder(
-        builder: (context, c) {
-          final w = c.maxWidth;
-          final h = c.maxHeight;
+    return OnbVizHeightCap(
+      child: AspectRatio(
+        aspectRatio: 1.5,
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final w = c.maxWidth;
+            final h = c.maxHeight;
 
-          final phone = _phoneImage(role, reduce);
+            final phone = _phoneImage(role, reduce);
 
-          return Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              // 뒤 후광
-              Center(
-                child: BreathingGlow(
-                  size: w * 0.78,
-                  color: role.point,
-                  maxAlpha: 0.20,
-                  stop: 0.68,
+            return Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                // 뒤 후광
+                Center(
+                  child: BreathingGlow(
+                    size: w * 0.78,
+                    color: role.point,
+                    maxAlpha: 0.20,
+                    stop: 0.68,
+                  ),
                 ),
-              ),
 
-              // 바닥 그림자
-              Positioned(
-                bottom: h * 0.10,
-                left: w * 0.27,
-                width: w * 0.46,
-                height: h * 0.10,
-                child: reduce
-                    ? _ground(role, 1, 0.7)
-                    : AnimatedBuilder(
-                        animation: _float,
-                        builder: (_, _) {
-                          final t = _float.value;
-                          return _ground(
-                            role,
-                            lerpDouble(1, 0.78, t)!,
-                            lerpDouble(0.9, 0.5, t)!,
-                          );
-                        },
-                      ),
-              ),
-
-              // 플래시 버스트 (폰 뒤/주변)
-              if (!reduce)
+                // 바닥 그림자
                 Positioned(
-                  left: w * 0.08,
-                  right: w * 0.08,
-                  top: h * 0.08,
-                  bottom: h * 0.08,
-                  child: AnimatedBuilder(
-                    animation: _pulse,
-                    builder: (_, _) => Opacity(
-                      opacity: (_flashOpacity(_pulse.value) * fx.flashGain).clamp(0.0, 1.0),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              fx.flashCore,
-                              fx.flashMid,
-                              fx.flashMid.withValues(alpha: 0),
-                            ],
-                            stops: const [0.0, 0.50, 0.72],
+                  bottom: h * 0.10,
+                  left: w * 0.27,
+                  width: w * 0.46,
+                  height: h * 0.10,
+                  child: reduce
+                      ? _ground(role, 1, 0.7)
+                      : AnimatedBuilder(
+                          animation: _float,
+                          builder: (_, _) {
+                            final t = _float.value;
+                            return _ground(
+                              role,
+                              lerpDouble(1, 0.78, t)!,
+                              lerpDouble(0.9, 0.5, t)!,
+                            );
+                          },
+                        ),
+                ),
+
+                // 플래시 버스트 (폰 뒤/주변)
+                if (!reduce)
+                  Positioned(
+                    left: w * 0.08,
+                    right: w * 0.08,
+                    top: h * 0.08,
+                    bottom: h * 0.08,
+                    child: AnimatedBuilder(
+                      animation: _pulse,
+                      builder: (_, _) => Opacity(
+                        opacity: (_flashOpacity(_pulse.value) * fx.flashGain)
+                            .clamp(0.0, 1.0),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                fx.flashCore,
+                                fx.flashMid,
+                                fx.flashMid.withValues(alpha: 0),
+                              ],
+                              stops: const [0.0, 0.50, 0.72],
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
 
-              // 폰 (float + shutter)
-              SizedBox(
-                height: h * 0.84,
-                child: phone,
-              ),
+                // 폰 (float + shutter)
+                SizedBox(height: h * 0.84, child: phone),
 
-              // 스파클 4개
-              if (!reduce) ..._sparkles(role, w, fx),
-            ],
-          );
-        },
+                // 스파클 4개
+                if (!reduce) ..._sparkles(role, w, fx),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -157,8 +159,11 @@ class _FloatingPhoneState extends State<FloatingPhone>
       'assets/images/student_phone.png',
       fit: BoxFit.contain,
       errorBuilder: (_, _, _) => Center(
-        child: Icon(Icons.smartphone_outlined,
-            size: 72, color: OnbPalette.of(context).textDim),
+        child: Icon(
+          Icons.smartphone_outlined,
+          size: 72,
+          color: OnbPalette.of(context).textDim,
+        ),
       ),
     );
     if (reduce) return img;
@@ -170,10 +175,17 @@ class _FloatingPhoneState extends State<FloatingPhone>
         final ty = lerpDouble(0, -12, f)!;
         final floatRot = lerpDouble(-1.4, 1.4, f)! * 3.1415926 / 180;
         final u = _pulse.value;
-        final sScale = _kf(u, const [0, 0.38, 0.46, 0.53, 0.64, 1],
-            const [1, 1, 0.945, 1.025, 1, 1]);
-        final sRot = _kf(u, const [0, 0.38, 0.46, 0.53, 0.64, 1],
-                const [0, 0, -1.2, 0.6, 0, 0]) *
+        final sScale = _kf(
+          u,
+          const [0, 0.38, 0.46, 0.53, 0.64, 1],
+          const [1, 1, 0.945, 1.025, 1, 1],
+        );
+        final sRot =
+            _kf(
+              u,
+              const [0, 0.38, 0.46, 0.53, 0.64, 1],
+              const [0, 0, -1.2, 0.6, 0, 0],
+            ) *
             3.1415926 /
             180;
         return Transform.translate(
@@ -221,8 +233,11 @@ class _FloatingPhoneState extends State<FloatingPhone>
 
   /// 플래시 opacity 키프레임: 0/40/62/100→0, 47→0.42, 50→0.18
   static double _flashOpacity(double u) {
-    return _kf(u, const [0, 0.40, 0.47, 0.50, 0.62, 1],
-        const [0, 0, 0.42, 0.18, 0, 0]);
+    return _kf(
+      u,
+      const [0, 0.40, 0.47, 0.50, 0.62, 1],
+      const [0, 0, 0.42, 0.18, 0, 0],
+    );
   }
 
   /// 별 + (라이트에서만) 번지는 드롭섀도우. 다크는 그림자 없이 별만(회귀 없음).
@@ -253,12 +268,50 @@ class _FloatingPhoneState extends State<FloatingPhone>
 
   List<Widget> _sparkles(OnbRolePalette role, double w, OnbPhoneFx fx) {
     // (top?, left?, right?, bottom?, size, phase)
-    final defs = <({double? top, double? left, double? right, double? bottom, double size, double phase})>[
-      (top: 0.16, left: 0.18, right: null, bottom: null, size: 24, phase: 0.0),
-      (top: 0.24, left: null, right: 0.16, bottom: null, size: 17, phase: 0.03),
-      (top: null, left: 0.24, right: null, bottom: 0.22, size: 14, phase: 0.05),
-      (top: null, left: null, right: 0.20, bottom: 0.28, size: 20, phase: 0.01),
-    ];
+    final defs =
+        <
+          ({
+            double? top,
+            double? left,
+            double? right,
+            double? bottom,
+            double size,
+            double phase,
+          })
+        >[
+          (
+            top: 0.16,
+            left: 0.18,
+            right: null,
+            bottom: null,
+            size: 24,
+            phase: 0.0,
+          ),
+          (
+            top: 0.24,
+            left: null,
+            right: 0.16,
+            bottom: null,
+            size: 17,
+            phase: 0.03,
+          ),
+          (
+            top: null,
+            left: 0.24,
+            right: null,
+            bottom: 0.22,
+            size: 14,
+            phase: 0.05,
+          ),
+          (
+            top: null,
+            left: null,
+            right: 0.20,
+            bottom: 0.28,
+            size: 20,
+            phase: 0.01,
+          ),
+        ];
     return [
       for (final d in defs)
         Positioned(
@@ -272,11 +325,22 @@ class _FloatingPhoneState extends State<FloatingPhone>
             animation: _pulse,
             builder: (_, _) {
               final u = (_pulse.value + d.phase) % 1.0;
-              final op = _kf(u, const [0, 0.40, 0.47, 0.60, 1], const [0, 0, 1, 0, 0]);
-              final sc = _kf(u, const [0, 0.40, 0.47, 0.60, 1],
-                  const [0.2, 0.2, 1.0, 0.4, 0.2]);
-              final rot = _kf(u, const [0, 0.40, 0.47, 0.60, 1],
-                      const [0, 0, 35, 70, 70]) *
+              final op = _kf(
+                u,
+                const [0, 0.40, 0.47, 0.60, 1],
+                const [0, 0, 1, 0, 0],
+              );
+              final sc = _kf(
+                u,
+                const [0, 0.40, 0.47, 0.60, 1],
+                const [0.2, 0.2, 1.0, 0.4, 0.2],
+              );
+              final rot =
+                  _kf(
+                    u,
+                    const [0, 0.40, 0.47, 0.60, 1],
+                    const [0, 0, 35, 70, 70],
+                  ) *
                   3.1415926 /
                   180;
               return Opacity(
