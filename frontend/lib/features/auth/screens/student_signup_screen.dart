@@ -39,7 +39,7 @@ class _StudentSignupScreenState extends ConsumerState<StudentSignupScreen> {
   static const _profileSize = 96.0;
   static const _profileAddButtonSize = 24.0;
 
-  static const _domainOptions = ['직접입력', '@gmail.com', '@naver.com'];
+  static const _domainOptions = ['직접입력', 'gmail.com', 'naver.com'];
   static const _presetDomainsForWidth = ['gmail.com', 'naver.com'];
   static const _domainTextStyle = TextStyle(
     fontSize: 14,

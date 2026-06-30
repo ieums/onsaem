@@ -65,9 +65,12 @@ class _TutorHomeScreenState extends ConsumerState<TutorHomeScreen> {
     final matchingState = ref.watch(matchingProvider);
 
     final visibleList = matchingState.problems.whenOrNull(
+          // 학생 홈(최신순)과 정렬을 맞춤 — 백엔드 searching 쿼리엔 ORDER BY가 없어
+          // DB 기본순(등록순)으로 오므로 프론트에서 createdAt 내림차순으로 통일한다.
           data: (list) => list
               .where((p) => !_rejectedProblemIds.contains(p.problemId))
-              .toList(),
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
         ) ??
         [];
 
