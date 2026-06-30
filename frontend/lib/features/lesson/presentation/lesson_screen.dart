@@ -333,8 +333,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
         final selectedTutor = session?.selectedTutor;
         ref
             .read(studentMatchingSessionProvider.notifier)
-            .cancelMatching()
-            .catchError((_) {});
+            .clearSession();
 
         if (lessonId == null) {
           context.go('/');
