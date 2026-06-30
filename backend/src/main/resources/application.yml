@@ -35,6 +35,11 @@ spring:
 server:
   port: 8080
 
+# 관리자 콘솔(Thymeleaf) 단일 운영 계정 — application.yml 환경변수 기반(별도 admin 테이블 미사용)
+admin:
+  username: ${ADMIN_USERNAME:admin}
+  password: ${ADMIN_PASSWORD:admin1234}
+
 file:
   upload-dir: uploads
 

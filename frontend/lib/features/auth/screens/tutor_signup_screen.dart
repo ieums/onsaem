@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/constants/route_paths.dart';
 import 'package:ieum/core/widgets/profile_image.dart';
-import 'package:ieum/core/widgets/shell_filter_chip.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/features/auth/data/auth_controller.dart';
@@ -588,9 +587,9 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
         final code = entry.key; // 'KOREAN'
         final label = entry.value; // '국어'
         final selected = _subjectKeywords.contains(code);
-        return ShellFilterChip(
-          label: label,
-          selected: selected,
+        final scheme = Theme.of(context).colorScheme;
+        // 학생 과목선택 UI와 동일: 선택=특징색(보라) 채움+검정 글씨, 미선택=외곽선.
+        return GestureDetector(
           onTap: () => setState(() {
             if (selected) {
               _subjectKeywords.remove(code);
@@ -598,6 +597,24 @@ class _TutorSignupScreenState extends ConsumerState<TutorSignupScreen> {
               _subjectKeywords.add(code);
             }
           }),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.primaryBlue : scheme.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected ? AppColors.primaryBlue : scheme.outlineVariant,
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.black : scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
         );
       }).toList(),
     );

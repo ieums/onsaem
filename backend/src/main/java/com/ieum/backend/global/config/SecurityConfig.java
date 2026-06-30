@@ -1,11 +1,13 @@
 package com.ieum.backend.global.config;
 
+import com.ieum.backend.domain.admin.service.AdminUserDetailsService;
 import com.ieum.backend.domain.auth.jwt.JwtAccessDeniedHandler;
 import com.ieum.backend.domain.auth.jwt.JwtAuthenticationEntryPoint;
 import com.ieum.backend.domain.auth.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -27,8 +29,51 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
+    private final AdminUserDetailsService adminUserDetailsService;
+
+    /**
+     * 관리자 콘솔(Thymeleaf) 전용 보안 체인 — @Order(1)로 /admin/** 만 가로챈다.
+     * - 폼 로그인(/admin/login) + 세션 + CSRF 활성(서버렌더 폼 기본).
+     * - 인증 주체는 Admin 테이블(AdminUserDetailsService, BCrypt). ROLE_ADMIN.
+     * - /admin/login·정적(css/js/img)·favicon·error 는 permitAll, 나머지 /admin/** 는 ROLE_ADMIN.
+     * - JWT 필터는 이 체인에 끼우지 않는다(세션 인증).
+     */
+    @Bean
+    @Order(1)
+    public SecurityFilterChain adminFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/admin/**")
+                .userDetailsService(adminUserDetailsService)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // CSRF는 기본 활성(서버렌더 폼). 정적·로그인은 어차피 permitAll.
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/admin/login",
+                                "/admin/admin.css",
+                                "/admin/css/**",
+                                "/admin/js/**",
+                                "/admin/img/**"
+                        ).permitAll()
+                        .anyRequest().hasRole("ADMIN")
+                )
+                .formLogin(form -> form
+                        .loginPage("/admin/login")
+                        .loginProcessingUrl("/admin/login")
+                        .defaultSuccessUrl("/admin", true)
+                        .failureUrl("/admin/login?error")
+                        .permitAll()
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/admin/logout")
+                        .logoutSuccessUrl("/admin/login?logout")
+                        .permitAll()
+                )
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
+        return http.build();
+    }
 
     @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())

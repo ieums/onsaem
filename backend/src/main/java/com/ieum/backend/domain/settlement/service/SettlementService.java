@@ -376,6 +376,35 @@ public class SettlementService {
         return SettlementResponse.from(settlement);
     }
 
+    // ── 관리자 콘솔: 조회 ──
+
+    /** 관리자 정산 목록 — status가 null이면 전체, 아니면 상태 필터(최신순). */
+    public List<Settlement> getSettlementsForAdmin(SettlementStatus status) {
+        return (status == null)
+                ? settlementRepository.findAllByOrderByCreatedAtDesc()
+                : settlementRepository.findByStatusOrderByCreatedAtDesc(status);
+    }
+
+    /** 관리자 정산 목록(페이지) — status가 null이면 전체, 아니면 상태 필터(최신순). */
+    public org.springframework.data.domain.Page<Settlement> getSettlementsForAdmin(
+            SettlementStatus status, org.springframework.data.domain.Pageable pageable) {
+        return (status == null)
+                ? settlementRepository.findAllByOrderByCreatedAtDesc(pageable)
+                : settlementRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
+    }
+
+    /** 관리자 정산 상세 — 엔티티 그대로(본인 검증 없이 운영자 전권 조회). */
+    public Settlement getSettlementForAdmin(Long settlementId) {
+        return settlementRepository.findById(settlementId)
+                .orElseThrow(() -> BusinessException.notFound(
+                        "정산 정보를 찾을 수 없습니다. settlementId: " + settlementId));
+    }
+
+    /** 상태별 합계/건수 집계 — 대시보드용. */
+    public SettlementRepository.SettlementStatusAggregate aggregateByStatus(SettlementStatus status) {
+        return settlementRepository.aggregateByStatus(status);
+    }
+
     /** 출금 전 정산 계좌 등록 확인 */
     private void requireSettlementAccount(Long tutorId) {
         Tutor tutor = tutorRepository.findById(tutorId)

@@ -1,6 +1,7 @@
 package com.ieum.backend.domain.lessonreview.repository;
 
 import com.ieum.backend.domain.lessonreview.entity.LessonTranscript;
+import com.ieum.backend.domain.lessonreview.entity.LessonTranscriptStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -8,6 +9,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface LessonTranscriptRepository extends JpaRepository<LessonTranscript, Long> {
+
+    /** 관리자 통계 — 복습 요약(전사) 완료 수 ≈ Gemini 요약 호출 근사 */
+    long countByStatus(LessonTranscriptStatus status);
 
     // lesson 1개당 트랜스크립트는 1개 (lesson_id UNIQUE)
     Optional<LessonTranscript> findByLessonId(Long lessonId);

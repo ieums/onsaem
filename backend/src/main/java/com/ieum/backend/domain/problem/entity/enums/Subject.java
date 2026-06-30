@@ -30,4 +30,14 @@ public enum Subject {
         }
         return null;
     }
+
+    /**
+     * 저장된 원문(enum 이름/한글 무관)을 한글 표시명으로 변환한다.
+     * 매핑되는 enum이 없으면 원문을 그대로 반환(데이터 보존). null이면 null.
+     */
+    public static String displayNameOf(String value) {
+        if (value == null) return null;
+        Subject s = fromAny(value);
+        return s != null ? s.displayName : value;
+    }
 }

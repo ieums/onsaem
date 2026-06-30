@@ -163,16 +163,16 @@ class _StudentReviewWriteScreenState
                               children: [
                                 // 움직이는 체크 링 대신 마스코트 이미지(학생=연두 a).
                                 SizedBox(
-                                  width: 150,
-                                  height: 150,
+                                  width: 140,
+                                  height: 140,
                                   child: Image.asset(
                                     'assets/images/review_student.png',
                                     fit: BoxFit.contain,
                                     errorBuilder: (_, _, _) =>
-                                        const SizedBox(width: 150, height: 150),
+                                        const SizedBox(width: 140, height: 140),
                                   ),
                                 ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 10),
                           Text(
                             '수업이 완료되었습니다!',
                             style: TextStyle(
@@ -189,10 +189,10 @@ class _StudentReviewWriteScreenState
                               color: shell.subtitleColor,
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 14),
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+                            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
                             decoration: BoxDecoration(
                               color: shell.cardBackground,
                               borderRadius: BorderRadius.circular(16),
@@ -223,7 +223,7 @@ class _StudentReviewWriteScreenState
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 18),
+                                const SizedBox(height: 14),
                                 _InteractiveStarRating(
                                   rating: _rating,
                                   onChanged: (value) => setState(() => _rating = value),
@@ -239,7 +239,7 @@ class _StudentReviewWriteScreenState
                                         : AppColors.reviewHighlight,
                                   ),
                                 ),
-                                const SizedBox(height: 18),
+                                const SizedBox(height: 14),
                                 Align(
                                   alignment: Alignment.centerLeft,
                                   child: Text(
@@ -255,7 +255,7 @@ class _StudentReviewWriteScreenState
                                 TextField(
                                   controller: _reviewController,
                                   maxLength: _maxReviewLength,
-                                  maxLines: 4,
+                                  maxLines: 3,
                                   onChanged: (_) => setState(() {}),
                                   style: TextStyle(
                                     fontSize: 14,

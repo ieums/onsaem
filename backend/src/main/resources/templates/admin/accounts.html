@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온샘 관리자 · 관리자 계정</title>
+    <link rel="stylesheet" th:href="@{/admin/admin.css}">
+</head>
+<body>
+<div th:replace="~{admin/_layout :: shell('accounts')}"></div>
+
+<div class="container">
+    <div class="page-head">
+        <h1>관리자 계정</h1>
+    </div>
+
+    <div class="flash" th:if="${msg}" th:text="${msg}"></div>
+    <div class="flash" th:if="${err}" th:text="${err}" style="background:#fdeeed;border-color:#f3c2bf;color:#b33;"></div>
+
+    <div class="section-title">새 관리자 추가</div>
+    <div class="card" style="margin-bottom:24px;">
+        <form th:action="@{/admin/accounts}" method="post">
+            <div class="grid cols-2" style="align-items:end;">
+                <div class="field" style="margin:0;">
+                    <label for="username">아이디</label>
+                    <input type="text" id="username" name="username" autocomplete="off" required>
+                </div>
+                <div class="field" style="margin:0;">
+                    <label for="password">비밀번호</label>
+                    <input type="password" id="password" name="password" autocomplete="new-password" required>
+                </div>
+            </div>
+            <button class="btn primary" type="submit" style="margin-top:14px;">관리자 추가</button>
+        </form>
+    </div>
+
+    <div class="section-title">관리자 목록</div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>#</th>
+                <th>아이디</th>
+                <th>생성일</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="a : ${admins}">
+                <td th:text="${a.id}">1</td>
+                <td th:text="${a.username}">admin</td>
+                <td class="faint" th:text="${a.createdAt != null ? #temporals.format(a.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">-</td>
+            </tr>
+            <tr th:if="${admins.isEmpty()}">
+                <td colspan="3" class="faint" style="text-align:center;padding:32px;">관리자 계정이 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>

@@ -10,6 +10,7 @@ import 'package:ieum/core/notifications/app_notification_service.dart';
 import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/storage/token_storage.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/features/student/widgets/student_action_button_style.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/auth/screens/password_reset_screen.dart';
@@ -726,17 +727,17 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.check_circle_rounded,
-                              size: 18, color: Color(0xFF2E9E6B)),
+                              size: 18, color: AppColors.studentPoint),
                           SizedBox(width: 4),
                           Text('복사됨',
                               style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF2E9E6B))),
+                                  color: AppColors.studentPoint)),
                         ],
                       )
-                    : Icon(Icons.copy_rounded,
-                        size: 18, color: _shell.chevronColor),
+                    : const Icon(Icons.copy_rounded,
+                        size: 18, color: AppColors.studentPoint),
               ),
               const SizedBox(height: 4),
               Text(
@@ -746,16 +747,15 @@ class _StudentMyPageScreenState extends ConsumerState<StudentMyPageScreen> {
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
+                child: OutlinedButton.icon(
                   onPressed: copyEmail,
-                  icon: const Icon(Icons.content_copy_rounded, size: 18),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.studentPoint,
-                    foregroundColor: Colors.black,
+                  // 통일 스타일: 테두리만 특징색 + 흰/다크 배경 + 검정/특징색 글씨. 아이콘은 특징색.
+                  icon: const Icon(Icons.content_copy_rounded,
+                      size: 18, color: AppColors.studentPoint),
+                  style: studentOutlinedButtonStyle(
+                    Theme.of(sheetContext).brightness == Brightness.dark,
+                    radius: 12,
                     minimumSize: const Size.fromHeight(48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
                   label: Text(copied ? '이메일이 복사됐어요' : '문의 이메일 복사하기'),
                 ),

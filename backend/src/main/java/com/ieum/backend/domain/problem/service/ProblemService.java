@@ -68,6 +68,9 @@ public class ProblemService {
 
         // 1. 이미지들 저장 (트랜잭션 밖)
         List<String> imageUrls = imageStorageService.storeAll(images);
+        // 이미지가 Problem(저장) 또는 DetectionCache(선택 대기)에 묶였는지 여부.
+        // true가 된 뒤의 예외에서는 catch가 이미지를 삭제하면 안 된다(유령 URL 방지).
+        boolean committed = false;
 
         // 2~3. AI 분석 + 분기 처리. 실패하면 방금 저장한 이미지를 정리(고아 방지)
         try {
@@ -99,6 +102,7 @@ public class ProblemService {
                 List<String> orderedUrls = reorderByIndex(imageUrls, aiResult.getImageOrder());
                 Problem problem = saveProblem(detected.get(0), orderedUrls, aiResult.getPageTexts(),
                         request.getStudentId(), request.getSubject(), request.getStudentDescription());
+                committed = true; // 저장 성공 → 이후 예외에도 이미지 보존
                 return ProblemCreateResponse.from(problem, detected.get(0).isClassificationFailed());
             }
 
@@ -108,6 +112,7 @@ public class ProblemService {
             if (detected.size() == 1) {
                 Problem problem = saveProblem(detected.get(0), imageUrls, List.of(),
                         request.getStudentId(), request.getSubject(), request.getStudentDescription());
+                committed = true; // 저장 성공 → 이후 예외에도 이미지 보존
                 return ProblemCreateResponse.from(problem, detected.get(0).isClassificationFailed());
             }
 
@@ -120,6 +125,7 @@ public class ProblemService {
                 List<String> kept = keptImagesFor(imageUrls, chosen.getImageIndices());
                 Problem problem = saveProblem(chosen, kept, List.of(),
                         request.getStudentId(), request.getSubject(), request.getStudentDescription());
+                committed = true; // 저장 성공 → 이후 예외에도 kept 이미지 보존
                 deleteUnkept(imageUrls, kept); // 다른 문제의 장은 고아 → 삭제
                 return ProblemCreateResponse.from(problem, chosen.isClassificationFailed());
             }
@@ -127,11 +133,16 @@ public class ProblemService {
             // (c) 여러 개 감지 + 선택 안 함 → 결과를 캐시하고 detectionId 반환.
             //     선택은 /problems/select가 캐시에서 꺼내 저장(재OCR·재업로드 없음).
             String detectionId = detectionCache.put(detected, imageUrls);
+            committed = true; // 캐시에 보관(선택 대기) → 이후 예외에도 이미지 보존
             return ProblemCreateResponse.fromDetection(detected, imageUrls, detectionId);
 
         } catch (RuntimeException e) {
-            // 단, 선택 대기(캐시에 올린 경우)는 이미지가 살아있어야 하므로 정리하지 않는다.
-            imageStorageService.deleteAll(imageUrls);
+            // 저장(Problem)/캐시(선택 대기) 성공 이후의 예외라면 이미지가 실제로 묶여 있으므로
+            // 절대 삭제하지 않는다 — 저장된 문제의 이미지를 지워 '유령 URL(404)'이 되는 버그 방지.
+            // 저장/캐시 전(분석 실패·감지 0건·과목 혼합·짧은 글 등)일 때만 고아 이미지를 정리한다.
+            if (!committed) {
+                imageStorageService.deleteAll(imageUrls);
+            }
             throw e;
         }
     }

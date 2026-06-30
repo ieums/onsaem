@@ -184,6 +184,7 @@ public class AuthService {
                                 .build());
                 yield tokenService.issue(tutor.getId(), Role.TUTOR);
             }
+            default -> throw BusinessException.badRequest("지원하지 않는 가입 역할입니다: " + role);
         };
     }
 
@@ -200,6 +201,7 @@ public class AuthService {
                         .orElseThrow(() -> BusinessException.notFound("회원을 찾을 수 없습니다."));
                 yield MeResponse.ofTutor(tutor);
             }
+            default -> throw BusinessException.forbidden("지원하지 않는 역할입니다.");
         };
     }
 
@@ -229,6 +231,7 @@ public class AuthService {
                 }
                 yield MeResponse.ofTutor(tutor);
             }
+            default -> throw BusinessException.forbidden("지원하지 않는 역할입니다.");
         };
     }
 
@@ -252,6 +255,7 @@ public class AuthService {
                 tutor.updateProfile(null, null, null, url);
                 yield MeResponse.ofTutor(tutor);
             }
+            default -> throw BusinessException.forbidden("지원하지 않는 역할입니다.");
         };
     }
 

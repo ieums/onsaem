@@ -147,7 +147,17 @@ public class Lesson {
     }
 
     public enum LessonStatus {
-        WAITING, ACTIVE, COMPLETED, CANCELED
+        WAITING("대기"), ACTIVE("진행중"), COMPLETED("완료"), CANCELED("취소");
+
+        private final String displayName;
+
+        LessonStatus(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
     }
 
     @Column(name = "problem_id")

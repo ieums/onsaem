@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온샘 관리자 · 정산 상세</title>
+    <link rel="stylesheet" th:href="@{/admin/admin.css}">
+</head>
+<body>
+<div th:replace="~{admin/_layout :: shell('settlements')}"></div>
+
+<div class="container">
+    <div class="page-head">
+        <a class="back" th:href="@{/admin/settlements}">← 정산 목록</a>
+        <h1 style="margin-top:8px;">정산 상세
+            <span class="badge" th:classappend="${s.status}" th:text="${s.status.displayName}">상태</span>
+        </h1>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+        <dl class="dl">
+            <dt>강사</dt>
+            <dd>
+                <span th:text="${tutor != null and tutor.name != null ? tutor.name : '-'}">강사명</span>
+            </dd>
+            <dt>과목</dt>
+            <dd th:text="${s.subject != null ? T(com.ieum.backend.domain.problem.entity.enums.Subject).displayNameOf(s.subject) : '-'}">수학</dd>
+            <dt>수업일</dt>
+            <dd class="faint" th:text="${s.lessonDate != null ? #temporals.format(s.lessonDate, 'yyyy-MM-dd HH:mm') : '-'}">-</dd>
+            <dt>총 코인</dt>
+            <dd th:text="${s.totalCoin}">0</dd>
+            <dt>플랫폼 수수료</dt>
+            <dd th:text="${s.platformFeeCoin} + ' 코인'">0</dd>
+            <dt>강사 정산금</dt>
+            <dd><b th:text="${#numbers.formatInteger(s.tutorAmount, 0, 'COMMA')} + ' 원'">0</b>
+                <span class="faint" th:text="'(' + ${s.tutorCoin} + ' 코인)'"></span></dd>
+        </dl>
+    </div>
+
+    <div class="section-title">정산 계좌</div>
+    <div class="card" style="margin-bottom:20px;">
+        <dl class="dl" th:if="${tutor != null and tutor.hasSettlementAccount()}">
+            <dt>은행</dt><dd th:text="${tutor.settlementBank}">은행</dd>
+            <dt>계좌번호</dt><dd th:text="${tutor.settlementAccount}">000-0000</dd>
+            <dt>예금주</dt><dd th:text="${tutor.settlementHolder}">예금주</dd>
+        </dl>
+        <p class="faint" th:if="${tutor == null or !tutor.hasSettlementAccount()}" style="margin:0;">
+            등록된 정산 계좌가 없습니다.
+        </p>
+    </div>
+
+    <div class="section-title">처리</div>
+    <div class="card">
+        <div class="actions">
+            <form th:action="@{/admin/settlements/{id}/complete(id=${s.id})}" method="post"
+                  onsubmit="return confirm('실제 송금이 완료되었음을 확인했습니다. 송금 완료로 처리할까요? (되돌릴 수 없음)');">
+                <button class="btn primary" type="submit" th:disabled="${s.status.name() != 'PENDING'}">송금 완료</button>
+            </form>
+            <form th:action="@{/admin/settlements/{id}/fail(id=${s.id})}" method="post">
+                <button class="btn" type="submit" th:disabled="${s.status.name() != 'PENDING'}">송금 실패</button>
+            </form>
+            <form th:action="@{/admin/settlements/{id}/retry(id=${s.id})}" method="post">
+                <button class="btn" type="submit" th:disabled="${s.status.name() != 'FAILED'}">재시도</button>
+            </form>
+            <form th:action="@{/admin/settlements/{id}/cancel(id=${s.id})}" method="post"
+                  onsubmit="return confirm('정산을 취소합니다(CANCELED). 계속할까요?');">
+                <button class="btn danger" type="submit" th:disabled="${s.status.name() == 'TRANSFERRED' or s.status.name() == 'CANCELED'}">정산 취소</button>
+            </form>
+        </div>
+        <p class="faint" style="margin-top:14px;margin-bottom:0;">
+            송금 완료/취소는 되돌릴 수 없으므로 확인 후 진행하세요. 상태가 맞지 않는 액션은 비활성화됩니다.
+        </p>
+    </div>
+</div>
+</body>
+</html>

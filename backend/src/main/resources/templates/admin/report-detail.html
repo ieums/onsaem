@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온샘 관리자 · 신고 상세</title>
+    <link rel="stylesheet" th:href="@{/admin/admin.css}">
+</head>
+<body>
+<div th:replace="~{admin/_layout :: shell('reports')}"></div>
+
+<div class="container">
+    <div class="page-head">
+        <a class="back" th:href="@{/admin/reports}">← 신고 목록</a>
+        <h1 style="margin-top:8px;">신고 상세
+            <span class="badge" th:classappend="${report.status}" th:text="${report.status.displayName}">상태</span>
+        </h1>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+        <dl class="dl">
+            <dt>신고자</dt>
+            <dd th:text="${report.reporterType.displayName} + (${reporterName != null and !reporterName.isBlank()} ? ' ' + ${reporterName} : '')">학생 홍길동</dd>
+            <dt>대상</dt>
+            <dd th:text="${report.targetType.displayName} + (${targetName != null and !targetName.isBlank()} ? ' ' + ${targetName} : '')">강사 김철수</dd>
+            <dt>강의</dt>
+            <dd th:text="${report.lessonId != null ? '#' + report.lessonId : '강의 무관 신고'}">-</dd>
+            <dt>사유</dt>
+            <dd>
+                <span th:each="reason,it : ${report.reasons}">
+                    <span class="badge" th:text="${reason.displayName}">사유</span>
+                </span>
+                <span th:if="${report.reasons.isEmpty()}" class="faint">없음</span>
+            </dd>
+            <dt>내용</dt>
+            <dd th:text="${report.description != null and !report.description.isBlank()} ? ${report.description} : '-'">상세 내용</dd>
+            <dt>접수일</dt>
+            <dd class="faint" th:text="${#temporals.format(report.createdAt, 'yyyy-MM-dd HH:mm')}">2026-06-30</dd>
+            <dt>처리일</dt>
+            <dd class="faint" th:text="${report.handledAt != null ? #temporals.format(report.handledAt, 'yyyy-MM-dd HH:mm') : '-'}">-</dd>
+        </dl>
+    </div>
+
+    <div class="section-title">처리</div>
+    <div class="card">
+        <div class="actions">
+            <form th:action="@{/admin/reports/{id}/reviewing(id=${report.id})}" method="post">
+                <button class="btn" type="submit">검토중으로</button>
+            </form>
+            <form th:action="@{/admin/reports/{id}/resolve(id=${report.id})}" method="post">
+                <button class="btn primary" type="submit">처리완료(무효 · 보류 해제)</button>
+            </form>
+            <form th:action="@{/admin/reports/{id}/reject(id=${report.id})}" method="post">
+                <button class="btn" type="submit">반려(보류 해제)</button>
+            </form>
+            <form th:action="@{/admin/reports/{id}/uphold(id=${report.id})}" method="post"
+                  onsubmit="return confirm('신고를 인정 처리합니다. 해당 강의의 정산이 취소됩니다(환불은 별도 진행). 계속할까요?');">
+                <button class="btn danger" type="submit">인정(정산 취소 · 환불)</button>
+            </form>
+        </div>
+        <p class="faint" style="margin-top:14px;margin-bottom:0;">
+            무효(처리완료/반려) 시 다음 정산 틱에서 자동으로 정산이 생성됩니다.
+            인정 시 정산이 취소되며, 환불 플로우는 현재 수동 처리 대상입니다.
+        </p>
+    </div>
+</div>
+</body>
+</html>
