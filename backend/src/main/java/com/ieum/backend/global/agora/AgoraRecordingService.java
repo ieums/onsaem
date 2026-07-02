@@ -77,7 +77,7 @@ public class AgoraRecordingService {
      * 녹화 시작: acquire → start 순서로 Agora API 호출
      * Lesson 엔티티에 resourceId/sid 저장 (트랜잭션은 호출자가 관리)
      */
-    public RecordingStartResponseDto startRecording(Lesson lesson) {
+    public RecordingStartResponseDto startRecording(Lesson lesson, String orientation) {
         String channelName = lesson.getChannelName();
 
         // 녹화 비활성(로컬 등) → Agora/S3 호출 없이 무해하게 반환.
@@ -88,7 +88,7 @@ public class AgoraRecordingService {
 
         // web 모드는 RTC 채널을 구독하지 않으므로 녹화봇 RTC 토큰이 필요 없다.
         String resourceId = acquireResource(channelName);
-        String sid = startRecordingInternal(channelName, resourceId, lesson.getId());
+        String sid = startRecordingInternal(channelName, resourceId, lesson.getId(), orientation);
         lesson.setRecordingInfo(resourceId, sid);
 
         return new RecordingStartResponseDto(lesson.getId(), resourceId, sid, channelName);
@@ -165,19 +165,28 @@ public class AgoraRecordingService {
     }
 
     /** 녹화 시작 (web 모드) — SID 반환 */
-    private String startRecordingInternal(String channelName, String resourceId, Long lessonId) {
+    private String startRecordingInternal(String channelName, String resourceId, Long lessonId, String orientation) {
         String url = BASE_URL + "/" + agoraConfig.getAppId()
                 + "/cloud_recording/resourceid/" + resourceId + "/mode/web/start";
 
+        // 방향 결정 — 화이트보드 종횡비 기반. landscape만 가로, 그 외/null은 세로 폴백.
+        // Web Page Recording은 start 시점의 videoWidth/Height가 mp4 해상도로 확정된다(중간 변경 불가).
+        boolean landscape = "landscape".equals(orientation);
+        int videoWidth = landscape ? 1280 : 720;
+        int videoHeight = landscape ? 720 : 1280;
+
         // 녹화봇이 열 recorder.html 주소 (페이지가 채널의 화이트보드를 실시간 렌더)
-        String recorderUrl = agoraConfig.getRecorderUrlBase() + "?channel=" + channelName;
+        // recorder.html이 프레임 크기를 프론트/녹화 해상도와 일치시키도록 orientation을 함께 전달.
+        String recorderUrl = agoraConfig.getRecorderUrlBase()
+                + "?channel=" + channelName
+                + "&orientation=" + (landscape ? "landscape" : "portrait");
 
         // 웹 페이지 녹화 서비스 설정
         Map<String, Object> serviceParam = new HashMap<>();
         serviceParam.put("url", recorderUrl);
         serviceParam.put("audioProfile", 0);
-        serviceParam.put("videoWidth", 720);   // 세로(portrait) 녹화 — recorder.html 캔버스와 일치
-        serviceParam.put("videoHeight", 1280);
+        serviceParam.put("videoWidth", videoWidth);   // recorder.html 캔버스와 일치 (portrait 720×1280 / landscape 1280×720)
+        serviceParam.put("videoHeight", videoHeight);
         serviceParam.put("maxRecordingHour", 1);
 
         Map<String, Object> extensionService = new HashMap<>();

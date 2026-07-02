@@ -311,10 +311,10 @@ public class LessonService {
      * 녹화 시작: Lesson 상태를 ACTIVE로, Agora Cloud Recording 시작
      */
     @Transactional
-    public RecordingStartResponseDto startRecording(Long lessonId) {
+    public RecordingStartResponseDto startRecording(Long lessonId, String orientation) {
         Lesson lesson = findByIdOrThrow(lessonId);
         lesson.start();
-        return agoraRecordingService.startRecording(lesson);
+        return agoraRecordingService.startRecording(lesson, orientation);
     }
 
     /**

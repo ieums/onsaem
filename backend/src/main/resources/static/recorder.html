@@ -285,10 +285,28 @@
   //  - Flutter는 saveLayer + BlendMode.clear 로 스트로크 레이어를 격리.
   //    canvas에선 오프스크린 스트로크 캔버스에 destination-out 으로 동일 재현.
   // ────────────────────────────────────────────────────────────────────────
+  // 녹화 프레임 방향 — 백엔드가 recorderUrl에 붙인 ?orientation=landscape|portrait.
+  // landscape면 가로(1280×720), 그 외/미지정은 세로(720×1280) 폴백(HTML 기본값과 동일).
+  // 이 프레임 크기만 방향에 맞게 바뀌면 applyTransform()의 fit/레터박스가 자동 대응한다.
+  const _isLandscape =
+      new URLSearchParams(window.location.search).get('orientation') === 'landscape';
+  const FRAME_W = _isLandscape ? 1280 : 720;
+  const FRAME_H = _isLandscape ? 720 : 1280;
+
+  // <meta viewport> 폭도 프레임에 맞춘다(녹화봇 렌더 폭 정합).
+  const _vp = document.querySelector('meta[name="viewport"]');
+  if (_vp) _vp.setAttribute('content', 'width=' + FRAME_W + ', initial-scale=1.0');
+
   const main = document.getElementById('board');
+  // canvas 내부 해상도(px) + 표시 크기(CSS)를 프레임에 맞춘다.
+  // inline style이 스타일시트의 #board 720×1280 지정을 덮어써 어긋남을 방지한다.
+  main.width = FRAME_W;
+  main.height = FRAME_H;
+  main.style.width = FRAME_W + 'px';
+  main.style.height = FRAME_H + 'px';
   const mctx = main.getContext('2d');
 
-  // 스트로크 전용 오프스크린 (지우개 격리용)
+  // 스트로크 전용 오프스크린 (지우개 격리용) — main과 동일 프레임 크기
   const strokeCanvas = document.createElement('canvas');
   strokeCanvas.width = main.width;
   strokeCanvas.height = main.height;

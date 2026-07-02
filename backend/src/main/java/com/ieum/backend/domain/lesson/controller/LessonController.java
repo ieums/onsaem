@@ -94,8 +94,10 @@ public class LessonController {
      * POST /api/v1/lesson/{lessonId}/recording/start
      */
     @PostMapping("/{lessonId}/recording/start")
-    public ApiResponse<RecordingStartResponseDto> startRecording(@PathVariable Long lessonId) {
-        return ApiResponse.ok(lessonService.startRecording(lessonId));
+    public ApiResponse<RecordingStartResponseDto> startRecording(
+            @PathVariable Long lessonId,
+            @RequestParam(required = false, defaultValue = "portrait") String orientation) {
+        return ApiResponse.ok(lessonService.startRecording(lessonId, orientation));
     }
 
     /**
