@@ -6,14 +6,14 @@
 
 | 도메인 | 문서 | 담당 |
 |---|---|---|
-| 인증 / 계정 | [인증-계정](https://github.com/ieums/onsaem/wiki/인증-계정) | <!-- TODO --> |
-| 문제 등록 / OCR | [문제-등록-OCR](https://github.com/ieums/onsaem/wiki/문제-등록-OCR) | <!-- TODO --> |
-| 강사 매칭 | [매칭-시스템](https://github.com/ieums/onsaem/wiki/매칭-시스템) | <!-- TODO --> |
-| 실시간 화상 강의 | [화상강의](https://github.com/ieums/onsaem/wiki/화상강의) | <!-- TODO --> |
-| 코인 결제 / 구독 | [결제-코인](https://github.com/ieums/onsaem/wiki/결제-코인) | <!-- TODO --> |
-| 정산 | [정산](https://github.com/ieums/onsaem/wiki/정산) | <!-- TODO --> |
-| AI 튜터 / 복습 | [AI-튜터-복습](https://github.com/ieums/onsaem/wiki/AI-튜터-복습) | <!-- TODO --> |
-| 리뷰 / 신고 | [리뷰-신고](https://github.com/ieums/onsaem/wiki/리뷰-신고) | <!-- TODO --> |
+| 인증 / 계정 | [인증-계정](./인증-계정.md) | <!-- TODO --> |
+| 문제 등록 / OCR | [문제-등록-OCR](./문제-등록-OCR.md) | <!-- TODO --> |
+| 강사 매칭 | [매칭-시스템](./매칭-시스템.md) | <!-- TODO --> |
+| 실시간 화상 강의 | [화상강의](./화상강의.md) | <!-- TODO --> |
+| 코인 결제 / 구독 | [결제-코인](./결제-코인.md) | <!-- TODO --> |
+| 정산 | [정산](./정산.md) | <!-- TODO --> |
+| AI 튜터 / 복습 | [AI-튜터-복습](./AI-튜터-복습.md) | <!-- TODO --> |
+| 리뷰 / 신고 | [리뷰-신고](./리뷰-신고.md) | <!-- TODO --> |
 
 ## 기술적 도전 / 트러블슈팅
 
@@ -21,12 +21,12 @@
 
 | 주제 | 문서 |
 |---|---|
-| 실시간 화이트보드 동기화 | [화이트보드-동기화](https://github.com/ieums/onsaem/wiki/화이트보드-동기화) |
-| 결제·정산 데이터 무결성 | [결제-정산-무결성](https://github.com/ieums/onsaem/wiki/결제-정산-무결성) |
-| AI 문제 인식 폴백 | [AI-폴백-처리](https://github.com/ieums/onsaem/wiki/AI-폴백-처리) |
-| 복습 자동화 파이프라인 | [복습-자동화](https://github.com/ieums/onsaem/wiki/복습-자동화) |
-| Agora 화상·녹화 연동 | [Agora-화상-녹화](https://github.com/ieums/onsaem/wiki/Agora-화상-녹화) |
-| 매칭 상태 머신·스케줄러 | [매칭-상태머신](https://github.com/ieums/onsaem/wiki/매칭-상태머신) |
+| 실시간 화이트보드 동기화 | [화이트보드-동기화](./화이트보드-동기화.md) |
+| 결제·정산 데이터 무결성 | [결제-정산-무결성](./결제-정산-무결성.md) |
+| AI 문제 인식 폴백 | [AI-폴백-처리](./AI-폴백-처리.md) |
+| 복습 자동화 파이프라인 | [복습-자동화](./복습-자동화.md) |
+| Agora 화상·녹화 연동 | [Agora-화상-녹화](./Agora-화상-녹화.md) |
+| 매칭 상태 머신·스케줄러 | [매칭-상태머신](./매칭-상태머신.md) |
 
 ## 참고 링크
 

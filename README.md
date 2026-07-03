@@ -57,14 +57,14 @@
 
 | 기능 | 요약 | 문서 |
 |---|---|---|
-| 인증 / 계정 | 학생·강사 가입, JWT, 소셜 로그인(Google·Kakao·Naver), 비밀번호 재설정 | [상세보기 →](https://github.com/ieums/onsaem/wiki/인증-계정) |
-| 문제 등록 / OCR | 문제 사진 업로드(S3), Gemini OCR 텍스트 추출·자동 분류 | [상세보기 →](https://github.com/ieums/onsaem/wiki/문제-등록-OCR) |
-| 강사 매칭 | 문제 조건에 맞는 강사 지원·상호확인·확정, 탐색 만료 처리 | [상세보기 →](https://github.com/ieums/onsaem/wiki/매칭-시스템) |
-| 실시간 화상 강의 | Agora RTC 화상 강의, 판서 공유, 강의 녹화(Cloud Recording → S3) | [상세보기 →](https://github.com/ieums/onsaem/wiki/화상강의) |
-| 코인 결제 / 구독 | PortOne 결제로 코인 충전, 지갑(hold·차감·환불), 구독 플랜 | [상세보기 →](https://github.com/ieums/onsaem/wiki/결제-코인) |
-| 정산 | 강의 완료 시 강사 몫 코인 산정·현금 정산, 정산 계좌 관리 | [상세보기 →](https://github.com/ieums/onsaem/wiki/정산) |
-| AI 튜터 / 복습 | 문제 풀이 챗봇, 강의 녹화 전사(STT)·요약 PDF·복습 챗봇 | [상세보기 →](https://github.com/ieums/onsaem/wiki/AI-튜터-복습) |
-| 리뷰 / 신고 | 강의별 강사 평점·후기, 학생↔강사 신고 및 관리자 처리 | [상세보기 →](https://github.com/ieums/onsaem/wiki/리뷰-신고) |
+| 인증 / 계정 | 학생·강사 가입, JWT, 소셜 로그인(Google·Kakao·Naver), 비밀번호 재설정 | [상세보기 →](./wiki/인증-계정.md) |
+| 문제 등록 / OCR | 문제 사진 업로드(S3), Gemini OCR 텍스트 추출·자동 분류 | [상세보기 →](./wiki/문제-등록-OCR.md) |
+| 강사 매칭 | 문제 조건에 맞는 강사 지원·상호확인·확정, 탐색 만료 처리 | [상세보기 →](./wiki/매칭-시스템.md) |
+| 실시간 화상 강의 | Agora RTC 화상 강의, 판서 공유, 강의 녹화(Cloud Recording → S3) | [상세보기 →](./wiki/화상강의.md) |
+| 코인 결제 / 구독 | PortOne 결제로 코인 충전, 지갑(hold·차감·환불), 구독 플랜 | [상세보기 →](./wiki/결제-코인.md) |
+| 정산 | 강의 완료 시 강사 몫 코인 산정·현금 정산, 정산 계좌 관리 | [상세보기 →](./wiki/정산.md) |
+| AI 튜터 / 복습 | 문제 풀이 챗봇, 강의 녹화 전사(STT)·요약 PDF·복습 챗봇 | [상세보기 →](./wiki/AI-튜터-복습.md) |
+| 리뷰 / 신고 | 강의별 강사 평점·후기, 학생↔강사 신고 및 관리자 처리 | [상세보기 →](./wiki/리뷰-신고.md) |
 
 ---
 
@@ -237,12 +237,12 @@ flowchart TB
 
 | 도전 | 해결 요약 | 상세 |
 |---|---|---|
-| 실시간 화이트보드 동기화 | 점 단위 좌표 전송 + 에코 필터로 지연·충돌 방지, 제스처 충돌·투명 지우개 해결 | [상세 →](https://github.com/ieums/onsaem/wiki/화이트보드-동기화) |
-| 결제·정산 데이터 무결성 | 비관적 락 + Append-Only 원장 + 수업 기록 기반 정산으로 위변조 차단 | [상세 →](https://github.com/ieums/onsaem/wiki/결제-정산-무결성) |
-| AI 문제 인식 폴백 | OCR·분류 분리 호출, 백오프 재시도 + 폴백 모델 + graceful degradation | [상세 →](https://github.com/ieums/onsaem/wiki/AI-폴백-처리) |
-| 복습 자동화 파이프라인 | 녹화→Gemini 전사→5섹션 요약→한글 PDF 자동 생성 | [상세 →](https://github.com/ieums/onsaem/wiki/복습-자동화) |
-| Agora 화상·녹화 연동 | RTC 토큰 알고리즘 서버 포팅 + Web Page Recording 방식 | [상세 →](https://github.com/ieums/onsaem/wiki/Agora-화상-녹화) |
-| 매칭 상태 머신·스케줄러 | 상태 머신 + 30초 스케줄러로 만료·타임아웃 자동화 | [상세 →](https://github.com/ieums/onsaem/wiki/매칭-상태머신) |
+| 실시간 화이트보드 동기화 | 점 단위 좌표 전송 + 에코 필터로 지연·충돌 방지, 제스처 충돌·투명 지우개 해결 | [상세 →](./wiki/화이트보드-동기화.md) |
+| 결제·정산 데이터 무결성 | 비관적 락 + Append-Only 원장 + 수업 기록 기반 정산으로 위변조 차단 | [상세 →](./wiki/결제-정산-무결성.md) |
+| AI 문제 인식 폴백 | OCR·분류 분리 호출, 백오프 재시도 + 폴백 모델 + graceful degradation | [상세 →](./wiki/AI-폴백-처리.md) |
+| 복습 자동화 파이프라인 | 녹화→Gemini 전사→5섹션 요약→한글 PDF 자동 생성 | [상세 →](./wiki/복습-자동화.md) |
+| Agora 화상·녹화 연동 | RTC 토큰 알고리즘 서버 포팅 + Web Page Recording 방식 | [상세 →](./wiki/Agora-화상-녹화.md) |
+| 매칭 상태 머신·스케줄러 | 상태 머신 + 30초 스케줄러로 만료·타임아웃 자동화 | [상세 →](./wiki/매칭-상태머신.md) |
 
 ---
 
@@ -414,10 +414,10 @@ flutter build web --release --dart-define=PRODUCTION=true
 
 | 이름 | 역할 | GitHub | 담당 파트 | 대표 기술 |
 |---|---|---|---|---|
-| 이류진 (팀장) | 서버 · 백엔드/프론트 API 연결 · UI | [@](https://github.com/) | 실시간 매칭~강의 전체, 온보딩(백엔드+프론트 단독 구현, API 연결 포함), 서버 구축, UI 수정 · [문서 →](https://github.com/ieums/onsaem/wiki/) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
-| 이유나 | 프론트엔드 UI 초기 구현 | [@](https://github.com/) | 디자인 기반 초기 목업 구현 · [문서 →](https://github.com/ieums/onsaem/wiki/) | ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
-| 정수민 | 백엔드/프론트 API 연결 · UI | [@](https://github.com/) | 결제·정산·문제 업로드(OCR)·신고/리뷰·관리자 페이지(단독), 프론트 페이지 보완 · [문서 →](https://github.com/ieums/onsaem/wiki/) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
-| 함한솔 | 백엔드/프론트 API 연결 · UI | [@](https://github.com/) | 회원가입·로그인(JWT)·AI 튜터·복습, 프론트 페이지 보완 · [문서 →](https://github.com/ieums/onsaem/wiki/) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
+| 이류진 (팀장) | 서버 · 백엔드/프론트 API 연결 · UI | [@](https://github.com/) | 실시간 매칭~강의 전체, 온보딩(백엔드+프론트 단독 구현, API 연결 포함), 서버 구축, UI 수정 · [문서 →](./wiki/.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
+| 이유나 | 프론트엔드 UI 초기 구현 | [@](https://github.com/) | 디자인 기반 초기 목업 구현 · [문서 →](./wiki/.md) | ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
+| 정수민 | 백엔드/프론트 API 연결 · UI | [@](https://github.com/) | 결제·정산·문제 업로드(OCR)·신고/리뷰·관리자 페이지(단독), 프론트 페이지 보완 · [문서 →](./wiki/.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
+| 함한솔 | 백엔드/프론트 API 연결 · UI | [@](https://github.com/) | 회원가입·로그인(JWT)·AI 튜터·복습, 프론트 페이지 보완 · [문서 →](./wiki/.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
 
 <!-- GitHub 핸들([@](https://github.com/))과 담당 위키 링크는 실제 값으로 교체해 주세요. -->
 
