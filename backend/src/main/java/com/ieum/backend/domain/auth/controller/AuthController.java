@@ -2,6 +2,7 @@ package com.ieum.backend.domain.auth.controller;
 
 import com.ieum.backend.domain.auth.dto.*;
 import com.ieum.backend.domain.auth.oauth.KakaoOAuthClient;
+import com.ieum.backend.domain.auth.oauth.NaverOAuthClient;
 import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
 import com.ieum.backend.domain.auth.service.AuthService;
 import com.ieum.backend.domain.auth.service.PasswordResetService;
@@ -23,6 +24,7 @@ public class AuthController {
     private final TokenService tokenService;
     private final PasswordResetService passwordResetService;
     private final KakaoOAuthClient kakaoOAuthClient;
+    private final NaverOAuthClient naverOAuthClient;
 
     @PostMapping("/student/signup")
     public ApiResponse<TokenResponse> signupStudent(@Valid @RequestBody StudentSignupRequest request) {
@@ -70,6 +72,13 @@ public class AuthController {
         String accessToken = kakaoOAuthClient.exchangeCodeForAccessToken(
                 request.code(), request.redirectUri(), request.codeVerifier());
         return ApiResponse.ok(new KakaoWebExchangeResponse(accessToken));
+    }
+    /** 네이버 웹 로그인 전용 — 인가코드를 액세스 토큰으로 교환(Client Secret은 서버에만 있음) */
+    @PostMapping("/oauth/naver/web-exchange")
+    public ApiResponse<NaverWebExchangeResponse> naverWebExchange(
+            @Valid @RequestBody NaverWebExchangeRequest request) {
+        String accessToken = naverOAuthClient.exchangeCodeForAccessToken(request.code(), request.state());
+        return ApiResponse.ok(new NaverWebExchangeResponse(accessToken));
     }
 
     /** 비밀번호 재설정 코드 발송 — POST /api/v1/auth/password/forgot (LOCAL 계정만, 결과는 항상 200) */
