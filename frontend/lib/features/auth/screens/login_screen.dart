@@ -236,7 +236,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  Future<void> _naverLoginWeb() async {
+    Future<void> _naverLoginWeb() async {
     const clientId = 'YOUR_NAVER_CLIENT_ID'; // TODO: 네이버 개발자센터 발급값
     final state = _randomState();
     final redirectUri = Uri.base
@@ -244,7 +244,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .toString();
 
     final authorizeUrl = Uri.https('nid.naver.com', '/oauth2.0/authorize', {
-      'response_type': 'token',
+      'response_type': 'code',
       'client_id': clientId,
       'redirect_uri': redirectUri,
       'state': state,
@@ -261,11 +261,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _showMessage('네이버 로그인 검증에 실패했어요.');
       return;
     }
-    final accessToken = result['accessToken'] ?? '';
-    if (accessToken.isEmpty) {
+    final code = result['code'] ?? '';
+    if (code.isEmpty) {
       _showMessage('네이버 로그인에 실패했어요.');
       return;
     }
+
+    final accessToken = await ref
+        .read(authRepositoryProvider)
+        .naverWebExchange(code: code, state: state);
     await _handleOAuth(provider: 'naver', token: accessToken);
   }
 

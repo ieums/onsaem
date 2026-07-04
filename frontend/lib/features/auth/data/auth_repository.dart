@@ -172,6 +172,16 @@ class AuthRepository {
     });
     return (res.data['data'] as Map<String, dynamic>)['accessToken'] as String;
   }
+  Future<String> naverWebExchange({
+    required String code,
+    required String state,
+  }) async {
+    final res = await _dio.post('/auth/oauth/naver/web-exchange', data: {
+      'code': code,
+      'state': state,
+    });
+    return (res.data['data'] as Map<String, dynamic>)['accessToken'] as String;
+  }
 
   // ─── 비밀번호 재설정 (이메일 인증 코드, LOCAL 계정만) ──
   /// 코드 발송. 서버는 계정 존재 여부와 무관하게 성공을 반환(계정 열거 방지).
