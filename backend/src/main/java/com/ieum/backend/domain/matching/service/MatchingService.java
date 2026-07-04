@@ -16,7 +16,9 @@ import com.ieum.backend.domain.matching.repository.MatchingApplicationRepository
 import com.ieum.backend.domain.problem.entity.Problem;
 import com.ieum.backend.domain.problem.entity.enums.ProblemStatus;
 import com.ieum.backend.domain.problem.repository.ProblemRepository;
+import com.ieum.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ieum.backend.domain.auth.entity.VerificationStatus;
@@ -24,6 +26,7 @@ import com.ieum.backend.domain.auth.entity.VerificationStatus;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -89,7 +92,14 @@ public class MatchingService {
                 .problemId(problemId)
                 .tutorId(tutorId)
                 .build();
-        applicationRepository.save(application);
+        // 위 existsBy 체크를 통과한 동시 요청은 UNIQUE(problem_id, tutor_id) 제약이 최종 차단한다.
+        // saveAndFlush로 즉시 제약 위반을 감지해 409(conflict)로 변환(결제/정산 도메인과 동일 패턴).
+        try {
+            applicationRepository.saveAndFlush(application);
+        } catch (DataIntegrityViolationException e) {
+            throw BusinessException.conflict(
+                    "이미 신청한 문제입니다. problemId=" + problemId + ", tutorId=" + tutorId, e);
+        }
 
         notificationService.notifyTutorApplied(problemId, tutorId, problem.getStudentId());
     }
@@ -171,7 +181,8 @@ public class MatchingService {
 
     @Transactional
     public void confirmMatch(Long problemId, Long tutorId, String confirmedBy) {
-        MatchingApplication application = applicationRepository.findByProblemIdAndTutorId(problemId, tutorId)
+        // 신청 행에 쓰기 락 — 튜터·학생 확인이 동시에 들어와도 직렬화되어 확인 플래그 갱신 유실을 막는다.
+        MatchingApplication application = applicationRepository.findByProblemIdAndTutorIdForUpdate(problemId, tutorId)
                 .filter(a -> a.getStatus() == ApplicationStatus.CONFIRMING)
                 .orElseThrow(() -> new IllegalStateException("CONFIRMING 상태의 신청을 찾을 수 없습니다."));
 
@@ -184,8 +195,14 @@ public class MatchingService {
         if (application.isTutorConfirmed() && application.isStudentConfirmed()) {
             application.accept();
 
-            Problem problem = problemRepository.findById(problemId)
+            // 문제 행에 쓰기 락 — 서로 다른 강사의 확정이 동시에 최종 단계에 도달해도 여기서 직렬화된다.
+            Problem problem = problemRepository.findByIdForUpdate(problemId)
                     .orElseThrow(() -> new IllegalStateException("문제를 찾을 수 없습니다. id=" + problemId));
+            // 먼저 확정한 강사가 이미 MATCHED로 바꿨다면 이 확정은 거부해 Lesson 중복 생성을 막는다.
+            // (취소/만료된 문제의 뒤늦은 확정도 함께 차단됨)
+            if (problem.getStatus() != ProblemStatus.PENDING) {
+                throw BusinessException.conflict("이미 다른 강사와 매칭되었거나 종료된 문제입니다. problemId=" + problemId);
+            }
             Long studentId = problem.getStudentId();
             problem.matchTutor();
 
@@ -281,11 +298,17 @@ public class MatchingService {
 
     @Transactional
     public void rejectProblem(Long problemId, Long tutorId) {
-        boolean alreadyRejected = applicationRepository
-                .findByProblemIdAndTutorId(problemId, tutorId)
-                .map(a -> a.getStatus() == ApplicationStatus.REJECTED)
-                .orElse(false);
-        if (alreadyRejected) return;
+        // UNIQUE(problem_id, tutor_id) 준수 — 기존 신청 기록이 있으면 새 행을 만들지 않는다.
+        // 대기 중(PENDING) 신청만 거절로 전환하고, 확정/수업중 등 다른 상태는 건드리지 않는다.
+        Optional<MatchingApplication> existingOpt =
+                applicationRepository.findByProblemIdAndTutorId(problemId, tutorId);
+        if (existingOpt.isPresent()) {
+            MatchingApplication existing = existingOpt.get();
+            if (existing.getStatus() == ApplicationStatus.PENDING) {
+                existing.reject();
+            }
+            return;
+        }
 
         MatchingApplication application = MatchingApplication.builder()
                 .problemId(problemId)

@@ -9,7 +9,15 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "matching_applications")
+@Table(
+        name = "matching_applications",
+        // 같은 강사가 같은 문제에 신청을 두 번 만들지 못하게 막는 최종 방어선.
+        // applyToLesson의 existsBy 체크(check-then-insert)를 통과한 동시 요청도 DB에서 차단된다.
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_matching_problem_tutor",
+                columnNames = {"problem_id", "tutor_id"}
+        )
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class MatchingApplication {
