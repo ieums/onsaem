@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:chewie/chewie.dart';
 import 'package:video_player/video_player.dart';
+import 'package:ieum/features/student/widgets/review_video_controls.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
@@ -15,6 +16,7 @@ import 'package:ieum/features/student/data/models/lesson_review_message.dart';
 import 'package:ieum/features/student/providers/lesson_review_provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 
 class StudentReviewDetailScreen extends ConsumerStatefulWidget {
   const StudentReviewDetailScreen({
@@ -98,6 +100,7 @@ class _StudentReviewDetailScreenState
         aspectRatio: _videoAspectRatio,
         autoPlay: false,
         looping: false,
+        customControls: const ReviewVideoControls(),
       );
       if (mounted) setState(() => _videoLoading = false);
     } catch (e) {
@@ -123,13 +126,13 @@ class _StudentReviewDetailScreenState
 
   Widget _buildVideoSection(ShellTheme shell) {
     if (_videoLoading) {
-      return const AspectRatio(
-        aspectRatio: 16 / 9,
-        child: ColoredBox(
-          color: Colors.black,
-          child: Center(
-            child: CircularProgressIndicator(color: AppColors.studentPoint),
-          ),
+      return Container(
+        color: Colors.black,
+        width: double.infinity,
+        height: (MediaQuery.of(context).size.width / _videoAspectRatio)
+            .clamp(0.0, 380.0),
+        child: const Center(
+          child: CircularProgressIndicator(color: AppColors.studentPoint),
         ),
       );
     }
