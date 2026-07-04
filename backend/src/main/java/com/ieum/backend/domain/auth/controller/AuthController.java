@@ -1,6 +1,7 @@
 package com.ieum.backend.domain.auth.controller;
 
 import com.ieum.backend.domain.auth.dto.*;
+import com.ieum.backend.domain.auth.oauth.KakaoOAuthClient;
 import com.ieum.backend.domain.auth.jwt.AuthPrincipal;
 import com.ieum.backend.domain.auth.service.AuthService;
 import com.ieum.backend.domain.auth.service.PasswordResetService;
@@ -21,6 +22,7 @@ public class AuthController {
     private final AuthService authService;
     private final TokenService tokenService;
     private final PasswordResetService passwordResetService;
+    private final KakaoOAuthClient kakaoOAuthClient;
 
     @PostMapping("/student/signup")
     public ApiResponse<TokenResponse> signupStudent(@Valid @RequestBody StudentSignupRequest request) {
@@ -59,6 +61,15 @@ public class AuthController {
             @Valid @RequestPart("data") OAuthSignupRequest request,
             @RequestPart(value = "document", required = false) MultipartFile document) {
         return ApiResponse.ok("회원가입이 완료되었습니다.", authService.oauthSignup(provider, request, document));
+    }
+
+    /** 카카오 웹 로그인 전용 — 인가코드(PKCE)를 액세스 토큰으로 교환(브라우저 CORS 우회를 위해 서버가 대행) */
+    @PostMapping("/oauth/kakao/web-exchange")
+    public ApiResponse<KakaoWebExchangeResponse> kakaoWebExchange(
+            @Valid @RequestBody KakaoWebExchangeRequest request) {
+        String accessToken = kakaoOAuthClient.exchangeCodeForAccessToken(
+                request.code(), request.redirectUri(), request.codeVerifier());
+        return ApiResponse.ok(new KakaoWebExchangeResponse(accessToken));
     }
 
     /** 비밀번호 재설정 코드 발송 — POST /api/v1/auth/password/forgot (LOCAL 계정만, 결과는 항상 200) */
