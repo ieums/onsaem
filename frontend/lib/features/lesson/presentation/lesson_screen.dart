@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/route_paths.dart';
 import '../../../core/providers/current_user_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/profile_image.dart';
 import '../../student/providers/problem_provider.dart';
 import '../../student/providers/student_matching_session_provider.dart';
@@ -440,6 +441,9 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     return Scaffold(
       backgroundColor: shell.scaffoldBackground,
       body: SafeArea(
+        // 위/아래 안전영역은 각 바가 자기 색으로 직접 채우므로 SafeArea가 비우지 않게 한다.
+        top: false,
+        bottom: false,
         child: Column(
           children: [
             _buildTopBar(state, shell),
@@ -483,19 +487,26 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
   // ─── 상단 바 ─────────────────────────────────────────────────────────────────
 
   Widget _buildTopBar(LessonState state, ShellTheme shell) {
+    // 강조색: 강사=보라(primaryBlue) / 학생=진연두(studentInk). 학생 화면엔 보라 안 씀.
+    final accent = state.isTutor ? AppColors.primaryBlue : AppColors.studentInk;
+    // 상태바(노치) 영역까지 바 색이 채워지도록 그 높이만큼 위 패딩을 더한다.
+    final topInset = MediaQuery.of(context).padding.top;
     return Container(
-      color: shell.cardBackground,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      // 학생 화면에선 상단 바를 연초록(브랜드색)으로. 강사는 기존 색 유지.
+      color: state.isTutor
+            ? shell.cardBackground
+            : const Color(0xFFF0F4E2),
+      padding: EdgeInsets.fromLTRB(16, 10 + topInset, 16, 10),
       child: Row(
         children: [
           // 과목명 pill (텍스트 길이에 맞게 자동 크기)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
-              color: AppColors.primaryBlue.withValues(alpha: 0.12),
+              color: accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: AppColors.primaryBlue.withValues(alpha: 0.35),
+                color: accent.withValues(alpha: 0.35),
                 width: 1,
               ),
             ),
@@ -504,10 +515,10 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               (widget.subject != null && widget.subject!.isNotEmpty)
                   ? subjectLabel(widget.subject)
                   : widget.channelName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppColors.primaryBlue,
+                color: accent,
               ),
             ),
           ),
@@ -737,6 +748,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
 
   Widget _buildFloatingToolbar(LessonState state, ShellTheme shell) {
     final notifier = ref.read(lessonProvider.notifier);
+    final accent = state.isTutor ? AppColors.primaryBlue : AppColors.studentInk;
     final isEraser = state.isEraserMode;
     final isImageEdit = state.selectedImageIndex != null;
     final canUndo = state.undoHistory.isNotEmpty;
@@ -747,7 +759,10 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
       bottom: 16,
       child: Container(
         decoration: BoxDecoration(
-          color: shell.cardBackground,
+          // 학생 화면에선 펜 팔레트 패널도 연초록. 강사는 기존 색 유지.
+          color: state.isTutor
+            ? shell.cardBackground
+            : const Color(0xFFF0F4E2),
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(blurRadius: 8, color: Colors.black12, offset: Offset(0, 2)),
@@ -761,29 +776,34 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               icon: Icons.edit_outlined,
               active: !isEraser && !isImageEdit,
               shell: shell,
+              accent: accent,
               onTap: () => notifier.setPenColor(state.currentPenColor),
             ),
             _ToolBtn(
               icon: Icons.auto_fix_normal,
               active: isEraser,
               shell: shell,
+              accent: accent,
               onTap: () => notifier.toggleEraser(),
             ),
             _ToolBtn(
               icon: Icons.undo,
               enabled: canUndo,
               shell: shell,
+              accent: accent,
               onTap: canUndo ? () => notifier.undo() : null,
             ),
             _ToolBtn(
               icon: Icons.redo,
               enabled: canRedo,
               shell: shell,
+              accent: accent,
               onTap: canRedo ? () => notifier.redo() : null,
             ),
             _ToolBtn(
               icon: Icons.image_outlined,
               shell: shell,
+              accent: accent,
               onTap: () => _pickAndUploadImage(),
             ),
             Padding(
@@ -793,6 +813,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             ..._penColors.map((c) => _ColorDot(
                   color: c,
                   selected: !isEraser && state.currentPenColor == c,
+                  accent: accent,
                   onTap: () => notifier.setPenColor(c),
                 )),
           ],
@@ -805,13 +826,19 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
 
   Widget _buildBottomBar(LessonState state, ShellTheme shell) {
     final notifier = ref.read(lessonProvider.notifier);
+    final accent = state.isTutor ? AppColors.primaryBlue : AppColors.studentInk;
+    // 홈 인디케이터 영역까지 바 색이 채워지도록 그 높이만큼 아래 패딩을 더한다.
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Container(
       decoration: BoxDecoration(
-        color: shell.cardBackground,
+        // 학생 화면에선 하단 바도 연초록(브랜드색)으로. 강사는 기존 색 유지.
+        color: state.isTutor
+            ? shell.cardBackground
+            : const Color(0xFFF0F4E2),
         border: Border(top: BorderSide(color: shell.borderColor, width: 1)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: EdgeInsets.fromLTRB(20, 10, 20, 10 + bottomInset),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -829,6 +856,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             icon: state.isMicEnabled ? Icons.mic : Icons.mic_off,
             active: state.isMicEnabled,
             shell: shell,
+            accent: accent,
             onTap: () => notifier.toggleMic(),
           ),
           if (state.isTutor) ...[
@@ -839,6 +867,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                   : Icons.videocam_off_outlined,
               active: state.localCameraEnabled,
               shell: shell,
+              accent: accent,
               onTap: () => notifier.toggleCamera(),
             ),
           ],
@@ -950,6 +979,10 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
       confirmText: '완료',
       isDanger: true,
       isTutor: true,
+      // 강의실은 shell 테마 밖이라 다크모드 색이 안 잡힌다 → 명시적으로 넘긴다.
+      theme: ref.read(shellDarkModeProvider)
+          ? AppTheme.shellDark
+          : AppTheme.shellLight,
     );
     if (ok) {
       await ref.read(lessonProvider.notifier).completeLesson();
@@ -964,11 +997,13 @@ class _ToolBtn extends StatelessWidget {
   final bool active;
   final bool enabled;
   final ShellTheme shell;
+  final Color accent;
   final VoidCallback? onTap;
 
   const _ToolBtn({
     required this.icon,
     required this.shell,
+    required this.accent,
     this.active = false,
     this.enabled = true,
     this.onTap,
@@ -979,7 +1014,7 @@ class _ToolBtn extends StatelessWidget {
     final iconColor = !enabled
         ? shell.hintColor
         : active
-            ? AppColors.primaryBlue
+            ? accent
             : shell.titleColor;
 
     return GestureDetector(
@@ -989,7 +1024,7 @@ class _ToolBtn extends StatelessWidget {
         height: 44,
         decoration: BoxDecoration(
           color: active
-              ? AppColors.primaryBlue.withValues(alpha: 0.12)
+              ? accent.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
@@ -1004,11 +1039,13 @@ class _ToolBtn extends StatelessWidget {
 class _ColorDot extends StatelessWidget {
   final Color color;
   final bool selected;
+  final Color accent;
   final VoidCallback onTap;
 
   const _ColorDot({
     required this.color,
     required this.selected,
+    required this.accent,
     required this.onTap,
   });
 
@@ -1025,7 +1062,7 @@ class _ColorDot extends StatelessWidget {
             color: color,
             shape: BoxShape.circle,
             border: Border.all(
-              color: selected ? AppColors.primaryBlue : Colors.transparent,
+              color: selected ? accent : Colors.transparent,
               width: 2.5,
             ),
             boxShadow: selected
@@ -1071,11 +1108,13 @@ class _ControlBtn extends StatelessWidget {
   final IconData icon;
   final bool active;
   final ShellTheme shell;
+  final Color accent;
   final VoidCallback onTap;
 
   const _ControlBtn({
     required this.icon,
     required this.shell,
+    required this.accent,
     required this.onTap,
     this.active = true,
   });
@@ -1090,7 +1129,7 @@ class _ControlBtn extends StatelessWidget {
         height: 46,
         decoration: BoxDecoration(
           color: active
-              ? shell.iconBackground
+              ? accent.withValues(alpha: 0.18)
               : shell.hintColor.withValues(alpha: 0.15),
           shape: BoxShape.circle,
         ),

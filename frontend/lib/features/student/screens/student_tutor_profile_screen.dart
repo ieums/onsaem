@@ -399,6 +399,7 @@ class _OnlineStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -417,7 +418,10 @@ class _OnlineStatusBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: isOnline ? Colors.black : Colors.grey,
+          // 다크모드에선 검정 글씨가 안 보이므로 특징색(연두)으로.
+          color: isOnline
+              ? (isDark ? AppColors.studentPoint : Colors.black)
+              : Colors.grey,
         ),
       ),
     );

@@ -99,6 +99,7 @@ public class TutorService {
 
         List<TutorProfileResponse.ReviewItem> reviewItems = reviews.stream()
                 .map(r -> new TutorProfileResponse.ReviewItem(
+                        r.getId(),
                         r.getRating(),
                         r.getComment(),
                         r.getCreatedAt(),

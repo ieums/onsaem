@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +8,6 @@ import 'package:ieum/core/permissions/media_permissions.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/storage/welcome_bonus_flag.dart';
 import 'package:ieum/core/theme/app_theme.dart';
-import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
 import 'package:ieum/features/student/providers/problem_provider.dart';
 import 'package:ieum/features/student/providers/student_applicant_watcher.dart';
@@ -69,12 +69,17 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
 
   /// 가입 축하 보너스 안내 — 가입 직후 홈 진입 시 1회만(로컬 플래그로 소비됨).
   void _showWelcomeBonusDialog() {
+    // 색은 다이얼로그 컨텍스트(ShellTheme.of)가 아니라 학생 shell 테마에서 직접 뽑는다.
+    // (안 그러면 루트 보라 시드 테마가 잡혀 배경이 연보라로 뜬다)
+    final scheme = (ref.read(shellDarkModeProvider)
+            ? AppTheme.shellDark
+            : AppTheme.shellLight)
+        .colorScheme;
     showDialog<void>(
       context: context,
       builder: (ctx) {
-        final shell = ShellTheme.of(ctx);
         return Dialog(
-          backgroundColor: shell.cardBackground,
+          backgroundColor: scheme.surface,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Padding(
@@ -88,7 +93,7 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
                     style: TextStyle(
                         fontSize: 19,
                         fontWeight: FontWeight.w800,
-                        color: shell.titleColor)),
+                        color: scheme.onSurface)),
                 const SizedBox(height: 8),
                 Text.rich(
                   TextSpan(children: [
@@ -103,7 +108,7 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
                   ]),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontSize: 14, height: 1.5, color: shell.subtitleColor),
+                      fontSize: 14, height: 1.5, color: scheme.secondary),
                 ),
                 const SizedBox(height: 20),
                 Row(
@@ -114,7 +119,7 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
                         child: Text('나중에',
                             style: TextStyle(
                                 fontWeight: FontWeight.w700,
-                                color: shell.hintColor)),
+                                color: scheme.onSurfaceVariant)),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -127,8 +132,10 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
                               .state = studentShellAiTutorTabIndex;
                         },
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.studentPoint,
+                          backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
+                          side: const BorderSide(
+                              color: AppColors.studentPoint, width: 1.5),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -223,6 +230,9 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
 
   Future<void> _showMatchRequestedDialog(
       BuildContext context, WidgetRef ref, int tutorId) async {
+    // 매칭 요청 다이얼로그는 항상 하나만 유지한다. 이미 떠 있으면 먼저 닫아,
+    // 낡은 다이얼로그가 밑에 쌓여 엉뚱한 강사에게 수락/거절이 나가는 걸 막는다.
+    _dismissMatchDialog();
     final isDark = ref.read(shellDarkModeProvider);
     final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final theme = baseTheme.copyWith(
@@ -230,12 +240,16 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
           baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
     );
 
+    BuildContext? myDialogContext;
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
+        myDialogContext = dialogContext;
         _matchDialogContext = dialogContext;
-        final shell = ShellTheme.of(dialogContext);
+        // 색은 다이얼로그 컨텍스트(ShellTheme.of)가 아니라 로컬 shell 테마에서 직접 뽑는다.
+        // 그러지 않으면 루트(보라 시드) 테마가 잡혀 배경이 연보라로 뜨고 다크모드도 안 먹는다.
+        final scheme = theme.colorScheme;
         return Theme(
           data: theme,
           // 뒤로가기로 닫혀 매칭 요청을 놓치지 않도록 막는다(수락/거절만 가능).
@@ -243,7 +257,7 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
           child: PopScope(
             canPop: false,
             child: AlertDialog(
-            backgroundColor: shell.cardBackground,
+            backgroundColor: scheme.surface,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18)),
@@ -252,7 +266,7 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: shell.titleColor,
+                color: scheme.onSurface,
               ),
             ),
             content: Text(
@@ -260,7 +274,7 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
               style: TextStyle(
                 fontSize: 14.5,
                 height: 1.45,
-                color: shell.subtitleColor,
+                color: scheme.secondary,
               ),
             ),
             actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -275,10 +289,12 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
               FilledButton(
                 onPressed: () => Navigator.pop(dialogContext, true),
                 style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.studentPoint,
-                    foregroundColor:
-                        isDark ? AppColors.shellOnSurfaceLight : Colors.white,
-                    shape: const StadiumBorder(),
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    side: const BorderSide(
+                        color: AppColors.studentPoint, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 22, vertical: 11)),
                 child: const Text('수락',
@@ -291,7 +307,11 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
       },
     );
 
-    _matchDialogContext = null;
+    // 그 사이 더 새로운 다이얼로그가 떴다면 그 컨텍스트를 덮어쓰지 않도록,
+    // 내가 띄운 다이얼로그가 여전히 '현재'일 때만 정리한다(겹침 경합 방지).
+    if (identical(_matchDialogContext, myDialogContext)) {
+      _matchDialogContext = null;
+    }
     if (!mounted) return;
     // confirmed == null → 상대 취소로 자동 닫힘. 이미 취소됐으므로 추가 호출 없음.
     if (confirmed == null) return;
@@ -309,9 +329,20 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
         await showLessonPermissionDialog(context);
         return;
       }
-      await ref
-          .read(studentMatchingSessionProvider.notifier)
-          .confirmMatch(tutorId);
+      try {
+        await ref
+            .read(studentMatchingSessionProvider.notifier)
+            .confirmMatch(tutorId);
+      } on DioException catch (e) {
+        if (!context.mounted) return;
+        // 낡은/만료된 매칭을 확정하려다 400 등이 나면 크래시 대신 안내 후 상태 정리.
+        final msg = e.response?.statusCode == 400
+            ? '이미 만료되었거나 처리된 매칭이에요. 강사를 다시 선택해 주세요.'
+            : '연결에 실패했어요. 잠시 후 다시 시도해 주세요.';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
+        ref.invalidate(pendingConfirmProvider);
+      }
     } else {
       await ref
           .read(studentMatchingSessionProvider.notifier)

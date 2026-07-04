@@ -10,6 +10,7 @@ import 'package:ieum/features/student/providers/payment_provider.dart';
 import 'package:ieum/features/student/widgets/student_coin_payments_sheet.dart';
 import 'package:portone_flutter_v2/portone_flutter_v2.dart' show PaymentResponse;
 import 'package:ieum/core/config/portone_config.dart';
+import 'package:ieum/features/student/providers/mypage_provider.dart';
 import 'package:ieum/features/student/screens/coin_payment_screen.dart';
 
 String formatWon(int n) {
@@ -62,20 +63,32 @@ class _StudentCreditRechargeScreenState
       // 2) 결제ID 확정 — 실결제 설정이 있으면 PortOne SDK 결제창, 없으면 테스트(검증 스킵).
       String portonePaymentId = payment.merchantId;
       if (PortoneConfig.isConfigured) {
+        // 이니시스 등 PG가 구매자 이름을 요구 → 내 정보(me)에서 이름/전화/이메일 확보.
+        final me = await ref.read(meProvider.future);
         if (!mounted) return;
-        final result = await Navigator.of(context).push<PaymentResponse?>(
+        final result = await Navigator.of(context).push<Object?>(
           MaterialPageRoute(
             fullscreenDialog: true,
             builder: (_) => CoinPaymentScreen(
               paymentId: payment.merchantId,
               orderName: '${formatWon(pkg.totalCoin)}P 충전',
               amount: pkg.price,
+              customerName: me['name'] as String?,
+              customerPhone: me['phone'] as String?,
+              customerEmail: me['email'] as String?,
             ),
           ),
         );
         if (result == null) {
+          // 사용자가 결제창을 닫음(취소).
           if (mounted) setState(() => _paying = false);
-          _snack('결제가 취소되었어요.');
+          _snack('결제를 취소했어요.');
+          return;
+        }
+        if (result is! PaymentResponse) {
+          // onError로 올라온 실제 에러 메시지.
+          if (mounted) setState(() => _paying = false);
+          _snack('결제 오류: $result');
           return;
         }
         if (result.code != null) {

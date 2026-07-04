@@ -74,6 +74,15 @@
             color: #888;
             margin-top: 4px;
         }
+        /* AI 생성물 표시(인공지능기본법). 다운로드·공유되어도 고지가 따라가도록 문서에 포함. */
+        .ai-notice {
+            margin: 28px 30px 0;
+            padding: 12px 14px;
+            border-top: 1px solid #e2e2e2;
+            font-size: 11px;
+            color: #888;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
@@ -85,6 +94,9 @@
     <h2>다룬 문제</h2>
     {{images}}
     {{summary}}
+</div>
+<div class="ai-notice">
+    본 요약 자료는 생성형 AI가 자동으로 작성한 콘텐츠로, 실제 강의 내용과 다르거나 부정확한 부분이 있을 수 있습니다.
 </div>
 </body>
 </html>

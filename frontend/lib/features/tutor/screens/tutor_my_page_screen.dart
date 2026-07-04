@@ -107,6 +107,16 @@ class _TutorMyPageScreenState
               const SizedBox(height: 8),
               _buildGroupedMenuCard(children: [
                 _buildMenuRow(
+                  icon: Icons.visibility_outlined,
+                  title: '학생에게 보이는 내 프로필',
+                  onTap: () {
+                    final id = ref.read(currentUserProvider)?.id;
+                    if (id != null) {
+                      context.push('${RoutePaths.studentTutorProfile}/$id');
+                    }
+                  },
+                ),
+                _buildMenuRow(
                   icon: Icons.star_outline_rounded,
                   title: '받은 리뷰',
                   onTap: () => context.push(RoutePaths.tutorMyReviews),
