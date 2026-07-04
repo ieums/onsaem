@@ -24,9 +24,6 @@ public class JwtProvider {
     private static final String CLAIM_TYPE = "type";
     private static final String TYPE_ACCESS = "access";
     private static final String TYPE_REFRESH = "refresh";
-    // 화이트보드 녹화봇(recorder.html) 전용 — 특정 채널을 "읽기만" 할 수 있는 채널 스코프 토큰.
-    // 녹화봇은 튜터/학생이 아니라 STOMP 참여자 인가를 통과할 수 없으므로, 서버가 녹화 시작 시 발급한다.
-    private static final String TYPE_WB_RECORDER = "wb-recorder";
 
     private final JwtProperties properties;
     private final SecretKey key;
@@ -86,29 +83,5 @@ public class JwtProvider {
 
     public boolean isAccessToken(Claims claims) {
         return TYPE_ACCESS.equals(claims.get(CLAIM_TYPE, String.class));
-    }
-
-    /**
-     * 화이트보드 녹화봇용 채널 스코프 토큰 발급.
-     * subject = 채널명. 이 토큰으로는 해당 채널의 화이트보드 topic 구독(읽기)만 허용된다(전송 불가).
-     */
-    public String createWhiteboardRecorderToken(String channelName, long ttlMs) {
-        Date now = new Date();
-        return Jwts.builder()
-                .subject(channelName)
-                .claim(CLAIM_TYPE, TYPE_WB_RECORDER)
-                .issuedAt(now)
-                .expiration(new Date(now.getTime() + ttlMs))
-                .signWith(key)
-                .compact();
-    }
-
-    public boolean isWhiteboardRecorderToken(Claims claims) {
-        return TYPE_WB_RECORDER.equals(claims.get(CLAIM_TYPE, String.class));
-    }
-
-    /** recorder 토큰의 대상 채널명(subject). */
-    public String getSubject(Claims claims) {
-        return claims.getSubject();
     }
 }
