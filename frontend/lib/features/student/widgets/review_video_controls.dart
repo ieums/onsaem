@@ -27,6 +27,10 @@ class _ReviewVideoControlsState extends State<ReviewVideoControls> {
   int _speedIndex = 2; // 1.0x
   bool _dragging = false;
   double _dragValue = 0;
+  double _volumeBeforeMute = 1.0;
+
+  final _volumeLayerLink = LayerLink();
+  OverlayEntry? _volumeOverlayEntry;
 
   @override
   void didChangeDependencies() {
@@ -39,11 +43,13 @@ class _ReviewVideoControlsState extends State<ReviewVideoControls> {
   void dispose() {
     _controller.removeListener(_onValueChanged);
     _hideTimer?.cancel();
+    _volumeOverlayEntry?.remove();
     super.dispose();
   }
 
   void _onValueChanged() {
     if (mounted) setState(() {});
+    _volumeOverlayEntry?.markNeedsBuild();
   }
 
   // 재생 중일 때만 3초 후 컨트롤을 자동으로 숨김. 조작할 때마다 다시 3초 연장.
@@ -57,6 +63,10 @@ class _ReviewVideoControlsState extends State<ReviewVideoControls> {
   }
 
   void _handleTap() {
+    if (_volumeOverlayEntry != null) {
+      _hideVolumeOverlay();
+      return;
+    }
     setState(() => _showControls = !_showControls);
     _resetHideTimer();
   }
@@ -83,10 +93,87 @@ class _ReviewVideoControlsState extends State<ReviewVideoControls> {
     _resetHideTimer();
   }
 
-  void _changeVolume(double delta) {
-    final next = (_controller.value.volume + delta).clamp(0.0, 1.0);
-    _chewieController.setVolume(next);
-    _resetHideTimer();
+  void _setVolume(double value) {
+    final clamped = value.clamp(0.0, 1.0);
+    _chewieController.setVolume(clamped);
+    if (clamped > 0) _volumeBeforeMute = clamped;
+  }
+
+  void _toggleMute() {
+    final current = _controller.value.volume;
+    if (current == 0) {
+      _setVolume(_volumeBeforeMute > 0 ? _volumeBeforeMute : 1.0);
+    } else {
+      _volumeBeforeMute = current;
+      _setVolume(0);
+    }
+  }
+
+  void _toggleVolumeSlider() {
+    if (_volumeOverlayEntry != null) {
+      _hideVolumeOverlay();
+    } else {
+      _hideTimer?.cancel();
+      _showVolumeOverlay();
+    }
+  }
+
+  void _showVolumeOverlay() {
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _volumeOverlayEntry = OverlayEntry(
+      builder: (overlayContext) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _hideVolumeOverlay,
+                child: const ColoredBox(color: Colors.transparent),
+              ),
+            ),
+            CompositedTransformFollower(
+              link: _volumeLayerLink,
+              targetAnchor: Alignment.topCenter,
+              followerAnchor: Alignment.bottomCenter,
+              offset: const Offset(0, -6),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {},
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    width: 48,
+                    height: 136,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: _VerticalVolumeSlider(
+                        value: _controller.value.volume,
+                        onChanged: _setVolume,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    overlay.insert(_volumeOverlayEntry!);
+    setState(() {});
+  }
+
+  void _hideVolumeOverlay() {
+    _volumeOverlayEntry?.remove();
+    _volumeOverlayEntry = null;
+    if (mounted) {
+      setState(() {});
+      _resetHideTimer();
+    }
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
@@ -102,10 +189,10 @@ class _ReviewVideoControlsState extends State<ReviewVideoControls> {
         _skip(10);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowUp:
-        _changeVolume(0.1);
+        _setVolume(_controller.value.volume + 0.1);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowDown:
-        _changeVolume(-0.1);
+        _setVolume(_controller.value.volume - 0.1);
         return KeyEventResult.handled;
       default:
         return KeyEventResult.ignored;
@@ -141,27 +228,27 @@ class _ReviewVideoControlsState extends State<ReviewVideoControls> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  IconButton(
-                    iconSize: 32,
-                    color: Colors.white,
-                    icon: const Icon(Icons.replay_10_rounded),
-                    onPressed: () => _skip(-10),
+                  _circleButton(
+                    icon: Icons.replay_10_rounded,
+                    size: 44,
+                    iconSize: 22,
+                    onTap: () => _skip(-10),
                   ),
                   const SizedBox(width: 20),
-                  IconButton(
-                    iconSize: 52,
-                    color: Colors.white,
-                    icon: Icon(value.isPlaying
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_fill),
-                    onPressed: _togglePlayPause,
+                  _circleButton(
+                    icon: value.isPlaying
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    size: 64,
+                    iconSize: 34,
+                    onTap: _togglePlayPause,
                   ),
                   const SizedBox(width: 20),
-                  IconButton(
-                    iconSize: 32,
-                    color: Colors.white,
-                    icon: const Icon(Icons.forward_10_rounded),
-                    onPressed: () => _skip(10),
+                  _circleButton(
+                    icon: Icons.forward_10_rounded,
+                    size: 44,
+                    iconSize: 22,
+                    onTap: () => _skip(10),
                   ),
                 ],
               ),
@@ -213,7 +300,6 @@ class _ReviewVideoControlsState extends State<ReviewVideoControls> {
                                   inactiveColor: Colors.white24,
                                 ),
                               ),
-                              // 드래그 중일 때만 썸 위에 시간 미리보기 말풍선 표시.
                               if (_dragging)
                                 Positioned(
                                   left: (constraints.maxWidth - 44) * shownValue,
@@ -238,19 +324,24 @@ class _ReviewVideoControlsState extends State<ReviewVideoControls> {
                       ),
                       Row(
                         children: [
-                          IconButton(
-                            padding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
-                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                            icon: Icon(
-                              value.volume == 0
-                                  ? Icons.volume_off_rounded
-                                  : Icons.volume_up_rounded,
-                              color: Colors.white,
-                              size: 20,
+                          CompositedTransformTarget(
+                            link: _volumeLayerLink,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              onPressed: _toggleVolumeSlider,
+                              onLongPress: _toggleMute,
+                              icon: Icon(
+                                value.volume == 0
+                                    ? Icons.volume_off_rounded
+                                    : value.volume < 0.5
+                                        ? Icons.volume_down_rounded
+                                        : Icons.volume_up_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                             ),
-                            onPressed: () => _chewieController
-                                .setVolume(value.volume == 0 ? 1.0 : 0.0),
                           ),
                           Expanded(
                             child: Text(
@@ -296,6 +387,104 @@ class _ReviewVideoControlsState extends State<ReviewVideoControls> {
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _circleButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required double size,
+    required double iconSize,
+  }) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.38),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Icon(icon, color: Colors.white, size: iconSize),
+        ),
+      ),
+    );
+  }
+}
+
+class _VerticalVolumeSlider extends StatelessWidget {
+  const _VerticalVolumeSlider({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  void _updateFromDy(double dy, double height) {
+    if (height <= 0) return;
+    onChanged((1 - (dy / height)).clamp(0.0, 1.0));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const trackHeight = 112.0;
+    const trackWidth = 4.0;
+    const thumbSize = 14.0;
+    const hitWidth = 36.0;
+    final fillHeight = trackHeight * value;
+    final thumbBottom =
+        (fillHeight - thumbSize / 2).clamp(0.0, trackHeight - thumbSize);
+
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (event) => _updateFromDy(event.localPosition.dy, trackHeight),
+      onPointerMove: (event) => _updateFromDy(event.localPosition.dy, trackHeight),
+      child: SizedBox(
+        width: hitWidth,
+        height: trackHeight,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: trackWidth,
+              height: trackHeight,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                width: trackWidth,
+                height: fillHeight,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: thumbBottom,
+              child: Center(
+                child: Container(
+                  width: thumbSize,
+                  height: thumbSize,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
