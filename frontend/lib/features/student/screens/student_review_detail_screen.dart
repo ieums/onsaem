@@ -463,7 +463,22 @@ class _StudentReviewDetailScreenState
             ),
           ),
         _buildInputBar(shell, state),
+        _buildAiNotice(shell),
       ],
+    );
+  }
+
+  // AI 생성물 표시(인공지능기본법). 답변이 부정확할 수 있음을 항상 고지.
+  Widget _buildAiNotice(ShellTheme shell) {
+    return Container(
+      width: double.infinity,
+      color: _pageBg,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Text(
+        'AI 튜터는 실수할 수 있습니다. 응답을 다시 한 번 확인해 주세요.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: shell.hintColor, fontSize: 11, height: 1.3),
+      ),
     );
   }
 

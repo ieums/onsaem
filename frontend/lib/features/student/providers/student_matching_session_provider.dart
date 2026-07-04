@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ieum/features/matching/repositories/matching_repository.dart';
 import 'package:ieum/features/student/models/applicant_model.dart';
@@ -290,13 +291,38 @@ class StudentMatchingSessionNotifier
 
   Future<void> confirmMatch(int tutorId) async {
     if (state == null) return;
-    await _repo.confirmMatchStudent(state!.problemId, tutorId);
-    state = state!.copyWith(matchRequestedTutorId: null);
+    try {
+      await _repo.confirmMatchStudent(state!.problemId, tutorId);
+      state = state!.copyWith(matchRequestedTutorId: null);
+    } on DioException catch (e) {
+      // 이미 만료·취소·처리된 매칭이면 서버가 400 → 낡은 요청 상태를 정리하고
+      // 강사 재선택 화면으로 되돌린다. (화면단에서 안내 스낵바를 띄우도록 rethrow)
+      if (e.response?.statusCode == 400) _clearStaleMatchRequest();
+      rethrow;
+    }
+  }
+
+  /// 만료·취소돼 더는 유효하지 않은 매칭 요청 상태를 로컬에서 정리(강사 재선택 가능 상태로).
+  void _clearStaleMatchRequest() {
+    if (state == null) return;
+    state = state!.copyWith(
+      matchRequestedTutorId: null,
+      selectedTutorId: null,
+      status: state!.applicants.isNotEmpty
+          ? StudentMatchingSessionStatus.selectingTutor
+          : StudentMatchingSessionStatus.matching,
+    );
   }
 
   Future<void> cancelConfirm(int tutorId) async {
     if (state == null) return;
-    await _repo.cancelConfirmStudent(state!.problemId, tutorId);
+    try {
+      await _repo.cancelConfirmStudent(state!.problemId, tutorId);
+    } on DioException catch (e) {
+      // 이미 취소·만료된 요청이면 서버가 400 → 취소 목적은 이미 달성됐으므로
+      // 에러로 보지 않고 아래 로컬 상태 정리만 이어서 진행한다.
+      if (e.response?.statusCode != 400) rethrow;
+    }
     // 거절하면 그 강사는 목록에서 빼고, 다시 강사 선택 화면으로 돌아간다(남은 강사 선택 가능).
     final remaining =
         state!.applicants.where((a) => a.tutorId != tutorId).toList();

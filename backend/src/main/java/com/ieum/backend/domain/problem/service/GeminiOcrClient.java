@@ -22,7 +22,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -409,13 +411,61 @@ public class GeminiOcrClient {
                 list.add(mapToDetectedText(json));
             }
             // 안전망: 지문 안내문/지문만 있는 블록은 "버리지 말고" 실제 문제에 합친다(지문 손실 방지).
-            result.setDetectedTexts(mergePassageOnly(list));
+            List<DetectedText> merged = mergePassageOnly(list);
+            // 보정: 묶음([14~17])의 지문 이미지가 다른 장에 있는 문제(16·17)에도 붙도록 이미지 인덱스를 잇는다.
+            linkPassageGroups(merged);
+            result.setDetectedTexts(merged);
             return result;
 
         } catch (Exception e) {
             // 모델 출력이 잘리거나 형식이 깨지면 여기로 옴 → 사용자에게 알아들을 메시지
             throw BusinessException.internalError(
                     "문제 인식 결과 처리에 실패했어요. 사진을 더 적게/선명하게 올려 다시 시도해 주세요.", e);
+        }
+    }
+
+    /**
+     * 지문(묶음)이 여러 장에 걸친 경우 이미지 인덱스 보정.
+     *
+     * <p>OCR은 같은 지문을 그 묶음의 각 문제 extractedText 앞부분에 똑같이 복사해 넣는다.
+     * 그래서 "지문 앞부분이 같은 문제들 = 같은 지문 묶음"으로 본다(특정 문제 번호에 의존하지 않는 일반 규칙).
+     *
+     * <p>지문은 보통 묶음의 가장 앞 장에 있으므로, 그룹이 걸친 이미지 중 '가장 앞 장'을 지문 장으로 보고
+     * 그룹의 모든 문제 imageIndices에 추가한다. → 다른 장에 있는 문제를 골라도 지문 장이 함께 저장된다.
+     * (예: 지문+14가 0장, 15·16·17이 1장 → 14는 [0] 유지, 15·16·17은 [0,1])
+     */
+    private void linkPassageGroups(List<DetectedText> list) {
+        // 지문 앞부분(공백 제거 후 앞 40자)으로 그룹핑. 지문이 없는 짧은 단문 문제는 묶지 않는다.
+        final int prefixLen = 40;
+        Map<String, List<DetectedText>> groups = new LinkedHashMap<>();
+        for (DetectedText t : list) {
+            String text = t.getExtractedText();
+            if (text == null) continue;
+            String compact = text.replaceAll("\\s+", "");
+            if (compact.length() < prefixLen) continue; // 지문 없는 단문은 제외
+            String key = compact.substring(0, prefixLen);
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(t);
+        }
+        for (List<DetectedText> group : groups.values()) {
+            if (group.size() < 2) continue; // 지문 공유 문제가 2개 이상일 때만 보정
+            // 지문 장 = 그룹이 걸친 이미지 중 가장 앞 장
+            int passageImg = Integer.MAX_VALUE;
+            for (DetectedText t : group) {
+                if (t.getImageIndices() == null) continue;
+                for (Integer idx : t.getImageIndices()) passageImg = Math.min(passageImg, idx);
+            }
+            if (passageImg == Integer.MAX_VALUE) continue;
+            for (DetectedText t : group) {
+                List<Integer> idxs = t.getImageIndices();
+                if (idxs == null) {
+                    idxs = new ArrayList<>();
+                    t.setImageIndices(idxs);
+                }
+                if (!idxs.contains(passageImg)) {
+                    idxs.add(passageImg);
+                    Collections.sort(idxs);
+                }
+            }
         }
     }
 

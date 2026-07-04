@@ -12,12 +12,13 @@
 class PortoneConfig {
   PortoneConfig._();
 
-  // TODO(결제): PortOne 콘솔 값으로 교체. 교체 후 백엔드 PORTONE_VERIFY=true 로.
-  static const String storeId = 'store-...';
-  static const String channelKey = 'channel-key-...';
+  // PortOne 콘솔 값. 실결제 검증하려면 백엔드 PORTONE_VERIFY=true 필요.
+  static const String storeId = 'store-ddabe359-8d0b-4f5b-a8d4-867316e9e581';
+  static const String channelKey =
+      'channel-key-d2fc7674-8028-4cda-afd0-d45b920483eb';
 
-  /// 외부 결제앱 복귀용 딥링크 스킴(네이티브에도 동일하게 등록해야 함).
-  static const String appScheme = 'ieumpay';
+  /// 외부 결제앱 복귀용 딥링크 스킴. iOS Info.plist/Android에 이미 등록된 스킴을 재사용.
+  static const String appScheme = 'com.ieum.ieum';
 
   /// 실결제 설정이 모두 채워졌는지. 플레이스홀더면 false → 테스트 모드.
   static bool get isConfigured =>

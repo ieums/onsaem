@@ -3,6 +3,7 @@ package com.ieum.backend.domain.lesson.scheduler;
 import com.ieum.backend.domain.lesson.entity.Lesson;
 import com.ieum.backend.domain.lesson.repository.LessonRepository;
 import com.ieum.backend.domain.lesson.service.LessonService;
+import com.ieum.backend.domain.matching.service.MatchingService;
 import com.ieum.backend.global.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ public class LessonScheduler {
     private final LessonRepository lessonRepository;
     private final S3Service s3Service;
     private final LessonService lessonService;
+    private final MatchingService matchingService;
 
     @Scheduled(fixedDelay = 3600000)
     @Transactional
@@ -39,6 +41,7 @@ public class LessonScheduler {
         lessonRepository.findByStatusAndStartedAtBefore(Lesson.LessonStatus.ACTIVE, threshold)
                 .forEach(lesson -> {
                     lesson.complete(null);
+                    restoreTutorAvailability(lesson.getTutorId());
                     deleteTempImagesQuietly(lesson.getId());
                 });
     }
@@ -46,7 +49,27 @@ public class LessonScheduler {
     private void cleanupStaleWaiting() {
         LocalDateTime threshold = LocalDateTime.now().minusHours(24);
         lessonRepository.findByStatusAndCreatedAtBefore(Lesson.LessonStatus.WAITING, threshold)
-                .forEach(lesson -> deleteTempImagesQuietly(lesson.getId()));
+                .forEach(lesson -> {
+                    // 시작되지 못하고 방치된(튕김 등) 강의를 취소 처리해야
+                    // '수업중'(ACTIVE/WAITING) 판정에서 빠져 강사 상태가 풀린다.
+                    lesson.cancel();
+                    restoreTutorAvailability(lesson.getTutorId());
+                    deleteTempImagesQuietly(lesson.getId());
+                });
+    }
+
+    /**
+     * 비정상 종료로 남은 강사의 UNAVAILABLE 신청을 PENDING으로 복구한다.
+     * 이게 안 풀리면 강사가 '수업 중'으로 묶여 새 문제에 신청조차 못 한다(MatchingService.apply).
+     */
+    private void restoreTutorAvailability(Long tutorId) {
+        if (tutorId == null) return;
+        try {
+            matchingService.tutorEndLesson(tutorId);
+        } catch (Exception e) {
+            log.warn("[LessonScheduler] 강사 상태 복구 실패(무시하고 진행). tutorId={}, cause={}",
+                    tutorId, e.getMessage());
+        }
     }
 
     /**

@@ -40,11 +40,13 @@ class SignupRoleScreen extends StatelessWidget {
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Column(
-                    // 가운데 정렬이라 위 공백이 너무 컸음 → 위쪽 정렬로 올림.
+                    // 위쪽 정렬 + 뷰포트 비례 상단 여백으로 '살짝 중앙 쪽'에 배치.
+                    // (완전 중앙정렬은 위 공백이 과했어서 이 방식으로 조절)
                     mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                          const SizedBox(height: 8),
+                          // 화면을 약간 중앙으로 내리는 상단 여백(뷰포트 높이 비례).
+                          SizedBox(height: constraints.maxHeight * 0.12),
                           const Text(
                             '회원가입',
                             textAlign: TextAlign.center,

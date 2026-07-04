@@ -6,6 +6,7 @@ import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/data/tutor_profile_repository.dart';
 import 'package:ieum/features/student/models/tutor_profile_detail.dart';
+import 'package:ieum/features/student/repositories/mypage_repository.dart';
 import 'package:ieum/features/tutor/widgets/review_summary.dart';
 
 class TutorMyReviewsScreen extends ConsumerWidget {
@@ -66,7 +67,7 @@ class TutorMyReviewsScreen extends ConsumerWidget {
                           color: shell.cardBorder.withValues(alpha: 0.5)),
                       const SizedBox(height: 12),
                       for (var i = 0; i < profile.reviews.length; i++) ...[
-                        _card(shell, profile.reviews[i]),
+                        _card(context, ref, shell, profile.reviews[i]),
                         if (i != profile.reviews.length - 1)
                           const SizedBox(height: 12),
                       ],
@@ -102,7 +103,8 @@ class TutorMyReviewsScreen extends ConsumerWidget {
         ],
       );
 
-  Widget _card(ShellTheme shell, TutorReviewItem r) {
+  Widget _card(
+      BuildContext context, WidgetRef ref, ShellTheme shell, TutorReviewItem r) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -136,6 +138,28 @@ class TutorMyReviewsScreen extends ConsumerWidget {
               Text(_ymd(r.createdAt),
                   style: TextStyle(
                       fontSize: 12, color: shell.hintColor)),
+              // 리뷰 id가 있어야(백엔드 재배포 후) 신고 가능.
+              if (r.id != null) ...[
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () => _showReportDialog(context, ref, shell, r),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.flag_outlined,
+                            size: 14, color: shell.hintColor),
+                        const SizedBox(width: 2),
+                        Text('신고',
+                            style: TextStyle(
+                                fontSize: 12, color: shell.hintColor)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           if ((r.comment?.trim().isNotEmpty) ?? false) ...[
@@ -149,6 +173,132 @@ class TutorMyReviewsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _showReportDialog(BuildContext context, WidgetRef ref,
+      ShellTheme shell, TutorReviewItem r) async {
+    const reasons = <({String label, String code})>[
+      (label: '허위/사기', code: 'FRAUD'),
+      (label: '욕설/모욕', code: 'ABUSE'),
+      (label: '부적절한 내용', code: 'INAPPROPRIATE'),
+      (label: '스팸/광고', code: 'SPAM'),
+      (label: '기타', code: 'ETC'),
+    ];
+    final detailController = TextEditingController();
+    String? selectedCode;
+    bool submitting = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(builder: (dialogContext, setLocal) {
+          Future<void> submit() async {
+            final me = ref.read(currentUserProvider);
+            if (selectedCode == null ||
+                submitting ||
+                me == null ||
+                r.id == null) {
+              return;
+            }
+            setLocal(() => submitting = true);
+            try {
+              await MypageRepository().createReport(
+                reporterId: me.id,
+                reporterType: 'TUTOR',
+                targetType: 'REVIEW',
+                targetId: r.id!,
+                reasons: [selectedCode!],
+                description: detailController.text,
+              );
+              if (!dialogContext.mounted) return;
+              Navigator.pop(dialogContext);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('신고가 접수되었습니다.')),
+              );
+            } catch (_) {
+              if (!dialogContext.mounted) return;
+              setLocal(() => submitting = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('신고 접수에 실패했어요. 잠시 후 다시 시도해 주세요.')),
+              );
+            }
+          }
+
+          return AlertDialog(
+            backgroundColor: shell.cardBackground,
+            surfaceTintColor: Colors.transparent,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: Text('리뷰 신고',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: shell.titleColor)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('신고 사유를 선택해 주세요.',
+                    style:
+                        TextStyle(fontSize: 13.5, color: shell.subtitleColor)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final reason in reasons)
+                      ChoiceChip(
+                        label: Text(reason.label),
+                        selected: selectedCode == reason.code,
+                        onSelected: (_) =>
+                            setLocal(() => selectedCode = reason.code),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: detailController,
+                  maxLines: 3,
+                  maxLength: 500,
+                  style: TextStyle(color: shell.titleColor, fontSize: 14),
+                  decoration: const InputDecoration(
+                    hintText: '상세 내용 (선택)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed:
+                    submitting ? null : () => Navigator.pop(dialogContext),
+                style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primaryBlue),
+                child: const Text('취소',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              FilledButton(
+                onPressed: (selectedCode == null || submitting) ? null : submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  side: const BorderSide(color: AppColors.logoutRed, width: 1.5),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
+                ),
+                child: const Text('신고',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ],
+          );
+        });
+      },
+    );
+    detailController.dispose();
   }
 
   static String _ymd(DateTime? d) {

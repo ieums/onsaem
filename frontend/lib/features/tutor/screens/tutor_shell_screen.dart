@@ -8,7 +8,6 @@ import 'package:ieum/core/permissions/lesson_permission_dialog.dart';
 import 'package:ieum/core/permissions/media_permissions.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
-import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/core/widgets/app_shell_tab_bar.dart';
 import 'package:ieum/features/matching/providers/matching_provider.dart'
     show MatchingState, matchingProvider, tutorApplicationsProvider;
@@ -147,16 +146,21 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
 
   Future<void> _showMatchRequestedDialog(
       BuildContext context, int problemId, String message) async {
-    final isDark = ref.read(shellDarkModeProvider);
-
+    // 다크모드가 먹도록 shell 테마를 직접 만들어 다이얼로그에 씌운다.
+    // (ShellTheme.of(dialogContext)는 루트 보라 테마를 잡아 배경/글씨가 어긋남)
+    final theme = ref.read(shellDarkModeProvider)
+        ? AppTheme.shellDark
+        : AppTheme.shellLight;
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
         _matchDialogContext = dialogContext;
-        final shell = ShellTheme.of(dialogContext);
-        return AlertDialog(
-          backgroundColor: shell.cardBackground,
+        final scheme = theme.colorScheme;
+        return Theme(
+          data: theme,
+          child: AlertDialog(
+          backgroundColor: scheme.surface,
           surfaceTintColor: Colors.transparent,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -165,7 +169,7 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: shell.titleColor,
+              color: scheme.onSurface,
             ),
           ),
           content: Column(
@@ -179,7 +183,7 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
                 style: TextStyle(
                   fontSize: 14.5,
                   height: 1.45,
-                  color: shell.subtitleColor,
+                  color: scheme.secondary,
                 ),
               ),
               const SizedBox(height: 16),
@@ -205,10 +209,12 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryBlue,
-                foregroundColor:
-                    isDark ? AppColors.shellOnSurfaceLight : Colors.white,
-                shape: const StadiumBorder(),
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                side: const BorderSide(
+                    color: AppColors.primaryBlue, width: 1.5),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
               ),
@@ -216,7 +222,9 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
               child: const Text('수락',
                   style: TextStyle(fontWeight: FontWeight.w800)),
             ),
+
           ],
+        ),
         );
       },
     );

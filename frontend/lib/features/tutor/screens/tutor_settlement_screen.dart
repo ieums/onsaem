@@ -1488,14 +1488,35 @@ class _TutorSettlementScreenState extends ConsumerState<TutorSettlementScreen>
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: Text(
-              item.fullDateTimeLabel,
-              style: TextStyle(
-                fontSize: timeFontSize,
-                fontWeight: FontWeight.w500,
-                color: scheme.onSurface,
-                height: 1.25,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 수업 관련 내용을 먼저(입금=과목 수업 정산 / 출금=정산 출금).
+                Text(
+                  isDeposit
+                      ? ((item.subject?.isNotEmpty ?? false)
+                          ? '${item.subject} 수업 정산'
+                          : '수업 정산')
+                      : '정산 출금',
+                  style: TextStyle(
+                    fontSize: timeFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                // 시각은 보조로 작게 남긴다.
+                Text(
+                  item.fullDateTimeLabel,
+                  style: TextStyle(
+                    fontSize: timeFontSize - 2,
+                    fontWeight: FontWeight.w400,
+                    color: scheme.onSurfaceVariant,
+                    height: 1.2,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 10),

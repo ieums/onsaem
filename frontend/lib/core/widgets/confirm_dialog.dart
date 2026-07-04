@@ -33,14 +33,16 @@ Future<bool> showConfirmDialog({
   String? highlightValue,
   ConfirmHighlightStyle highlightStyle = ConfirmHighlightStyle.outline,
   bool barrierDismissible = true,
+  ThemeData? theme,
 }) async {
   // 호출 화면의 (라이트/다크) shell 테마를 그대로 물려줘 다이얼로그 색이 일치하게 한다.
-  final theme = Theme.of(context);
+  // 호출 화면이 shell 테마 밖(예: 강의실)이면 theme을 명시적으로 넘겨 다크모드가 먹게 한다.
+  final resolvedTheme = theme ?? Theme.of(context);
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: barrierDismissible,
     builder: (dialogContext) => Theme(
-      data: theme,
+      data: resolvedTheme,
       child: _ConfirmDialog(
         title: title,
         message: message,
@@ -88,9 +90,8 @@ class _ConfirmDialog extends StatelessWidget {
     // 역할색: 강사=연보라(primaryBlue), 학생=연두(studentPoint).
     final roleColor =
         isTutor ? AppColors.primaryBlue : AppColors.studentPoint;
-    final confirmBg = isDanger ? AppColors.logoutRed : roleColor;
-    // 확인 버튼 글씨: 라이트=흰색, 다크=어두운 글자.
-    final confirmFg = isDark ? AppColors.shellOnSurfaceLight : Colors.white;
+    // 확인 버튼: 흰 배경 + 특징색 테두리 + 검정 글씨(둥근 네모). 위험 액션이면 테두리 빨강.
+    final accentColor = isDanger ? AppColors.logoutRed : roleColor;
 
     // 강조 박스는 label·value가 둘 다 있을 때만. 없으면 content는 기존 그대로(회귀 방지).
     final hasHighlight = highlightLabel != null && highlightValue != null;
@@ -165,9 +166,10 @@ class _ConfirmDialog extends StatelessWidget {
         FilledButton(
           onPressed: () => Navigator.pop(context, true),
           style: FilledButton.styleFrom(
-            backgroundColor: confirmBg,
-            foregroundColor: confirmFg,
-            shape: const StadiumBorder(),
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            side: BorderSide(color: accentColor, width: 1.5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
           ),
           child: Text(

@@ -21,6 +21,7 @@ public record TutorProfileResponse(
         List<ReviewItem> reviews
 ) {
     public record ReviewItem(
+            Long id,
             int rating,
             String comment,
             LocalDateTime createdAt,
