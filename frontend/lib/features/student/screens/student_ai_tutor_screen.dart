@@ -206,9 +206,7 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Text(
-            widget.problemSummary?.trim().isNotEmpty ?? false
-                ? '이 문제에 대해 궁금한 점을 AI 튜터에게 물어보세요!\n\n"${widget.problemSummary!.trim()}"'
-                : '이 문제에 대해 궁금한 점을 AI 튜터에게 물어보세요!',
+            '이 문제에 대해 궁금한 점을 AI 튜터에게 물어보세요!',
             textAlign: TextAlign.center,
             style: TextStyle(color: shell.hintColor, fontSize: 14, height: 1.5),
           ),
