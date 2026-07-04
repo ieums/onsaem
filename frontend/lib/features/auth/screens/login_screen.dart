@@ -11,6 +11,9 @@ import 'package:ieum/features/auth/data/auth_models.dart';
 import 'package:flutter_naver_login/flutter_naver_login.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:ieum/core/network/api_error.dart';
+import 'dart:math';
+import 'package:ieum/features/auth/web/oauth_web_popup.dart';
+import 'package:ieum/features/auth/web/pkce.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {      
   const LoginScreen({super.key});
@@ -134,9 +137,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
     // ─── 카카오 로그인 ───────────────────────────
-  Future<void> _kakaoLogin() async {
+    Future<void> _kakaoLogin() async {
     setState(() => _isLoading = true);
     try {
+      if (kIsWeb) {
+        await _kakaoLoginWeb();
+        return;
+      }
       OAuthToken? token;
       if (await isKakaoTalkInstalled()) {
         try {
@@ -150,7 +157,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } else {
         token = await UserApi.instance.loginWithKakaoAccount();
       }
-
       await _handleOAuth(provider: 'kakao', token: token.accessToken);
     } catch (e) {
       if (!mounted) return;
@@ -159,21 +165,65 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  Future<void> _kakaoLoginWeb() async {
+    const jsClientId = 'YOUR_KAKAO_JS_KEY'; // TODO: 카카오 개발자센터 JavaScript 키
+    final pkce = Pkce.generate();
+    final state = _randomState();
+    final redirectUri = Uri.base
+        .replace(path: '/kakao_callback.html', query: '', fragment: '')
+        .toString();
+
+    final authorizeUrl = Uri.https('kauth.kakao.com', '/oauth/authorize', {
+      'client_id': jsClientId,
+      'redirect_uri': redirectUri,
+      'response_type': 'code',
+      'code_challenge': pkce.challenge,
+      'code_challenge_method': 'S256',
+      'state': state,
+    }).toString();
+
+    final result =
+        await openOAuthPopup(url: authorizeUrl, popupName: 'kakao_login');
+    if (result == null || !mounted) return;
+    if ((result['error'] ?? '').isNotEmpty) {
+      _showMessage('카카오 로그인에 실패했어요.');
+      return;
+    }
+    if (result['state'] != state) {
+      _showMessage('카카오 로그인 검증에 실패했어요.');
+      return;
+    }
+    final code = result['code'] ?? '';
+    if (code.isEmpty) {
+      _showMessage('카카오 로그인에 실패했어요.');
+      return;
+    }
+
+    final accessToken = await ref.read(authRepositoryProvider).kakaoWebExchange(
+          code: code,
+          redirectUri: redirectUri,
+          codeVerifier: pkce.verifier,
+        );
+    await _handleOAuth(provider: 'kakao', token: accessToken);
+  }
     // ─── 네이버 로그인 ───────────────────────────
-  Future<void> _naverLogin() async {
+    Future<void> _naverLogin() async {
     setState(() => _isLoading = true);
     try {
+      if (kIsWeb) {
+        await _naverLoginWeb();
+        return;
+      }
       final result = await FlutterNaverLogin.logIn();
       if (result.status.name != 'loggedIn') {
         if (!mounted) return;
-        // 사용자가 취소(loggedOut)면 조용히, 실제 실패(error)만 안내
         if (result.status.name == 'error') {
           _showMessage('네이버 로그인에 실패했어요. 잠시 후 다시 시도해주세요.');
         }
         return;
       }
       final naverToken = await FlutterNaverLogin.getCurrentAccessToken();
-
       await _handleOAuth(provider: 'naver', token: naverToken.accessToken);
     } catch (e) {
       debugPrint('[naver] 로그인 실패: $e');
@@ -182,6 +232,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _naverLoginWeb() async {
+    const clientId = 'YOUR_NAVER_CLIENT_ID'; // TODO: 네이버 개발자센터 발급값
+    final state = _randomState();
+    final redirectUri = Uri.base
+        .replace(path: '/naver_callback.html', query: '', fragment: '')
+        .toString();
+
+    final authorizeUrl = Uri.https('nid.naver.com', '/oauth2.0/authorize', {
+      'response_type': 'token',
+      'client_id': clientId,
+      'redirect_uri': redirectUri,
+      'state': state,
+    }).toString();
+
+    final result =
+        await openOAuthPopup(url: authorizeUrl, popupName: 'naver_login');
+    if (result == null || !mounted) return;
+    if ((result['error'] ?? '').isNotEmpty) {
+      _showMessage('네이버 로그인에 실패했어요.');
+      return;
+    }
+    if (result['state'] != state) {
+      _showMessage('네이버 로그인 검증에 실패했어요.');
+      return;
+    }
+    final accessToken = result['accessToken'] ?? '';
+    if (accessToken.isEmpty) {
+      _showMessage('네이버 로그인에 실패했어요.');
+      return;
+    }
+    await _handleOAuth(provider: 'naver', token: accessToken);
+  }
+
+  String _randomState() {
+    final rand = Random.secure();
+    return List.generate(16, (_) => rand.nextInt(16).toRadixString(16)).join();
   }
     // ─── 구글 로그인 ───────────────────────────
   Future<void> _googleLogin() async {
