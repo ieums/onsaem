@@ -4,11 +4,11 @@
 <body>
 <script>
   (function () {
-    var params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    var params = new URLSearchParams(window.location.search);
     var payload = {
       source: 'ieum-oauth',
       provider: 'naver',
-      accessToken: params.get('access_token') || '',
+      code: params.get('code') || '',
       state: params.get('state') || '',
       error: params.get('error') || ''
     };
