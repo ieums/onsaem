@@ -139,9 +139,20 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOriginPattern("*");
+        // CORS는 브라우저(웹)만 적용된다 — 네이티브 모바일 앱은 CORS를 타지 않으므로 이 목록과 무관하게 동작한다.
+        // Bearer 토큰 방식(쿠키 미사용)이라 allowCredentials는 켜지 않는다.
+        // allowedOrigins가 아니라 allowedOriginPatterns를 쓰는 이유: 개발용 localhost는 포트가 가변이라
+        // 포트 와일드카드("http://localhost:*")가 필요하고, allowedOrigins는 포트 '*'를 지원하지 않는다.
+        config.setAllowedOriginPatterns(List.of(
+                "https://3-35-10-251.sslip.io", // 운영 — Flutter 웹 정적 서빙 도메인(백엔드와 동일 오리진)
+                "http://localhost:*",           // 개발 — Flutter 웹 dev 서버는 랜덤/가변 포트를 사용
+                "http://127.0.0.1:*"            // 개발 — 위와 동일(호스트 표기만 다른 경우)
+        ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        // 헤더는 반사(*) 유지 — Authorization·Content-Type 외에 Idempotency-Key 같은 커스텀 헤더도 쓰므로
+        // 화이트리스트로 좁히면 특정 엔드포인트의 preflight가 깨질 수 있다.
         config.setAllowedHeaders(List.of("*"));
+        config.setMaxAge(3600L); // preflight(OPTIONS) 응답 캐시 1시간 — 반복 사전요청 감소
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
