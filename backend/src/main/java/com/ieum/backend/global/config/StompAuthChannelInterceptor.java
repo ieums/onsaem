@@ -14,6 +14,7 @@ import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
@@ -59,7 +60,15 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
-        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
+        // ⚠️ StompHeaderAccessor.wrap(message)가 아니라 getAccessor(...)를 써야 한다.
+        // wrap()은 읽기 전용 '복사본'이라 CONNECT에서 setUser()를 해도 원본 메시지·세션에 반영되지 않는다
+        // → 이후 SUBSCRIBE에서 getUser()가 null이 되어 정상 로그인 사용자도 거부됨(이 버그의 원인).
+        // getAccessor()는 인바운드 메시지에 바인딩된 '가변' accessor를 돌려줘 setUser()가 세션에 전파된다.
+        StompHeaderAccessor accessor =
+                MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        if (accessor == null) {
+            return message; // STOMP 프레임이 아님 — 통과
+        }
         StompCommand command = accessor.getCommand();
         if (command == null) {
             return message; // 하트비트 등 비-STOMP 프레임 — 통과
@@ -77,6 +86,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private void authenticateOnConnect(StompHeaderAccessor accessor) {
         String header = accessor.getFirstNativeHeader("Authorization");
         if (header == null || !header.startsWith(BEARER)) {
+            log.debug("[STOMP] CONNECT Authorization 헤더 없음 — 익명 진행 (native headers={})",
+                    accessor.toNativeHeaderMap().keySet());
             return; // 익명 연결 허용 (매칭 STOMP 호환)
         }
         String token = header.substring(BEARER.length());
@@ -86,9 +97,13 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                 // 녹화봇: 특정 채널 읽기 전용
                 RecorderPrincipal principal = new RecorderPrincipal(jwtProvider.getSubject(claims));
                 accessor.setUser(new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+                log.debug("[STOMP] CONNECT 녹화봇 인증 — channel={}", principal.channel());
             } else if (jwtProvider.isAccessToken(claims)) {
                 AuthPrincipal principal = new AuthPrincipal(jwtProvider.getId(claims), jwtProvider.getRole(claims));
                 accessor.setUser(new UsernamePasswordAuthenticationToken(principal, null, principal.authorities()));
+                log.debug("[STOMP] CONNECT 사용자 인증 — id={}, role={}", principal.id(), principal.role());
+            } else {
+                log.debug("[STOMP] CONNECT 액세스 토큰 아님(refresh 등) — 익명 진행");
             }
             // refresh 토큰 등은 Principal 미설정 → 화이트보드 접근 시 401 성격의 거부로 이어짐
         } catch (JwtException | IllegalArgumentException e) {
