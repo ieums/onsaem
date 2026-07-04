@@ -172,9 +172,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     const jsClientId = '380528dcd96294365cde242f7b47da0b'; 
     final pkce = Pkce.generate();
     final state = _randomState();
-    final redirectUri = Uri.base
-        .replace(path: '/kakao_callback.html', query: '', fragment: '')
-        .toString();
+    final redirectUri = _redirectUriFor('/kakao_callback.html').toString();
 
     final authorizeUrl = Uri.https('kauth.kakao.com', '/oauth/authorize', {
       'client_id': jsClientId,
@@ -239,9 +237,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     Future<void> _naverLoginWeb() async {
     const clientId = 'smQZkJ5_2f4gisBEjCtC'; 
     final state = _randomState();
-    final redirectUri = Uri.base
-        .replace(path: '/naver_callback.html', query: '', fragment: '')
-        .toString();
+    final redirectUri = _redirectUriFor('/naver_callback.html').toString();
 
     final authorizeUrl = Uri.https('nid.naver.com', '/oauth2.0/authorize', {
       'response_type': 'code',
@@ -276,6 +272,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String _randomState() {
     final rand = Random.secure();
     return List.generate(16, (_) => rand.nextInt(16).toRadixString(16)).join();
+  }
+    Uri _redirectUriFor(String path) {
+    final base = Uri.base;
+    return Uri(
+      scheme: base.scheme,
+      host: base.host,
+      port: base.hasPort ? base.port : null,
+      path: path,
+    );
   }
     // ─── 구글 로그인 ───────────────────────────
   Future<void> _googleLogin() async {
