@@ -403,6 +403,8 @@
   // ────────────────────────────────────────────────────────────────────────
   const params = new URLSearchParams(window.location.search);
   const channel = params.get('channel') || '';
+  // 화이트보드 STOMP 구독 인가용 채널 스코프 토큰(서버가 녹화 시작 시 URL로 주입, 읽기 전용).
+  const wbToken = params.get('wbToken') || '';
   const statusEl = document.getElementById('status');
   function setStatus(s) { statusEl.textContent = s; }
 
@@ -413,6 +415,8 @@
     const client = new StompJs.Client({
       // 웹용 SockJS 엔드포인트 (/ws). 백엔드 WebSocketConfig 와 일치
       webSocketFactory: () => new SockJS(origin + '/ws'),
+      // 녹화봇 인가 — 서버 인터셉터가 이 토큰으로 채널 읽기 권한을 확인한다.
+      connectHeaders: wbToken ? { Authorization: 'Bearer ' + wbToken } : {},
       reconnectDelay: 3000,
       onConnect: () => {
         client.subscribe('/topic/lesson/' + channel + '/draw', (frame) => {

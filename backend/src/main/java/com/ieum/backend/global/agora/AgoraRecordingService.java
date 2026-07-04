@@ -1,5 +1,6 @@
 package com.ieum.backend.global.agora;
 
+import com.ieum.backend.domain.auth.jwt.JwtProvider;
 import com.ieum.backend.domain.lesson.dto.RecordingStartResponseDto;
 import com.ieum.backend.domain.lesson.dto.RecordingStopResponseDto;
 import com.ieum.backend.domain.lesson.entity.Lesson;
@@ -43,6 +44,7 @@ public class AgoraRecordingService {
 
     private final AgoraConfig agoraConfig;
     private final RestClient restClient;
+    private final JwtProvider jwtProvider;
 
     @Autowired(required = false)
     private S3Client s3Client;
@@ -66,9 +68,10 @@ public class AgoraRecordingService {
     @Value("${agora.recording.enabled:false}")
     private boolean recordingEnabled;
 
-    public AgoraRecordingService(AgoraConfig agoraConfig, RestClient.Builder builder) {
+    public AgoraRecordingService(AgoraConfig agoraConfig, RestClient.Builder builder, JwtProvider jwtProvider) {
         this.agoraConfig = agoraConfig;
         this.restClient = builder.build();
+        this.jwtProvider = jwtProvider;
     }
 
     // ──────────────────────── 공개 메서드 ────────────────────────
@@ -177,9 +180,14 @@ public class AgoraRecordingService {
 
         // 녹화봇이 열 recorder.html 주소 (페이지가 채널의 화이트보드를 실시간 렌더)
         // recorder.html이 프레임 크기를 프론트/녹화 해상도와 일치시키도록 orientation을 함께 전달.
+        // wbToken: STOMP 화이트보드 구독 인가용 채널 스코프 토큰(읽기 전용). 녹화봇은 튜터/학생이 아니라
+        // 이 토큰 없이는 /topic/lesson/{channel}/draw 구독이 거부된다. TTL은 Agora 토큰과 동일(수업+버퍼).
+        String wbToken = jwtProvider.createWhiteboardRecorderToken(
+                channelName, agoraConfig.getTokenExpirySeconds() * 1000L);
         String recorderUrl = agoraConfig.getRecorderUrlBase()
                 + "?channel=" + channelName
-                + "&orientation=" + (landscape ? "landscape" : "portrait");
+                + "&orientation=" + (landscape ? "landscape" : "portrait")
+                + "&wbToken=" + wbToken;
 
         // 웹 페이지 녹화 서비스 설정
         Map<String, Object> serviceParam = new HashMap<>();
