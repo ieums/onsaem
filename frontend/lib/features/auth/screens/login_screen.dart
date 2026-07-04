@@ -169,7 +169,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _kakaoLoginWeb() async {
-    const jsClientId = 'YOUR_KAKAO_JS_KEY'; // TODO: 카카오 개발자센터 JavaScript 키
+    const jsClientId = '380528dcd96294365cde242f7b47da0b'; 
     final pkce = Pkce.generate();
     final state = _randomState();
     final redirectUri = Uri.base
@@ -237,7 +237,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
     Future<void> _naverLoginWeb() async {
-    const clientId = 'YOUR_NAVER_CLIENT_ID'; // TODO: 네이버 개발자센터 발급값
+    const clientId = 'smQZkJ5_2f4gisBEjCtC'; 
     final state = _randomState();
     final redirectUri = Uri.base
         .replace(path: '/naver_callback.html', query: '', fragment: '')
