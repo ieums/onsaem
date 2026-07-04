@@ -44,8 +44,14 @@ class LessonRepository {
     });
   }
 
-  Future<RecordingStartResponse> startRecording(int lessonId) async {
-    final response = await _dio.post('/lesson/$lessonId/recording/start');
+  Future<RecordingStartResponse> startRecording(
+    int lessonId, {
+    String orientation = 'portrait',
+  }) async {
+    final response = await _dio.post(
+      '/lesson/$lessonId/recording/start',
+      queryParameters: {'orientation': orientation},
+    );
     return RecordingStartResponse.fromJson(
         response.data['data'] as Map<String, dynamic>);
   }

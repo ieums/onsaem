@@ -193,6 +193,27 @@ class LessonNotifier extends StateNotifier<LessonState> {
   String? _currentStrokeId;
   final Map<String, DrawingStroke> _deletedStrokes = {};
 
+  /// 녹화 프레임 방향 결정 — 강사 기기(앱 창)의 화면 방향 기준.
+  /// 화이트보드 영역 비율은 카메라 패널 ON/OFF로 흔들리므로, 카메라와 무관하게
+  /// 안정적인 창 방향(physicalSize)으로 판정한다. Notifier에는 BuildContext가
+  /// 없으므로 전역 싱글턴 platformDispatcher에서 직접 읽는다(프레임워크의
+  /// MediaQuery.orientation과 동일한 width>height 판정식).
+  /// 가로(w>h)면 'landscape', 그 외(정사각·세로·이상값·예외)는 'portrait' 폴백.
+  String _recordingOrientation() {
+    try {
+      final views = WidgetsBinding.instance.platformDispatcher.views;
+      if (views.isEmpty) return 'portrait';
+      final size = views.first.physicalSize;
+      final w = size.width, h = size.height;
+      if (w.isFinite && h.isFinite && w > 0 && h > 0 && w > h) {
+        return 'landscape';
+      }
+      return 'portrait';
+    } catch (_) {
+      return 'portrait';
+    }
+  }
+
   LessonNotifier(this._repo, this._ref) : super(const LessonState());
 
   RtcEngine? get engine => _engine;
@@ -441,7 +462,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
   // ─── 뷰포트 크기 전송 (Agora Web Page Recording 좌표 정합용) ─────────────────
 
   /// 강사 화이트보드 영역의 실제 크기(논리픽셀)를 전송.
-  /// recorder.html이 이 값으로 1280×720 프레임에 fit 스케일을 적용한다.
+  /// recorder.html이 이 값으로 녹화 프레임에 fit 스케일(레터박스)을 적용한다.
   void sendViewport(double w, double h) {
     final channelName = state.channelName;
     if (channelName == null) return;
@@ -966,7 +987,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
     debugPrint('[녹화] _startRecording() 호출됨, lessonId=${state.lessonId}');
     final lessonId = state.lessonId;
     if (lessonId == null) return;
-    await _repo.startRecording(lessonId);
+    await _repo.startRecording(lessonId, orientation: _recordingOrientation());
     state = state.copyWith(isRecording: true);
   }
 
@@ -983,7 +1004,8 @@ class LessonNotifier extends StateNotifier<LessonState> {
   Future<void> resumeRecording() async {
     final lessonId = state.lessonId;
     if (state.isRecording || lessonId == null) return;
-    await _repo.startRecording(lessonId);
+    // resume은 새 클라우드 녹화를 start하므로 현재 화이트보드 방향을 반영한다.
+    await _repo.startRecording(lessonId, orientation: _recordingOrientation());
     state = state.copyWith(isRecording: true);
   }
 

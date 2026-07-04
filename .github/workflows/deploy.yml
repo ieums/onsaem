@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [ develop, feature/fe-video-lesson, feature/fe-final-polish, feature/fe-tutor-cam ]
+    branches: [ develop, feature/fe-video-lesson ]
 
 jobs:
   deploy:

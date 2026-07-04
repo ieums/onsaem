@@ -515,8 +515,14 @@ class _StudentReviewVideoFullscreenPageState
   @override
   void dispose() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    // 앱 기본값(전 방향 허용)으로 복원한다. portraitUp 하나로 잠그면
+    // 이후 강의실 등 다른 화면이 앱 전역으로 세로 고정되어(가로 녹화 무력화)
+    // 버리므로, initState와 동일한 4방향을 되돌려 놓는다.
     SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
     ]);
     super.dispose();
   }

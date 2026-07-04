@@ -77,3 +77,10 @@ jwt:
 oauth:
   google:
     client-id: ${GOOGLE_CLIENT_ID}
+  kakao:
+    client-id: ${KAKAO_JS_CLIENT_ID}
+    client-secret: ${KAKAO_CLIENT_SECRET:}
+
+  naver:
+    client-id: ${NAVER_CLIENT_ID}
+    client-secret: ${NAVER_CLIENT_SECRET}
