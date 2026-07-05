@@ -16,7 +16,7 @@ import 'package:ieum/features/auth/web/oauth_web_popup.dart';
 import 'package:ieum/features/auth/web/pkce.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
-import 'package:google_sign_in_web/web_only.dart' as google_web;
+import 'package:ieum/features/auth/web/google_button.dart';
 import 'package:ieum/features/auth/data/auth_repository.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {      
@@ -563,12 +563,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Positioned.fill(
             child: Opacity(
               opacity: 0.01,
-              child: google_web.renderButton(
-                configuration: google_web.GSIButtonConfiguration(
-                  type: google_web.GSIButtonType.icon,
-                  shape: google_web.GSIButtonShape.pill,
-                ),
-              ),
+              child: renderGoogleButton(),
             ),
           ),
         ],
