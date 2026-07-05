@@ -564,9 +564,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Opacity(
               opacity: 0,
               child: google_web.renderButton(
-                configuration: const google_web.GSIButtonConfiguration(
+                configuration: google_web.GSIButtonConfiguration(
                   type: google_web.GSIButtonType.icon,
-                  shape: google_web.GSIButtonShape.circle,
+                  shape: google_web.GSIButtonShape.pill,
                 ),
               ),
             ),
