@@ -149,6 +149,9 @@ class StudentProblemListScreen extends ConsumerWidget {
       cancelText: '취소',
       confirmText: '삭제',
       isDanger: true,
+      theme: ref.read(shellDarkModeProvider)
+          ? AppTheme.shellDark
+          : AppTheme.shellLight,
     );
     if (!ok) return;
     try {

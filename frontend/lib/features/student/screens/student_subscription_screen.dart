@@ -8,6 +8,10 @@ import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
 import 'package:ieum/features/student/models/payment_models.dart';
 import 'package:ieum/features/student/providers/payment_provider.dart';
+import 'package:ieum/features/student/providers/mypage_provider.dart';
+import 'package:ieum/features/student/screens/coin_payment_screen.dart';
+import 'package:ieum/core/config/portone_config.dart';
+import 'package:portone_flutter_v2/portone_flutter_v2.dart' show PaymentResponse;
 import 'package:ieum/features/student/widgets/student_action_button_style.dart';
 
 String _won(int n) {
@@ -46,6 +50,11 @@ class _StudentSubscriptionScreenState
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
   }
 
+  // build는 본문을 shell 테마로 감싸지만, 아래 다이얼로그들은 State.context(그 위 = 루트 보라 테마)에서
+  // 열려 배경이 연보라로 잡힌다 → 공용 다이얼로그에 shell 테마를 명시적으로 넘겨 색을 맞춘다.
+  ThemeData get _dialogTheme =>
+      ref.read(shellDarkModeProvider) ? AppTheme.shellDark : AppTheme.shellLight;
+
   Future<void> _subscribe(SubscriptionPlan plan) async {
     final studentId = ref.read(currentUserProvider)?.id;
     if (studentId == null) return _snack('로그인이 필요해요.');
@@ -62,6 +71,7 @@ class _StudentSubscriptionScreenState
       confirmText: '동의하고 결제',
       highlightLabel: '결제 금액',
       highlightValue: '${_won(plan.price)}원',
+      theme: _dialogTheme,
     );
     if (!agreed) return;
 
@@ -73,10 +83,47 @@ class _StudentSubscriptionScreenState
         subscriptionPlanId: plan.id,
         autoRenew: _autoRenew,
       );
-      // 테스트 모드(검증 OFF): merchantId를 paymentId로 그대로 사용.
+      // 결제ID 확정 — 실결제 설정이 있으면 PortOne SDK 결제창(코인 충전과 동일),
+      // 없으면 테스트(검증 스킵: merchantId를 그대로 사용).
+      String portonePaymentId = payment.merchantId;
+      if (PortoneConfig.isConfigured) {
+        // PG가 구매자 정보를 요구 → 내 정보(me)에서 이름/전화/이메일 확보.
+        final me = await ref.read(meProvider.future);
+        if (!mounted) return;
+        final result = await Navigator.of(context).push<Object?>(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => CoinPaymentScreen(
+              paymentId: payment.merchantId,
+              orderName: plan.name,
+              amount: plan.price,
+              customerName: me['name'] as String?,
+              customerPhone: me['phone'] as String?,
+              customerEmail: me['email'] as String?,
+            ),
+          ),
+        );
+        if (result == null) {
+          if (mounted) setState(() => _busy = false);
+          _snack('결제를 취소했어요.');
+          return;
+        }
+        if (result is! PaymentResponse) {
+          if (mounted) setState(() => _busy = false);
+          _snack('결제 오류: $result');
+          return;
+        }
+        if (result.code != null) {
+          if (mounted) setState(() => _busy = false);
+          _snack('결제 실패: ${result.message ?? result.code}');
+          return;
+        }
+        portonePaymentId = result.paymentId;
+      }
+
       await repo.completeSubscriptionPayment(
         merchantId: payment.merchantId,
-        portonePaymentId: payment.merchantId,
+        portonePaymentId: portonePaymentId,
         autoRenew: _autoRenew,
       );
       if (!mounted) return;
@@ -101,6 +148,7 @@ class _StudentSubscriptionScreenState
       cancelText: '취소',
       confirmText: '해지',
       isDanger: true,
+      theme: _dialogTheme,
     );
     if (!ok) return;
     setState(() => _busy = true);

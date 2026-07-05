@@ -49,7 +49,10 @@ class _StudentProblemStatusScreenState
     }
     if (!mounted) return;
     if (balance < _lessonCostCoins) {
-      final went = await promptRechargeAndReturn(context);
+      final went = await promptRechargeAndReturn(context,
+          theme: ref.read(shellDarkModeProvider)
+              ? AppTheme.shellDark
+              : AppTheme.shellLight);
       if (!went || !mounted) return;
       ref.invalidate(coinBalanceProvider);
       int after;
@@ -104,6 +107,9 @@ class _StudentProblemStatusScreenState
       cancelText: '취소',
       confirmText: '삭제',
       isDanger: true,
+      theme: ref.read(shellDarkModeProvider)
+          ? AppTheme.shellDark
+          : AppTheme.shellLight,
     );
     if (!ok || !mounted) return;
     final session = ref.read(studentMatchingSessionProvider);

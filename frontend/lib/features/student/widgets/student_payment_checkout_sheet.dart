@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:ieum/features/student/providers/student_wallet_provider.dart';
 
 void showStudentPaymentCheckoutSheet(
@@ -21,7 +23,7 @@ void showStudentPaymentCheckoutSheet(
     ),
     builder: (sheetContext) {
       final sheetShell = ShellTheme.of(sheetContext);
-      final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+      final isDark = ref.read(shellDarkModeProvider);
       final summaryBg =
           isDark ? sheetShell.detailBackground : const Color(0xFFF7F8FA);
       final bottom = MediaQuery.paddingOf(sheetContext).bottom;
@@ -136,12 +138,10 @@ void showStudentPaymentCheckoutSheet(
                     ),
                   );
                 },
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.studentPoint,
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                style: accentDialogButtonStyle(
+                  accent: AppColors.studentPoint,
+                  isDark: isDark,
+                  radius: 14,
                 ),
                 child: Text(
                   '${formatCredits(package.price)}원 결제하기',

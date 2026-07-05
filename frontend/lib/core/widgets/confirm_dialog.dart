@@ -59,6 +59,24 @@ Future<bool> showConfirmDialog({
   return result ?? false;
 }
 
+/// 다이얼로그 확인/액션 버튼 공통 스타일.
+/// 라이트: 흰 배경 + 검정 글씨 / 다크: 어두운 배경 + 특징색 글씨 (둘 다 특징색 테두리).
+/// 인라인 다이얼로그(매칭 수락·환영 보너스·결제·신고 등)에서 재사용해 톤을 통일한다.
+ButtonStyle accentDialogButtonStyle({
+  required Color accent,
+  required bool isDark,
+  double radius = 12,
+  EdgeInsetsGeometry? padding,
+}) {
+  return FilledButton.styleFrom(
+    backgroundColor: isDark ? AppColors.shellDetailDark : Colors.white,
+    foregroundColor: isDark ? accent : Colors.black,
+    side: BorderSide(color: accent, width: 1.5),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+    padding: padding,
+  );
+}
+
 class _ConfirmDialog extends StatelessWidget {
   const _ConfirmDialog({
     required this.title,
@@ -166,8 +184,9 @@ class _ConfirmDialog extends StatelessWidget {
         FilledButton(
           onPressed: () => Navigator.pop(context, true),
           style: FilledButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
+            // 라이트: 흰 배경 + 검정 글씨 / 다크: 어두운 배경 + 특징색 글씨 (둘 다 특징색 테두리).
+            backgroundColor: isDark ? shell.detailBackground : Colors.white,
+            foregroundColor: isDark ? accentColor : Colors.black,
             side: BorderSide(color: accentColor, width: 1.5),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
