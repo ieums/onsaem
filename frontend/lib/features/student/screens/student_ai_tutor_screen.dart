@@ -218,8 +218,15 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       itemCount: state.messages.length,
-      itemBuilder: (_, i) =>
-          _MessageBubble(message: state.messages[i], shell: shell),
+      itemBuilder: (_, i) => _MessageBubble(
+        message: state.messages[i],
+        shell: shell,
+        onRetry: state.messages[i].isFailed
+            ? () => ref
+                .read(aiTutorChatProvider.notifier)
+                .retryMessage(state.messages[i])
+            : null,
+      ),
     );
   }
     Widget _buildProblemBanner(ShellTheme shell, AiTutorChatState state) {
@@ -518,58 +525,91 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
 }
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message, required this.shell});
+  const _MessageBubble({
+    required this.message,
+    required this.shell,
+    this.onRetry,
+  });
 
   final AiTutorMessage message;
   final ShellTheme shell;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
     final isUser = message.role.isUser;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final failed = message.isFailed;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment:
+            isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (!isUser) ...[
-            _AiAvatar(isDark: isDark),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isUser
-                    ? AppColors.studentPoint
-                    : (isDark ? shell.detailBackground : shell.cardBackground),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isUser ? 16 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 16),
+          Row(
+            mainAxisAlignment:
+                isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!isUser) ...[
+                _AiAvatar(isDark: isDark),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isUser
+                        ? (failed
+                            ? AppColors.studentPoint.withValues(alpha: 0.4)
+                            : AppColors.studentPoint)
+                        : (isDark ? shell.detailBackground : shell.cardBackground),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(isUser ? 16 : 4),
+                      bottomRight: Radius.circular(isUser ? 4 : 16),
+                    ),
+                    border: isUser
+                        ? (failed
+                            ? Border.all(color: Colors.redAccent, width: 1)
+                            : null)
+                        : Border.all(
+                            color: shell.cardBorder.withValues(alpha: 0.6)),
+                  ),
+                  child: SelectableText(
+                    _stripMarkdown(message.content),
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.55,
+                      color: isUser ? Colors.black : shell.titleColor,
+                    ),
+                  ),
                 ),
-                border: isUser
-                    ? null
-                    : Border.all(
-                        color: shell.cardBorder.withValues(alpha: 0.6)),
               ),
-              child: Text(
-                _stripMarkdown(message.content),
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.55,
-                  // 유저 버블이 연두(studentPoint)라 글씨는 검정으로.
-                  color: isUser ? Colors.black : shell.titleColor,
+              if (isUser) const SizedBox(width: 8),
+            ],
+          ),
+          if (failed && onRetry != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, right: 4),
+              child: InkWell(
+                onTap: onRetry,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.refresh_rounded, size: 14, color: Colors.redAccent),
+                    SizedBox(width: 4),
+                    Text(
+                      '전송 실패 · 재전송',
+                      style: TextStyle(fontSize: 12, color: Colors.redAccent),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-          if (isUser) const SizedBox(width: 8),
         ],
       ),
     );

@@ -13,12 +13,14 @@ class AiTutorMessage {
   final AiTutorRole role;
   final String content;
   final DateTime createdAt;
+  final bool isFailed;
 
   const AiTutorMessage({
     required this.messageId,
     required this.role,
     required this.content,
     required this.createdAt,
+    this.isFailed = false,
   });
 
   factory AiTutorMessage.fromJson(Map<String, dynamic> json) {
@@ -27,6 +29,16 @@ class AiTutorMessage {
       role: AiTutorRole.fromString(json['role'] as String),
       content: json['content'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+  }
+
+  AiTutorMessage copyWith({bool? isFailed}) {
+    return AiTutorMessage(
+      messageId: messageId,
+      role: role,
+      content: content,
+      createdAt: createdAt,
+      isFailed: isFailed ?? this.isFailed,
     );
   }
 }
