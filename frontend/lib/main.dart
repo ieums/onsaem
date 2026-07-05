@@ -36,9 +36,7 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('[Onsaem] GoogleSignIn 초기화 실패: $e');
   }
-  } catch (e) {
-    debugPrint('[Onsaem] GoogleSignIn 초기화 실패: $e');
-  }
+  
   tz.initializeTimeZones();
   try {
     tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
