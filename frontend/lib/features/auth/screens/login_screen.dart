@@ -15,6 +15,8 @@ import 'dart:math';
 import 'package:ieum/features/auth/web/oauth_web_popup.dart';
 import 'package:ieum/features/auth/web/pkce.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:async';
+import 'package:google_sign_in_web/web_only.dart' as google_web;
 import 'package:ieum/features/auth/data/auth_repository.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {      
@@ -39,11 +41,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
   bool _isTutor = false;   
   bool _isLoading = false;
+  StreamSubscription<GoogleSignInAuthenticationEvent>? _googleAuthSub;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _googleAuthSub =
+          GoogleSignIn.instance.authenticationEvents.listen((event) {
+        if (event is GoogleSignInAuthenticationEventSignIn) {
+          _onGoogleWebSignedIn(event.user);
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _googleAuthSub?.cancel();
     super.dispose();
   }
     // ─── 학생/강사 토글 UI ───────────────────────
@@ -302,6 +319,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+  Future<void> _onGoogleWebSignedIn(GoogleSignInAccount account) async {
+    final idToken = account.authentication.idToken;
+    if (idToken == null) {
+      _showMessage('구글 로그인에 실패했어요.');
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      await _handleOAuth(provider: 'google', token: idToken);
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage(apiErrorMessage(e, fallback: '구글 로그인에 실패했어요.'));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
     String _homeFor(UserRole role) =>
       role == UserRole.tutor ? RoutePaths.tutorHome : RoutePaths.studentHome;
 
@@ -509,19 +542,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ],
     );
   }
+  Widget _buildGoogleSocialButton() {
+    final circle = _SocialCircle(
+      onPressed: _isLoading ? () {} : _googleLogin,
+      backgroundColor: Colors.white,
+      borderColor: const Color(0xFFDADCE0),
+      iconAsset: 'assets/icons/google_logo.png',
+      iconSize: 30,
+    );
+    if (!kIsWeb) return circle;
+
+    // 웹은 GIS가 authenticate() 직접 호출을 막아서, 진짜 구글 버튼을 투명하게 위에 겹쳐 클릭만 위임.
+    return SizedBox(
+      width: 58,
+      height: 58,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          circle,
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0,
+              child: google_web.renderButton(
+                configuration: const google_web.GSIButtonConfiguration(
+                  type: google_web.GSIButtonType.icon,
+                  shape: google_web.GSIButtonShape.circle,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   // 소셜 로그인 — 원형 아이콘 버튼 3개를 가로로.
   Widget _buildSocialCircles() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _SocialCircle(
-          onPressed: _isLoading ? () {} : _googleLogin,
-          backgroundColor: Colors.white,
-          borderColor: const Color(0xFFDADCE0),
-          iconAsset: 'assets/icons/google_logo.png',
-          iconSize: 30,
-        ),
+        _buildGoogleSocialButton(),
         const SizedBox(width: 22),
         _SocialCircle(
           onPressed: _isLoading ? () {} : _kakaoLogin,
