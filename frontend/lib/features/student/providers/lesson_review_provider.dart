@@ -59,6 +59,7 @@ class LessonReviewChatState {
 class LessonReviewChatNotifier
     extends StateNotifier<LessonReviewChatState> {
   final LessonReviewRepository _repo;
+  int? _initializedFor;
 
   LessonReviewChatNotifier(this._repo)
       : super(const LessonReviewChatState());
@@ -66,7 +67,10 @@ class LessonReviewChatNotifier
   // 복습 화면 진입 시 호출
   // - 이 lessonId로 기존 세션 있으면 재사용, 없으면 새로 생성
   // - 메시지 히스토리 + 영상/PDF URL 동시 로드
+  // 같은 lessonId로 이미 초기화 중/완료면 중복 호출 무시(세션 중복 생성 방지).
   Future<void> init(int lessonId) async {
+    if (state.isInitializing || _initializedFor == lessonId) return;
+    _initializedFor = lessonId;
     state = state.copyWith(isInitializing: true, error: null);
     try {
       final sessions = await _repo.listSessions();
@@ -88,6 +92,7 @@ class LessonReviewChatNotifier
         isInitializing: false,
       );
     } catch (e) {
+      _initializedFor = null; // 실패했으니 "다시 시도" 누르면 재시도 가능하게 초기화
       state = state.copyWith(
         isInitializing: false,
         error: apiErrorMessage(e),
@@ -124,11 +129,22 @@ class LessonReviewChatNotifier
       );
     } catch (e) {
       state = state.copyWith(
-        messages: state.messages.where((m) => m.messageId != -1).toList(),
+        messages: [
+          for (final m in state.messages)
+            if (m.messageId == -1) m.copyWith(isFailed: true) else m,
+        ],
         isSending: false,
         error: apiErrorMessage(e),
       );
     }
+  }
+
+  // 실패한 메시지 재전송 — 실패 표시된 말풍선 지우고 같은 내용으로 다시 전송
+  Future<void> retryMessage(LessonReviewMessage failed) async {
+    state = state.copyWith(
+      messages: state.messages.where((m) => m != failed).toList(),
+    );
+    await sendMessage(failed.content);
   }
 }
 
