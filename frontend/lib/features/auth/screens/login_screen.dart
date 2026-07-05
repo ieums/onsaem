@@ -562,7 +562,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           circle,
           Positioned.fill(
             child: Opacity(
-              opacity: 0,
+              opacity: 0.01,
               child: google_web.renderButton(
                 configuration: google_web.GSIButtonConfiguration(
                   type: google_web.GSIButtonType.icon,
