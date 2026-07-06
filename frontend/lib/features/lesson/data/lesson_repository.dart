@@ -6,6 +6,7 @@ import 'package:stomp_dart_client/stomp_dart_client.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/storage/token_storage.dart';
 import '../domain/lesson_model.dart';
 
 class LessonRepository {
@@ -109,13 +110,18 @@ class LessonRepository {
     return _sessionId!;
   }
 
-  void connectStomp(
+  Future<void> connectStomp(
     String channelName,
     void Function(DrawEvent) onEvent,
-  ) {
+  ) async {
+    // STOMP 화이트보드 인가용 JWT — 서버 인터셉터가 CONNECT 헤더에서 검증하고
+    // 해당 수업(channelName)의 튜터/학생인지 확인한다. (없으면 화이트보드 구독/전송이 거부됨)
+    final token = await tokenStorage.readAccessToken();
     _stomp = StompClient(
       config: StompConfig(
         url: ApiConstants.wsUrl,
+        stompConnectHeaders:
+            token != null ? {'Authorization': 'Bearer $token'} : null,
         onConnect: (frame) {
           _stomp!.subscribe(
             destination: '/topic/lesson/$channelName/draw',

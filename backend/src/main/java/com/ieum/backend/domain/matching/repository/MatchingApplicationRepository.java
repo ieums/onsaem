@@ -2,7 +2,10 @@ package com.ieum.backend.domain.matching.repository;
 
 import com.ieum.backend.domain.matching.entity.ApplicationStatus;
 import com.ieum.backend.domain.matching.entity.MatchingApplication;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +25,14 @@ public interface MatchingApplicationRepository extends JpaRepository<MatchingApp
     long deleteByProblemId(Long problemId);
 
     Optional<MatchingApplication> findByProblemIdAndTutorId(Long problemId, Long tutorId);
+
+    /**
+     * 확정용 — 신청 행에 쓰기 락을 걸어 튜터·학생의 '동시 확인'을 직렬화한다.
+     * 락이 없으면 둘 다 확인 플래그를 stale 상태로 읽어 갱신 유실(둘 다 미확정)이 날 수 있다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from MatchingApplication a where a.problemId = :problemId and a.tutorId = :tutorId")
+    Optional<MatchingApplication> findByProblemIdAndTutorIdForUpdate(Long problemId, Long tutorId);
 
     int countByProblemIdAndStatusIn(Long problemId, List<ApplicationStatus> statuses);
 

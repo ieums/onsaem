@@ -343,7 +343,7 @@ class LessonNotifier extends StateNotifier<LessonState> {
         if (!mounted) return;
       }
 
-      _repo.connectStomp(channelName, _onRemoteDrawEvent);
+      await _repo.connectStomp(channelName, _onRemoteDrawEvent);
 
       // 화이트보드 비디오/녹화는 Agora Web Page Recording(recorder.html)이 담당.
 

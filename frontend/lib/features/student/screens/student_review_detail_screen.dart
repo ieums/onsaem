@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:chewie/chewie.dart';
 import 'package:video_player/video_player.dart';
 import 'package:ieum/features/student/widgets/review_video_controls.dart';
@@ -16,6 +15,8 @@ import 'package:ieum/features/student/data/models/lesson_review_message.dart';
 import 'package:ieum/features/student/providers/lesson_review_provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
+
 
 
 class StudentReviewDetailScreen extends ConsumerStatefulWidget {
@@ -50,6 +51,10 @@ class _StudentReviewDetailScreenState
   String? _pdfLocalPath;
   bool _isPdfLoading = false;
   String? _pdfError;
+  Timer? _videoRetryTimer;
+  int _videoRetryCount = 0;
+  static const _maxVideoAutoRetries = 3;
+
 
   @override
   void initState() {
@@ -69,6 +74,7 @@ class _StudentReviewDetailScreenState
     _scrollController.dispose();
     _chewieController?.dispose();
     _videoPlayerController?.dispose();
+    _videoRetryTimer?.cancel();
     super.dispose();
   }
 
@@ -102,7 +108,11 @@ class _StudentReviewDetailScreenState
         looping: false,
         customControls: const ReviewVideoControls(),
       );
-      if (mounted) setState(() => _videoLoading = false);
+      if (mounted) {
+        _videoRetryCount = 0;
+        _videoRetryTimer?.cancel();
+        setState(() => _videoLoading = false);
+      }
     } catch (e) {
       // mp4가 아닌 포맷(.m3u8 등)·네트워크 실패 시 여기로 — 조용히 사라지지 않게 안내.
       _videoPlayerController?.dispose();
@@ -115,10 +125,23 @@ class _StudentReviewDetailScreenState
           _videoError = '영상을 재생할 수 없습니다.';
         });
       }
+      _scheduleVideoAutoRetry(url);
     }
   }
 
+  // 서버 트랜스코딩이 늦게 끝나는 경우를 대비해 15초 간격으로 최대 3번 자동 재시도.
+  void _scheduleVideoAutoRetry(String url) {
+    if (_videoRetryCount >= _maxVideoAutoRetries) return;
+    _videoRetryCount++;
+    _videoRetryTimer?.cancel();
+    _videoRetryTimer = Timer(const Duration(seconds: 15), () {
+      if (!mounted || _videoError == null) return;
+      _initVideo(url);
+    });
+  }
+
   void _retryVideo() {
+    _videoRetryTimer?.cancel();
     final res = ref.read(lessonReviewChatProvider).resources;
     if (res?.recordingUrl == null) return;
     _initVideo(ApiConstants.resolveImageUrl(res!.recordingUrl!));
@@ -197,7 +220,12 @@ class _StudentReviewDetailScreenState
           width: double.infinity,
           height: (MediaQuery.of(context).size.width / _videoAspectRatio)
               .clamp(0.0, 380.0),          // 폭÷비율로 높이 자동, 너무 길면 380까지
-          child: Chewie(controller: _chewieController!),
+          child: InteractiveViewer(
+            panEnabled: false,
+            minScale: 1.0,
+            maxScale: 4.0,
+            child: Chewie(controller: _chewieController!),
+          ),
         ),
         Positioned(
           top: 4,
@@ -248,6 +276,15 @@ class _StudentReviewDetailScreenState
         });
       }
     }
+  }
+  // PDF 강제 새로고침 — 캐시된 로컬 경로를 지우고 다시 받아온다(요약이 재생성됐을 수 있으므로).
+  void _refreshPdf(String rawUrl) {
+    if (_isPdfLoading) return;
+    setState(() {
+      _pdfLocalPath = null;
+      _pdfError = null;
+    });
+    _loadPdf(rawUrl);
   }
 
   Future<void> _openPdfExternal(String rawUrl) async {
@@ -449,6 +486,11 @@ class _StudentReviewDetailScreenState
                   itemBuilder: (_, i) => _MessageBubble(
                     message: state.messages[i],
                     shell: shell,
+                    onRetry: state.messages[i].isFailed
+                        ? () => ref
+                            .read(lessonReviewChatProvider.notifier)
+                            .retryMessage(state.messages[i])
+                        : null,
                   ),
                 ),
         ),
@@ -597,20 +639,35 @@ class _StudentReviewDetailScreenState
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => _openPdfExternal(res.pdfUrl!),
-              icon: const Icon(Icons.download_rounded, size: 16),
-              label: const Text('다운로드'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.studentPoint,
-                textStyle: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              IconButton(
+                onPressed:
+                    _isPdfLoading ? null : () => _refreshPdf(res.pdfUrl!),
+                icon: _isPdfLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 20),
+                tooltip: '새로고침',
+                color: AppColors.studentPoint,
               ),
-            ),
+              TextButton.icon(
+                onPressed: () => _openPdfExternal(res.pdfUrl!),
+                icon: const Icon(Icons.download_rounded, size: 16),
+                label: const Text('다운로드'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.studentPoint,
+                  textStyle: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
@@ -658,60 +715,94 @@ class _StudentReviewDetailScreenState
 // ── Message bubble ──────────────────────────────────────────────────────────
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message, required this.shell});
+  const _MessageBubble({
+    required this.message,
+    required this.shell,
+    this.onRetry,
+  });
 
   final LessonReviewMessage message;
   final ShellTheme shell;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
     final isUser = message.role.isUser;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final failed = message.isFailed;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment:
+            isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (!isUser) ...[
-            _AiAvatar(isDark: isDark),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isUser
-                    ? AppColors.studentPoint
-                    : (isDark
-                        ? shell.detailBackground
-                        : shell.cardBackground),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isUser ? 16 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 16),
+          Row(
+            mainAxisAlignment:
+                isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!isUser) ...[
+                _AiAvatar(isDark: isDark),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isUser
+                        ? (failed
+                            ? AppColors.studentPoint.withValues(alpha: 0.4)
+                            : AppColors.studentPoint)
+                        : (isDark
+                            ? shell.detailBackground
+                            : shell.cardBackground),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(isUser ? 16 : 4),
+                      bottomRight: Radius.circular(isUser ? 4 : 16),
+                    ),
+                    border: isUser
+                        ? (failed
+                            ? Border.all(color: Colors.redAccent, width: 1)
+                            : null)
+                        : Border.all(
+                            color: shell.cardBorder.withValues(alpha: 0.6)),
+                  ),
+                  child: SelectableText(
+                    _stripReviewMarkdown(message.content),
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.55,
+                      // 내 말풍선은 연두(studentPoint) 배경이라 글씨는 검정(외부 AI 튜터와 통일).
+                      color: isUser ? Colors.black : shell.titleColor,
+                    ),
+                  ),
                 ),
-                border: isUser
-                    ? null
-                    : Border.all(
-                        color: shell.cardBorder.withValues(alpha: 0.6)),
               ),
-              child: Text(
-                _stripReviewMarkdown(message.content),
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.55,
-                  // 내 말풍선은 연두(studentPoint) 배경이라 글씨는 검정(외부 AI 튜터와 통일).
-                  color: isUser ? Colors.black : shell.titleColor,
+              if (isUser) const SizedBox(width: 8),
+            ],
+          ),
+          if (failed && onRetry != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, right: 4),
+              child: InkWell(
+                onTap: onRetry,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.refresh_rounded, size: 14, color: Colors.redAccent),
+                    SizedBox(width: 4),
+                    Text(
+                      '전송 실패 · 재전송',
+                      style: TextStyle(fontSize: 12, color: Colors.redAccent),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-          if (isUser) const SizedBox(width: 8),
         ],
       ),
     );

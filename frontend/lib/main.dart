@@ -25,15 +25,18 @@ Future<void> main() async {
   }
   try {
     await GoogleSignIn.instance.initialize(
-      clientId: (!kIsWeb && Platform.isIOS)
-          ? '630470477380-7p64mea0fvnj1nk5o1d66ic32kv8p20t.apps.googleusercontent.com'
-          : null,
+      clientId: kIsWeb
+          ? '630470477380-cgn6t5ff9q6ok15ccqtudce1b9elv4b5.apps.googleusercontent.com'
+          : (Platform.isIOS
+              ? '630470477380-7p64mea0fvnj1nk5o1d66ic32kv8p20t.apps.googleusercontent.com'
+              : null),
       serverClientId:
           '630470477380-8tfmb9f6d8iaaj4rc0gkgri1gaqao5sj.apps.googleusercontent.com',
     );
   } catch (e) {
     debugPrint('[Onsaem] GoogleSignIn 초기화 실패: $e');
   }
+  
   tz.initializeTimeZones();
   try {
     tz.setLocalLocation(tz.getLocation('Asia/Seoul'));

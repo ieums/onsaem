@@ -55,11 +55,15 @@ class AiTutorChatState {
 
 class AiTutorChatNotifier extends StateNotifier<AiTutorChatState> {
   final AiTutorRepository _repo;
+  int? _initializedFor;
 
   AiTutorChatNotifier(this._repo) : super(const AiTutorChatState());
 
   // 진입 시: 문제 정보 조회 + 이 problemId 세션 재사용/생성 → 메시지 로드
+  // 같은 problemId로 이미 초기화 중/완료면 중복 호출 무시(세션 중복 생성 방지).
   Future<void> init(int problemId) async {
+    if (state.isInitializing || _initializedFor == problemId) return;
+    _initializedFor = problemId;
     state = state.copyWith(isInitializing: true, error: null);
     try {
       // 상단 배너용 문제 정보 — 실패해도 채팅은 계속 진행(best-effort)
@@ -86,6 +90,7 @@ class AiTutorChatNotifier extends StateNotifier<AiTutorChatState> {
         isInitializing: false,
       );
     } catch (e) {
+      _initializedFor = null; // 실패했으니 "다시 시도" 누르면 재시도 가능하게 초기화
       state = state.copyWith(
         isInitializing: false,
         error: apiErrorMessage(e),
@@ -119,11 +124,22 @@ class AiTutorChatNotifier extends StateNotifier<AiTutorChatState> {
       );
     } catch (e) {
       state = state.copyWith(
-        messages: state.messages.where((m) => m.messageId != -1).toList(),
+        messages: [
+          for (final m in state.messages)
+            if (m.messageId == -1) m.copyWith(isFailed: true) else m,
+        ],
         isSending: false,
         error: apiErrorMessage(e),
       );
     }
+  }
+
+  // 실패한 메시지 재전송 — 실패 표시된 말풍선 지우고 같은 내용으로 다시 전송
+  Future<void> retryMessage(AiTutorMessage failed) async {
+    state = state.copyWith(
+      messages: state.messages.where((m) => m != failed).toList(),
+    );
+    await sendMessage(failed.content);
   }
 
   // 세션 종료 → 성공하면 true
