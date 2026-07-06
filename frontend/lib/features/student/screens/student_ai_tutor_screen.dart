@@ -58,7 +58,10 @@ class _StudentAiTutorScreenState extends ConsumerState<StudentAiTutorScreen> {
     // 비구독자 잔액 부족(질문당 3코인) → 충전 안내 후 재시도.
     final err = ref.read(aiTutorChatProvider).error;
     if (isCoinShortageMessage(err)) {
-      final charged = await promptRechargeAndReturn(context);
+      final charged = await promptRechargeAndReturn(context,
+          theme: ref.read(shellDarkModeProvider)
+              ? AppTheme.shellDark
+              : AppTheme.shellLight);
       if (charged && mounted) {
         await ref.read(aiTutorChatProvider.notifier).sendMessage(text);
         if (!mounted) return;

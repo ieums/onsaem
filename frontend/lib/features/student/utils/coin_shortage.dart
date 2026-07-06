@@ -11,13 +11,15 @@ bool isCoinShortageMessage(String? message) {
 
 /// 코인 부족 안내 → '충전하기' 누르면 충전 화면으로 이동.
 /// 충전 화면에서 돌아오면 true(호출부가 원래 동작을 재시도하도록).
-Future<bool> promptRechargeAndReturn(BuildContext context) async {
+Future<bool> promptRechargeAndReturn(BuildContext context,
+    {ThemeData? theme}) async {
   final go = await showConfirmDialog(
     context: context,
     title: '코인이 부족해요',
     message: '계속하려면 코인을 충전해야 해요.\n지금 충전할까요?',
     cancelText: '닫기',
     confirmText: '충전하기',
+    theme: theme,
   );
   if (!go || !context.mounted) return false;
   // 충전 화면(포트원 SDK 결제)으로. 돌아오면 호출부가 재시도.

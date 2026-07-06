@@ -71,10 +71,9 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
   void _showWelcomeBonusDialog() {
     // 색은 다이얼로그 컨텍스트(ShellTheme.of)가 아니라 학생 shell 테마에서 직접 뽑는다.
     // (안 그러면 루트 보라 시드 테마가 잡혀 배경이 연보라로 뜬다)
-    final scheme = (ref.read(shellDarkModeProvider)
-            ? AppTheme.shellDark
-            : AppTheme.shellLight)
-        .colorScheme;
+    final isDark = ref.read(shellDarkModeProvider);
+    final scheme =
+        (isDark ? AppTheme.shellDark : AppTheme.shellLight).colorScheme;
     showDialog<void>(
       context: context,
       builder: (ctx) {
@@ -131,13 +130,9 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
                               .read(studentShellTabIndexProvider.notifier)
                               .state = studentShellAiTutorTabIndex;
                         },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          side: const BorderSide(
-                              color: AppColors.studentPoint, width: 1.5),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                        style: accentDialogButtonStyle(
+                          accent: AppColors.studentPoint,
+                          isDark: isDark,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: const Text('AI튜터 써보기',
@@ -288,15 +283,12 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(dialogContext, true),
-                style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                    side: const BorderSide(
-                        color: AppColors.studentPoint, width: 1.5),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 22, vertical: 11)),
+                style: accentDialogButtonStyle(
+                  accent: AppColors.studentPoint,
+                  isDark: isDark,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
+                ),
                 child: const Text('수락',
                     style: TextStyle(fontWeight: FontWeight.w800)),
               ),
@@ -326,7 +318,7 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
             .read(studentMatchingSessionProvider.notifier)
             .cancelConfirm(tutorId);
         if (!context.mounted) return;
-        await showLessonPermissionDialog(context);
+        await showLessonPermissionDialog(context, ref);
         return;
       }
       try {
@@ -360,6 +352,11 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
     if (nav.canPop()) nav.pop();
   }
 
+  // build는 본문을 shell 테마로 감싸지만 아래 다이얼로그들은 State.context(그 위=루트 보라 테마)에서
+  // 열려 배경이 연보라로 잡힌다 → 공용 다이얼로그에 shell 테마를 명시적으로 넘긴다.
+  ThemeData get _dialogTheme =>
+      ref.read(shellDarkModeProvider) ? AppTheme.shellDark : AppTheme.shellLight;
+
   /// 매칭 취소 안내 다이얼로그(강사 화면과 동일 디자인).
   Future<void> _showMatchCancelledDialog(
       BuildContext context, WidgetRef ref, String message) async {
@@ -369,6 +366,7 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
       message: message,
       cancelText: null,
       confirmText: '확인',
+      theme: _dialogTheme,
     );
     ref
         .read(studentMatchingSessionProvider.notifier)
@@ -383,6 +381,7 @@ class _StudentShellScreenState extends ConsumerState<StudentShellScreen> {
       cancelText: '탐색 취소',
       confirmText: '하루 연장',
       barrierDismissible: false,
+      theme: _dialogTheme,
     );
 
     if (!mounted) return;

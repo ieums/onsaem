@@ -24,6 +24,9 @@ import com.ieum.backend.global.config.AgoraConfig;
 import com.ieum.backend.global.exception.BusinessException;
 import com.ieum.backend.domain.lessonreview.service.LessonMediaStorage;
 import com.ieum.backend.domain.problem.service.ImageStorageService;
+import com.ieum.backend.domain.problem.entity.Problem;
+import com.ieum.backend.domain.problem.entity.enums.ProblemStatus;
+import com.ieum.backend.domain.problem.repository.ProblemRepository;
 import com.ieum.backend.global.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,6 +58,7 @@ public class LessonService {
     private final LessonSettlementFinalizer settlementFinalizer; // 강의 1건 확정차감+정산(원자)
     private final MatchingApplicationRepository matchingApplicationRepository; // 수업중 알림 대상(강사의 PENDING 신청)
     private final MatchingNotificationService matchingNotificationService;     // 강사 수업중/해제 STOMP 알림
+    private final ProblemRepository problemRepository;                         // 강의 완료 시 질문 RESOLVED 전이
 
     @Transactional
     public Lesson createLesson(Long tutorId, Long studentId, String channelName) {
@@ -222,6 +226,15 @@ public class LessonService {
             // 수업 종료 → 그 강사의 PENDING 신청 학생들에게 '수업 중 해제' 라이브 알림.
             // (ACTIVE→COMPLETED 전이일 때만 = 중복 완료 호출엔 재발송 안 됨)
             notifyTutorLessonStatus(lesson.getTutorId(), false);
+        }
+
+        // 강의 정상 종료 → 연결된 질문을 '풀이 완료(RESOLVED)'로 전이(resolvedAt 기록).
+        // - wasActive(ACTIVE→COMPLETED) 안에서만 실행 → 중복 완료 호출에 안전(멱등).
+        // - MATCHED에서만 전이해 취소(CANCELED)·만료(EXPIRED)된 질문 상태를 덮어쓰지 않는다.
+        if (wasActive && lesson.getProblemId() != null) {
+            problemRepository.findById(lesson.getProblemId())
+                    .filter(p -> p.getStatus() == ProblemStatus.MATCHED)
+                    .ifPresent(Problem::markResolved);
         }
 
         // 녹음 URL이 비어 있으면 저장소가 주는 기본 참조로 채운다.

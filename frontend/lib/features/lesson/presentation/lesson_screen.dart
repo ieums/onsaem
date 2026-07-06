@@ -235,7 +235,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     }
 
     // 코인 부족 → 충전 화면 연결(기존 충전 플로우). 충전 후 같은 연장 재시도.
-    final charged = await promptRechargeAndReturn(context);
+    final charged = await promptRechargeAndReturn(context, theme: ref.read(shellDarkModeProvider) ? AppTheme.shellDark : AppTheme.shellLight);
     if (charged && mounted) {
       await _doExtend(minutes);
     }
@@ -377,7 +377,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
           // 강의 시작 코인(50) 부족 → 충전 안내 후 재진입.
           ref.read(lessonProvider.notifier).clearError();
           () async {
-            final charged = await promptRechargeAndReturn(context);
+            final charged = await promptRechargeAndReturn(context, theme: ref.read(shellDarkModeProvider) ? AppTheme.shellDark : AppTheme.shellLight);
             if (charged && mounted) _startLessonInit();
           }();
         } else {

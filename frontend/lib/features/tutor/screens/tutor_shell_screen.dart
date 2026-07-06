@@ -148,9 +148,8 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
       BuildContext context, int problemId, String message) async {
     // 다크모드가 먹도록 shell 테마를 직접 만들어 다이얼로그에 씌운다.
     // (ShellTheme.of(dialogContext)는 루트 보라 테마를 잡아 배경/글씨가 어긋남)
-    final theme = ref.read(shellDarkModeProvider)
-        ? AppTheme.shellDark
-        : AppTheme.shellLight;
+    final isDark = ref.read(shellDarkModeProvider);
+    final theme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -208,13 +207,9 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
                   style: TextStyle(fontWeight: FontWeight.w700)),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                side: const BorderSide(
-                    color: AppColors.primaryBlue, width: 1.5),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+              style: accentDialogButtonStyle(
+                accent: AppColors.primaryBlue,
+                isDark: isDark,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
               ),
@@ -241,7 +236,7 @@ class _TutorShellScreenState extends ConsumerState<TutorShellScreen> {
       if (!allowed) {
         await ref.read(matchingProvider.notifier).cancelConfirm(problemId);
         if (!context.mounted) return;
-        await showLessonPermissionDialog(context);
+        await showLessonPermissionDialog(context, ref, isTutor: true);
       } else {
         await ref.read(matchingProvider.notifier).confirmMatch(problemId);
       }

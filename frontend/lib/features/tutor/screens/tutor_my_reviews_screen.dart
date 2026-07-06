@@ -4,6 +4,7 @@ import 'package:ieum/core/providers/current_user_provider.dart';
 import 'package:ieum/core/theme/app_colors.dart';
 import 'package:ieum/core/theme/app_theme.dart';
 import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
 import 'package:ieum/features/student/data/tutor_profile_repository.dart';
 import 'package:ieum/features/student/models/tutor_profile_detail.dart';
 import 'package:ieum/features/student/repositories/mypage_repository.dart';
@@ -187,6 +188,7 @@ class TutorMyReviewsScreen extends ConsumerWidget {
     final detailController = TextEditingController();
     String? selectedCode;
     bool submitting = false;
+    final isDark = ref.read(shellDarkModeProvider);
 
     await showDialog<void>(
       context: context,
@@ -281,12 +283,9 @@ class TutorMyReviewsScreen extends ConsumerWidget {
               ),
               FilledButton(
                 onPressed: (selectedCode == null || submitting) ? null : submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  side: const BorderSide(color: AppColors.logoutRed, width: 1.5),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                style: accentDialogButtonStyle(
+                  accent: AppColors.logoutRed,
+                  isDark: isDark,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
                 ),
