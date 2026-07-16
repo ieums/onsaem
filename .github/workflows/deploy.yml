@@ -1,8 +1,7 @@
 name: Deploy to EC2
 
 on:
-  push:
-    branches: [ develop ]
+  workflow_dispatch:   # EC2 종료로 자동 배포 비활성화 — 수동 실행만
 
 jobs:
   deploy:
