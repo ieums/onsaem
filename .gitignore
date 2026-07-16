@@ -27,4 +27,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
-backend/src/main/resources/application-local.properties
+backend/src/main/resources/application-local.yml
+
+# FVM Version Cache
+.fvm/
+backend/src/main/resources/application-local.yml

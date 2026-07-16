@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  cloud:
+    aws:
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID}
+        secret-key: ${AWS_SECRET_ACCESS_KEY}
+
+portone:
+  api-secret: ${PORTONE_API_SECRET:}
+  api-base-url: https://api.portone.io
+  verification-enabled: ${PORTONE_VERIFY}
+
+# 녹화 사용(prod) — S3 자격증명이 있을 때만 켤 것. 로컬은 기본 false.
+agora:
+  recording:
+    enabled: ${AGORA_RECORDING_ENABLED:true}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+# Gemini — 키는 application.yml의 ${GEMINI_API_KEY}를 그대로 사용(여기선 모델만 지정).
+# 폴백을 기본과 '다른 모델'로 둬야 429/503(과부하·레이트리밋) 때 실제로 갈아타 부하를 분산한다.
+# (기본=폴백이면 같은 모델로 재시도라 폴백이 무의미했음)
+gemini:
+  api:
+    ocr-model: ${GEMINI_OCR_MODEL:gemini-3.5-flash}
+    ocr-fallback-model: ${GEMINI_OCR_FALLBACK_MODEL:gemini-2.5-flash}
+    ocr-thinking-budget: 0
+    model: ${GEMINI_CLASSIFY_MODEL:gemini-3.5-flash}
+    classify-fallback-model: ${GEMINI_CLASSIFY_FALLBACK_MODEL:gemini-2.5-flash}

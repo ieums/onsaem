@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온샘 관리자 · 구독</title>
+    <link rel="stylesheet" th:href="@{/admin/admin.css}">
+</head>
+<body>
+<div th:replace="~{admin/_layout :: shell('subscriptions')}"></div>
+
+<div class="container">
+    <div class="page-head">
+        <h1>구독 관리</h1>
+    </div>
+
+    <div class="flash" th:if="${msg}" th:text="${msg}"></div>
+    <div class="flash" th:if="${err}" th:text="${err}"
+         style="color:var(--danger);border-color:#f3c2bf;background:#fdeeed;"></div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>구독자</th>
+                <th>플랜</th>
+                <th>시작</th>
+                <th>종료</th>
+                <th>상태</th>
+                <th>자동갱신</th>
+                <th>관리</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="sub : ${subs}">
+                <td th:text="${subscriberNames.get(sub.studentId) != null ? subscriberNames.get(sub.studentId) : '(알 수 없음)'}">홍길동</td>
+                <td th:text="${sub.subscriptionPlan != null ? sub.subscriptionPlan.name : '-'}">AI 튜터 월간</td>
+                <td class="faint" th:text="${sub.startDate != null ? sub.startDate : '-'}">-</td>
+                <td class="faint" th:text="${sub.endDate != null ? sub.endDate : '-'}">-</td>
+                <td><span class="badge" th:classappend="${sub.active ? 'ACTIVE' : 'INACTIVE'}"
+                          th:text="${sub.active ? '활성' : '만료'}">활성</span></td>
+                <td th:text="${sub.autoRenew ? 'ON' : 'OFF'}">OFF</td>
+                <td>
+                    <div class="actions" th:if="${sub.active}">
+                        <form th:action="@{/admin/subscriptions/{id}/cancel(id=${sub.id})}" method="post"
+                              th:if="${sub.autoRenew}">
+                            <button class="btn sm" type="submit">자동갱신 해지</button>
+                        </form>
+                        <form th:action="@{/admin/subscriptions/{id}/expire(id=${sub.id})}" method="post"
+                              onsubmit="return confirm('이 구독을 즉시 만료시킵니다. 계속할까요?');">
+                            <button class="btn danger sm" type="submit">즉시 만료</button>
+                        </form>
+                    </div>
+                    <span class="faint" th:unless="${sub.active}">-</span>
+                </td>
+            </tr>
+            <tr th:if="${subs.isEmpty()}">
+                <td colspan="7" class="faint" style="text-align:center;padding:28px;">구독 내역이 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:replace="~{admin/_layout :: pager('/admin/subscriptions', null, null)}"></div>
+</div>
+</body>
+</html>

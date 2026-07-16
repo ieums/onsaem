@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온샘 관리자 · 강사 관리</title>
+    <link rel="stylesheet" th:href="@{/admin/admin.css}">
+</head>
+<body>
+<div th:replace="~{admin/_layout :: shell('tutors')}"></div>
+
+<div class="container">
+    <div class="page-head">
+        <h1>강사 관리</h1>
+    </div>
+
+    <form th:action="@{/admin/tutors}" method="get" class="filters" style="align-items:center;">
+        <input class="field" type="text" name="q" th:value="${q}" placeholder="이름 또는 이메일 검색"
+               style="margin:0;min-width:280px;padding:9px 13px;border-radius:9px;border:1px solid var(--line);">
+        <button class="btn primary sm" type="submit">검색</button>
+        <a class="btn ghost sm" th:href="@{/admin/tutors}" th:if="${q != null and !q.isBlank()}">초기화</a>
+    </form>
+
+    <div class="section-title">강사 <span th:text="'(' + ${totalElements} + ')'">0</span></div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr><th>이름</th><th>이메일</th><th>등급</th><th>인증</th><th>상태</th><th>가입일</th><th></th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="t : ${tutors}">
+                <td th:text="${t.name != null ? t.name : '-'}">김강사</td>
+                <td class="faint" th:text="${t.email != null ? t.email : '-'}">a@b.com</td>
+                <td th:text="${t.grade != null ? t.grade.displayName : '-'}">루키</td>
+                <td><span class="badge" th:classappend="${t.verificationStatus}" th:text="${t.verificationStatus != null ? t.verificationStatus.displayName : '-'}">대기</span></td>
+                <td><span class="badge" th:classappend="${t.status}" th:text="${t.status.displayName}">ACTIVE</span></td>
+                <td class="faint" th:text="${t.createdAt != null ? #temporals.format(t.createdAt, 'yyyy-MM-dd') : '-'}">-</td>
+                <td><a class="btn ghost sm" th:href="@{/admin/members/TUTOR/{id}(id=${t.id})}">상세</a></td>
+            </tr>
+            <tr th:if="${tutors.isEmpty()}">
+                <td colspan="7" class="faint" style="text-align:center;padding:28px;">강사가 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:replace="~{admin/_layout :: pager('/admin/tutors', ${q}, null)}"></div>
+</div>
+</body>
+</html>

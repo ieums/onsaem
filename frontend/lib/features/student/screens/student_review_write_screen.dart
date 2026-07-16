@@ -1,0 +1,425 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ieum/core/constants/route_paths.dart';
+import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/features/student/providers/student_matching_session_provider.dart';
+import 'package:ieum/features/student/repositories/mypage_repository.dart';
+import 'package:ieum/features/student/screens/student_report_screen.dart';
+import 'package:ieum/features/student/widgets/student_action_button_style.dart';
+import 'package:ieum/routes/app_router.dart';
+
+class StudentReviewWriteArgs {
+  const StudentReviewWriteArgs({
+    required this.lessonId,
+    required this.tutorId,
+    required this.tutorName,
+    required this.subject,
+    required this.tutorSubtitle,
+    required this.avatarInitial,
+  });
+
+  final int lessonId;
+  final String tutorId;
+  final String tutorName;
+  final String subject;
+  final String tutorSubtitle;
+  final String avatarInitial;
+}
+
+class StudentReviewWriteScreen extends ConsumerStatefulWidget {
+  const StudentReviewWriteScreen({super.key, required this.args});
+
+  final StudentReviewWriteArgs args;
+
+  @override
+  ConsumerState<StudentReviewWriteScreen> createState() =>
+      _StudentReviewWriteScreenState();
+}
+
+class _StudentReviewWriteScreenState
+    extends ConsumerState<StudentReviewWriteScreen> {
+  static const _maxReviewLength = 200;
+
+  final _reviewController = TextEditingController();
+  int _rating = 0;
+
+  @override
+  void dispose() {
+    _reviewController.dispose();
+    super.dispose();
+  }
+
+  ThemeData _flowTheme(bool isDark) {
+    final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
+    return baseTheme.copyWith(
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      scaffoldBackgroundColor:
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
+    );
+  }
+
+  String get _ratingHint {
+    return switch (_rating) {
+      0 => '강사님의 수업을 평가해주세요',
+      1 => '아쉬워요',
+      2 => '조금 아쉬워요',
+      3 => '괜찮았어요',
+      4 => '좋았어요!',
+      _ => '최고예요!',
+    };
+  }
+
+  Future<void> _finish({required bool submitted}) async {
+    await ref.read(studentMatchingSessionProvider.notifier).cancelMatching();
+    if (!mounted) return;
+    context.go(RoutePaths.studentHome);
+    if (!submitted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final rootContext = appRouter.routerDelegate.navigatorKey.currentContext;
+      if (rootContext == null) return;
+      ScaffoldMessenger.of(rootContext).showSnackBar(
+        const SnackBar(content: Text('리뷰가 등록되었습니다.')),
+      );
+    });
+  }
+
+  bool _submitting = false;
+
+  Future<void> _submit() async {
+    if (_rating == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('별점을 선택해 주세요.')),
+      );
+      return;
+    }
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    try {
+      await MypageRepository().createReview(
+        lessonId: widget.args.lessonId,
+        rating: _rating,
+        comment: _reviewController.text,
+      );
+      if (!mounted) return;
+      _finish(submitted: true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('리뷰 등록에 실패했어요. 잠시 후 다시 시도해 주세요.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = ref.watch(shellDarkModeProvider);
+    final theme = _flowTheme(isDark);
+
+    return Theme(
+      data: theme,
+      child: Builder(
+        builder: (context) {
+          final shell = ShellTheme.of(context);
+          final pageBg = theme.scaffoldBackgroundColor;
+
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              _finish(submitted: false);
+            },
+            child: Scaffold(
+            backgroundColor: pageBg,
+            body: SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Text(
+                      '리뷰 작성',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: shell.titleColor,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // 움직이는 체크 링 대신 마스코트 이미지(학생=연두 a).
+                                SizedBox(
+                                  width: 140,
+                                  height: 140,
+                                  child: Image.asset(
+                                    'assets/images/review_student.png',
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, _, _) =>
+                                        const SizedBox(width: 140, height: 140),
+                                  ),
+                                ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '수업이 완료되었습니다!',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: shell.titleColor,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '수업은 어떠셨나요?',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: shell.subtitleColor,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                            decoration: BoxDecoration(
+                              color: shell.cardBackground,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: shell.cardBorder),
+                            ),
+                            child: Column(
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      widget.args.tutorName,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
+                                        color: shell.titleColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      widget.args.tutorSubtitle,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: shell.subtitleColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                _InteractiveStarRating(
+                                  rating: _rating,
+                                  onChanged: (value) => setState(() => _rating = value),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _ratingHint,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: _rating == 0
+                                        ? shell.hintColor
+                                        : AppColors.reviewHighlight,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    '리뷰를 작성해주세요',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: shell.titleColor,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  controller: _reviewController,
+                                  maxLength: _maxReviewLength,
+                                  maxLines: 3,
+                                  onChanged: (_) => setState(() {}),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    height: 1.5,
+                                    color: shell.titleColor,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: '수업에 대한 소감을 자유롭게 작성해주세요',
+                                    hintStyle: TextStyle(
+                                      fontSize: 14,
+                                      color: shell.hintColor,
+                                    ),
+                                    filled: true,
+                                    fillColor: shell.detailBackground,
+                                    counterStyle: TextStyle(
+                                      fontSize: 12,
+                                      color: shell.hintColor,
+                                    ),
+                                    contentPadding: const EdgeInsets.all(14),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: shell.cardBorder),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: shell.cardBorder),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(
+                                        color: AppColors.studentPoint,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 신고 안내 + 링크 — 강사 완료화면과 동일 위치(버튼 바로 위).
+                        Text(
+                          '수업 진행에 불편한 점이 있으셨나요?',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: shell.subtitleColor,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        GestureDetector(
+                          onTap: () async {
+                            // 신고 제출 성공(true)이면 리뷰 화면으로 안 돌아오고 바로 홈으로.
+                            final reported = await context.push<bool>(
+                              RoutePaths.studentReport,
+                              extra: StudentReportArgs(
+                                lessonId: widget.args.lessonId,
+                                personType: ReportPersonType.tutor,
+                                personId: widget.args.tutorId,
+                                personName: widget.args.tutorName,
+                              ),
+                            );
+                            if (reported == true && mounted) {
+                              _finish(submitted: false);
+                            }
+                          },
+                          child: const Text(
+                            '신고하기',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.logoutRed,
+                              decoration: TextDecoration.underline,
+                              decorationColor: AppColors.logoutRed,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () => _finish(submitted: false),
+                              child: Text(
+                                '건너뛰기',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: shell.subtitleColor,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _submit,
+                                // 통일 스타일: 테두리 특징색 + 흰/다크 배경 + 검정/특징색 글씨. 네모(라운드 14).
+                                style: studentOutlinedButtonStyle(isDark,
+                                    radius: 14,
+                                    minimumSize: const Size.fromHeight(52)),
+                                child: const Text(
+                                  '제출하기',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _InteractiveStarRating extends StatelessWidget {
+  const _InteractiveStarRating({
+    required this.rating,
+    required this.onChanged,
+  });
+
+  final int rating;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var i = 1; i <= 5; i++)
+          IconButton(
+            onPressed: () => onChanged(i),
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            icon: Icon(
+              i <= rating ? Icons.star_rounded : Icons.star_outline_rounded,
+              size: 32,
+              color: i <= rating
+                  ? AppColors.reviewHighlight
+                  : ShellTheme.of(context).hintColor,
+            ),
+          ),
+      ],
+    );
+  }
+}

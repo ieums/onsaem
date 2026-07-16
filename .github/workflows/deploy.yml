@@ -1,8 +1,7 @@
 name: Deploy to EC2
 
 on:
-  push:
-    branches: [ develop ]
+  workflow_dispatch:   # EC2 종료로 자동 배포 비활성화 — 수동 실행만
 
 jobs:
   deploy:
@@ -18,13 +17,24 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Flutter 설정
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.41.9'
+
     - name: Gradle 빌드
       run: |
         cd backend
         chmod +x gradlew
         ./gradlew build -x test
 
-    - name: EC2에 jar 전송
+    - name: Flutter 웹 빌드
+      run: |
+        cd frontend
+        flutter pub get
+        flutter build web --release --dart-define=PRODUCTION=true
+
+    - name: EC2에 백엔드 jar 전송
       uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.EC2_HOST }}
@@ -32,6 +42,16 @@ jobs:
         key: ${{ secrets.EC2_KEY }}
         source: "backend/build/libs/backend-0.0.1-SNAPSHOT.jar"
         target: "/home/ubuntu/"
+        strip_components: 3
+
+    - name: EC2에 Flutter 웹 전송
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_KEY }}
+        source: "frontend/build/web/*"
+        target: "/var/www/onsaem/"
         strip_components: 3
 
     - name: EC2에서 서버 재시작
@@ -42,7 +62,22 @@ jobs:
         key: ${{ secrets.EC2_KEY }}
         script: |
           sudo kill $(sudo lsof -t -i:8080) || true
+          export DB_URL="${{ secrets.DB_URL }}"
+          export DB_USERNAME="${{ secrets.DB_USERNAME }}"
+          export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          export AGORA_APP_ID="${{ secrets.AGORA_APP_ID }}"
+          export AGORA_APP_CERTIFICATE="${{ secrets.AGORA_APP_CERTIFICATE }}"
+          export AGORA_CUSTOMER_ID="${{ secrets.AGORA_CUSTOMER_ID }}"
+          export AGORA_CUSTOMER_SECRET="${{ secrets.AGORA_CUSTOMER_SECRET }}"
+          export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
+          export JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          export MAIL_ENABLED="true"
+          export MAIL_USERNAME="${{ secrets.MAIL_USERNAME }}"
+          export MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}"
+          export PORTONE_API_SECRET="${{ secrets.PORTONE_API_SECRET }}"
+          # 프론트 포트원 SDK 실결제 연동 완료 후에만 true로 — 지금 true면 가짜 결제ID라 검증이 404로 실패함
+          export PORTONE_VERIFY="false"
           nohup java -jar /home/ubuntu/backend-0.0.1-SNAPSHOT.jar \
-            --spring.datasource.url="${{ secrets.DB_URL }}" \
-            --spring.datasource.username=${{ secrets.DB_USERNAME }} \
-            --spring.datasource.password=${{ secrets.DB_PASSWORD }} > app.log 2>&1 &
+            --spring.profiles.active=prod > app.log 2>&1 &

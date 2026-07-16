@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- 공통 셸: 좌측 세로 사이드바 + 상단바. 사용: <div th:replace="~{admin/_layout :: shell('dashboard')}"></div> -->
+<th:block th:fragment="shell(active)">
+    <aside class="sidebar">
+        <div class="brand"><b>온샘</b></div>
+        <nav class="side-nav">
+            <a th:href="@{/admin}" class="dash-top" th:classappend="${active == 'dashboard'} ? ' active' : ''">대시보드</a>
+        </nav>
+
+        <details class="side-group" th:attr="open=${active == 'students' or active == 'tutors' or active == 'accounts'} ? 'open' : null">
+            <summary>계정 <span class="chev">▶</span></summary>
+            <nav class="side-nav">
+                <a th:href="@{/admin/students}" th:classappend="${active == 'students'} ? ' active' : ''">학생</a>
+                <a th:href="@{/admin/tutors}" th:classappend="${active == 'tutors'} ? ' active' : ''">강사</a>
+                <a th:href="@{/admin/accounts}" th:classappend="${active == 'accounts'} ? ' active' : ''">관리자 계정</a>
+            </nav>
+        </details>
+
+        <details class="side-group" th:attr="open=${active == 'lessons' or active == 'payments' or active == 'subscriptions'} ? 'open' : null">
+            <summary>강의·결제 <span class="chev">▶</span></summary>
+            <nav class="side-nav">
+                <a th:href="@{/admin/lessons}" th:classappend="${active == 'lessons'} ? ' active' : ''">강의</a>
+                <a th:href="@{/admin/payments}" th:classappend="${active == 'payments'} ? ' active' : ''">결제</a>
+                <a th:href="@{/admin/subscriptions}" th:classappend="${active == 'subscriptions'} ? ' active' : ''">구독</a>
+            </nav>
+        </details>
+
+        <details class="side-group" th:attr="open=${active == 'reports' or active == 'settlements'} ? 'open' : null">
+            <summary>운영 <span class="chev">▶</span></summary>
+            <nav class="side-nav">
+                <a th:href="@{/admin/reports}" th:classappend="${active == 'reports'} ? ' active' : ''">신고</a>
+                <a th:href="@{/admin/settlements}" th:classappend="${active == 'settlements'} ? ' active' : ''">정산</a>
+            </nav>
+        </details>
+    </aside>
+    <header class="topbar">
+        <div class="topbar-title">관리자</div>
+        <div class="topbar-right">
+            <span class="who">관리자</span>
+            <form th:action="@{/admin/logout}" method="post">
+                <button class="btn ghost sm" type="submit">로그아웃</button>
+            </form>
+        </div>
+    </header>
+</th:block>
+
+<!--
+  페이지네이션 프래그먼트.
+  사용: <div th:replace="~{admin/_layout :: pager('/admin/payments', ${q}, ${status})}"></div>
+  baseUrl: 경로. q: 검색어(없으면 null). statusParam: 상태 필터 문자열(없으면 null).
+  q/statusParam 이 null 이면 @{...} 에서 자동으로 빠지므로 페이지 이동 시 필터/검색이 유지된다.
+  모델에 pageNo/totalPages/hasPrev/hasNext 필요.
+-->
+<th:block th:fragment="pager(baseUrl, q, statusParam)">
+    <div class="pagination" th:if="${totalPages != null and totalPages > 1}">
+        <a th:if="${hasPrev}" th:href="@{${baseUrl}(page=${pageNo - 1}, q=${q}, status=${statusParam})}">이전</a>
+        <span class="page-dis" th:unless="${hasPrev}">이전</span>
+
+        <th:block th:each="i : ${#numbers.sequence(0, totalPages - 1)}">
+            <span class="page-cur" th:if="${i == pageNo}" th:text="${i + 1}">1</span>
+            <a th:unless="${i == pageNo}" th:href="@{${baseUrl}(page=${i}, q=${q}, status=${statusParam})}" th:text="${i + 1}">2</a>
+        </th:block>
+
+        <a th:if="${hasNext}" th:href="@{${baseUrl}(page=${pageNo + 1}, q=${q}, status=${statusParam})}">다음</a>
+        <span class="page-dis" th:unless="${hasNext}">다음</span>
+    </div>
+</th:block>
+</body>
+</html>

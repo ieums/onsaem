@@ -1,0 +1,421 @@
+import 'package:flutter/material.dart';
+import 'package:ieum/core/widgets/confirm_dialog.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ieum/core/providers/current_user_provider.dart';
+import 'package:ieum/core/theme/app_colors.dart';
+import 'package:ieum/core/theme/app_theme.dart';
+import 'package:ieum/core/theme/shell_theme_extension.dart';
+import 'package:ieum/features/student/models/payment_models.dart';
+import 'package:ieum/features/student/providers/payment_provider.dart';
+import 'package:ieum/features/student/providers/mypage_provider.dart';
+import 'package:ieum/features/student/screens/coin_payment_screen.dart';
+import 'package:ieum/core/config/portone_config.dart';
+import 'package:portone_flutter_v2/portone_flutter_v2.dart' show PaymentResponse;
+import 'package:ieum/features/student/widgets/student_action_button_style.dart';
+
+String _won(int n) {
+  final s = n.abs().toString();
+  final b = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) b.write(',');
+    b.write(s[i]);
+  }
+  return b.toString();
+}
+
+String _ymd(DateTime? d) {
+  if (d == null) return '-';
+  final l = d.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${l.year}.${two(l.month)}.${two(l.day)}';
+}
+
+class StudentSubscriptionScreen extends ConsumerStatefulWidget {
+  const StudentSubscriptionScreen({super.key});
+
+  @override
+  ConsumerState<StudentSubscriptionScreen> createState() =>
+      _StudentSubscriptionScreenState();
+}
+
+class _StudentSubscriptionScreenState
+    extends ConsumerState<StudentSubscriptionScreen> {
+  // 신규 구독은 자동 갱신 ON으로 시작(구독 후 카드에서 끌 수 있음).
+  final bool _autoRenew = true;
+  bool _busy = false;
+
+  void _snack(String m) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  }
+
+  // build는 본문을 shell 테마로 감싸지만, 아래 다이얼로그들은 State.context(그 위 = 루트 보라 테마)에서
+  // 열려 배경이 연보라로 잡힌다 → 공용 다이얼로그에 shell 테마를 명시적으로 넘겨 색을 맞춘다.
+  ThemeData get _dialogTheme =>
+      ref.read(shellDarkModeProvider) ? AppTheme.shellDark : AppTheme.shellLight;
+
+  Future<void> _subscribe(SubscriptionPlan plan) async {
+    final studentId = ref.read(currentUserProvider)?.id;
+    if (studentId == null) return _snack('로그인이 필요해요.');
+
+    // 결제 전 환불 불가 안내 + 동의 (구매 동의 없이는 진행하지 않음)
+    final agreed = await showConfirmDialog(
+      context: context,
+      title: '구독 결제 안내',
+      message: '${plan.name}을(를) 결제할까요?\n\n'
+          '• 결제 후 환불은 불가능해요.\n'
+          '• 해지하면 자동 갱신만 중단되고, 남은 기간은 계속 이용할 수 있어요.\n'
+          '• 남은 기간에 대한 중도 환불은 되지 않아요.',
+      cancelText: '취소',
+      confirmText: '동의하고 결제',
+      highlightLabel: '결제 금액',
+      highlightValue: '${_won(plan.price)}원',
+      theme: _dialogTheme,
+    );
+    if (!agreed) return;
+
+    setState(() => _busy = true);
+    try {
+      final repo = ref.read(paymentRepositoryProvider);
+      final payment = await repo.createSubscriptionPayment(
+        studentId: studentId,
+        subscriptionPlanId: plan.id,
+        autoRenew: _autoRenew,
+      );
+      // 결제ID 확정 — 실결제 설정이 있으면 PortOne SDK 결제창(코인 충전과 동일),
+      // 없으면 테스트(검증 스킵: merchantId를 그대로 사용).
+      String portonePaymentId = payment.merchantId;
+      if (PortoneConfig.isConfigured) {
+        // PG가 구매자 정보를 요구 → 내 정보(me)에서 이름/전화/이메일 확보.
+        final me = await ref.read(meProvider.future);
+        if (!mounted) return;
+        final result = await Navigator.of(context).push<Object?>(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => CoinPaymentScreen(
+              paymentId: payment.merchantId,
+              orderName: plan.name,
+              amount: plan.price,
+              customerName: me['name'] as String?,
+              customerPhone: me['phone'] as String?,
+              customerEmail: me['email'] as String?,
+            ),
+          ),
+        );
+        if (result == null) {
+          if (mounted) setState(() => _busy = false);
+          _snack('결제를 취소했어요.');
+          return;
+        }
+        if (result is! PaymentResponse) {
+          if (mounted) setState(() => _busy = false);
+          _snack('결제 오류: $result');
+          return;
+        }
+        if (result.code != null) {
+          if (mounted) setState(() => _busy = false);
+          _snack('결제 실패: ${result.message ?? result.code}');
+          return;
+        }
+        portonePaymentId = result.paymentId;
+      }
+
+      await repo.completeSubscriptionPayment(
+        merchantId: payment.merchantId,
+        portonePaymentId: portonePaymentId,
+        autoRenew: _autoRenew,
+      );
+      if (!mounted) return;
+      ref.invalidate(mySubscriptionProvider);
+      setState(() => _busy = false);
+      _snack('${plan.name} 구독이 시작됐어요.');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _snack('구독에 실패했어요. 잠시 후 다시 시도해 주세요.');
+    }
+  }
+
+  Future<void> _cancel() async {
+    final studentId = ref.read(currentUserProvider)?.id;
+    if (studentId == null) return;
+    final ok = await showConfirmDialog(
+      context: context,
+      // 해지=자동갱신만 중단, 남은 기간은 계속 이용(우리 정책) → 메시지에 명확히.
+      title: '구독 해지',
+      message: '구독을 해지할까요?\n자동 갱신만 중단되고, 남은 기간(만료일)까지는 계속 이용할 수 있어요.',
+      cancelText: '취소',
+      confirmText: '해지',
+      isDanger: true,
+      theme: _dialogTheme,
+    );
+    if (!ok) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(paymentRepositoryProvider).cancelSubscription(studentId);
+      if (!mounted) return;
+      ref.invalidate(mySubscriptionProvider);
+      setState(() => _busy = false);
+      _snack('구독을 해지했어요.');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _snack('해지에 실패했어요.');
+    }
+  }
+
+  Future<void> _toggleAuto(bool value) async {
+    final studentId = ref.read(currentUserProvider)?.id;
+    if (studentId == null) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(paymentRepositoryProvider)
+          .toggleAutoRenew(studentId: studentId, autoRenew: value);
+      if (!mounted) return;
+      ref.invalidate(mySubscriptionProvider);
+      setState(() => _busy = false);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _snack('자동 갱신 변경에 실패했어요.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = ref.watch(shellDarkModeProvider);
+    final baseTheme = isDark ? AppTheme.shellDark : AppTheme.shellLight;
+    final theme = baseTheme.copyWith(
+      colorScheme: baseTheme.colorScheme.copyWith(primary: AppColors.studentPoint),
+      scaffoldBackgroundColor:
+          isDark ? AppColors.shellScaffoldDark : AppColors.studentScaffoldLight,
+    );
+    final subAsync = ref.watch(mySubscriptionProvider);
+    final plansAsync = ref.watch(subscriptionPlansProvider);
+
+    return Theme(
+      data: theme,
+      child: Builder(
+        builder: (themedContext) {
+          final shell = ShellTheme.of(themedContext);
+          final pageBg = Theme.of(themedContext).scaffoldBackgroundColor;
+          final sub = subAsync.valueOrNull;
+          final hasActive = sub != null && sub.valid;
+
+          return Stack(
+            children: [
+              Scaffold(
+                backgroundColor: pageBg,
+                appBar: AppBar(
+                  backgroundColor: pageBg,
+                  elevation: 0,
+                  centerTitle: true,
+                  leading: IconButton(
+                    icon: Icon(Icons.arrow_back_ios_new,
+                        size: 20, color: shell.titleColor),
+                    onPressed: () => themedContext.pop(),
+                  ),
+                  title: Text('구독',
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: shell.titleColor)),
+                ),
+                body: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  children: [
+                    if (hasActive) _currentCard(shell, sub),
+                    if (hasActive) const SizedBox(height: 24),
+                    Text(
+                      hasActive ? '플랜 변경' : '구독 플랜',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: shell.titleColor,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    plansAsync.when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.only(top: 24),
+                        child: Center(
+                            child: CircularProgressIndicator(
+                                color: AppColors.studentPoint)),
+                      ),
+                      error: (_, _) => Text('플랜을 불러오지 못했어요.',
+                          style: TextStyle(color: shell.hintColor)),
+                      data: (plans) => Column(
+                        children: [
+                          for (final p in plans) ...[
+                            _planCard(shell, p, hasActive, isDark),
+                            const SizedBox(height: 10),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // 구독 전에는 자동 갱신 토글을 노출하지 않는다(구독 중에 카드에서 관리).
+                    const SizedBox(height: 20),
+                    // 환불 불가 안내 — footer 느낌으로 작고 회색.
+                    Text(
+                      '결제 후 환불은 불가능하며, 남은 기간에 대한 중도 환불도 되지 않습니다.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.4,
+                        color: shell.hintColor.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_busy)
+                const Positioned.fill(
+                  child: ColoredBox(
+                    color: Color(0x55000000),
+                    child:
+                        Center(child: CircularProgressIndicator(color: Colors.white)),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _currentCard(ShellTheme shell, Subscription sub) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        // 연두(studentPoint) 카드 + 검정 글씨로 통일(studentInk 제거).
+        color: AppColors.studentPoint,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.workspace_premium, color: Colors.black, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                // 해지하면 자동갱신만 꺼지고 기간까지는 이용 가능 → autoRenew 기준으로 표시.
+                sub.autoRenew ? '구독 이용 중' : '해지됨 · 남은 기간 이용 가능',
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '이용 기간  ${_ymd(sub.startDate)} ~ ${_ymd(sub.endDate)}',
+            style: TextStyle(
+                fontSize: 13, color: Colors.black.withValues(alpha: 0.7)),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Switch(
+                      value: sub.autoRenew,
+                      onChanged: _busy ? null : _toggleAuto,
+                      activeThumbColor: Colors.black,
+                      activeTrackColor: Colors.black.withValues(alpha: 0.45),
+                      inactiveThumbColor: Colors.black.withValues(alpha: 0.55),
+                      inactiveTrackColor: Colors.black.withValues(alpha: 0.15),
+                      trackOutlineColor:
+                          WidgetStateProperty.all(Colors.transparent),
+                    ),
+                    Text('자동 갱신',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black.withValues(alpha: 0.8))),
+                  ],
+                ),
+              ),
+              // 이미 해지(자동갱신 OFF)된 구독엔 '구독 해지' 버튼 숨김(자동갱신 스위치로 재개).
+              if (sub.autoRenew)
+                TextButton(
+                  onPressed: _busy ? null : _cancel,
+                  style: TextButton.styleFrom(foregroundColor: Colors.black),
+                  child: const Text('구독 해지',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _planCard(
+      ShellTheme shell, SubscriptionPlan plan, bool hasActive, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      decoration: BoxDecoration(
+        color: shell.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: shell.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(plan.name,
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: shell.titleColor)),
+              ),
+              if (plan.discountPercent > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.incomeGreen.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text('${plan.discountPercent}% 할인',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.incomeGreen)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text('${plan.durationDays}일 이용',
+              style: TextStyle(fontSize: 13, color: shell.hintColor)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Text('${_won(plan.price)}원',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: shell.titleColor)),
+              const Spacer(),
+              // 이미 구독 중이면 중복 구독 불가 → 비활성. 스타일은 통일(테두리만 특징색).
+              OutlinedButton(
+                onPressed:
+                    (hasActive || _busy) ? null : () => _subscribe(plan),
+                style: studentOutlinedButtonStyle(isDark, radius: 12),
+                child: Text(hasActive ? '구독 중' : '구독하기',
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

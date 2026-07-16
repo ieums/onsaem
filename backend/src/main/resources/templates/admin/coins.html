@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온샘 관리자 · 코인</title>
+    <link rel="stylesheet" th:href="@{/admin/admin.css}">
+</head>
+<body>
+<div th:replace="~{admin/_layout :: shell('coins')}"></div>
+
+<div class="container">
+    <div class="page-head">
+        <h1>코인 거래 내역</h1>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>유형</th>
+                <th class="num">증감</th>
+                <th class="num">잔액</th>
+                <th>설명</th>
+                <th>일시</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="c : ${coinTx}">
+                <td th:text="${c.type != null ? c.type.displayName : '-'}">충전</td>
+                <td class="num" th:classappend="${c.amount >= 0} ? ' plus' : ' minus'"
+                    th:text="${(c.amount >= 0 ? '+' : '') + c.amount}">0</td>
+                <td class="num" th:text="${c.balanceAfter}">0</td>
+                <td class="faint" th:text="${c.description != null ? c.description : '-'}">-</td>
+                <td class="faint" th:text="${c.createdAt != null ? #temporals.format(c.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">-</td>
+            </tr>
+            <tr th:if="${coinTx.isEmpty()}">
+                <td colspan="5" class="faint" style="text-align:center;padding:28px;">코인 거래가 없습니다.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:replace="~{admin/_layout :: pager('/admin/coins', null, null)}"></div>
+</div>
+</body>
+</html>

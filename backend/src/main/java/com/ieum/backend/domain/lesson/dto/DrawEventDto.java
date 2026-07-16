@@ -1,0 +1,55 @@
+package com.ieum.backend.domain.lesson.dto;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.util.List;
+
+@Getter
+@Setter
+@NoArgsConstructor
+public class DrawEventDto {
+    /** 이벤트 타입: DRAW | ERASE | CLEAR | IMAGE_ADD | UNDO | REDO | CAMERA_ON | CAMERA_OFF */
+    private String type;
+    private Double x;
+    private Double y;
+    private String color;
+    private Double strokeWidth;
+    /** IMAGE_ADD 타입일 때 사용하는 이미지 URL */
+    private String imageUrl;
+    /** 에코 필터링용 — 자신이 보낸 이벤트를 수신 측에서 무시하기 위해 사용 */
+    private String senderId;
+    /** 새 스트로크 시작 여부 — 동일 색상/굵기 연속 드로잉 시 스트로크 끊김 수정용 */
+    private Boolean isStart;
+    /** Undo 동기화용 스트로크 고유 ID */
+    private String strokeId;
+    /** 줌 동기화 — 배율 */
+    private Double scale;
+    /** 줌 동기화 — pan offset X */
+    private Double offsetX;
+    /** 줌 동기화 — pan offset Y */
+    private Double offsetY;
+    /** 이미지 너비 — imageAdd / imageMove 공용 */
+    private Double width;
+    /** 이미지 높이 — imageAdd / imageMove 공용 */
+    private Double height;
+    /** imageMove / imageDelete 대상 이미지 인덱스 */
+    private Integer index;
+    /** 카메라 패널 높이 비율 동기화 */
+    private Double cameraRatio;
+    /** IMAGE_SYNC — 전체 이미지 목록 스냅샷 (recorder 좌표/index 정합용) */
+    private List<ImageSyncItem> images;
+
+    /** IMAGE_SYNC에 담기는 이미지 1개 */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class ImageSyncItem {
+        private String url;
+        private Double x;
+        private Double y;
+        private Double width;
+        private Double height;
+    }
+}

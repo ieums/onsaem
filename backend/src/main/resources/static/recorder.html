@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=720, initial-scale=1.0" />
+  <title>LOADING</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;            /* Agora Web Recording: 스크롤 없이 한 화면 */
+      background: #ffffff;
+    }
+    #stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #e9eef3;          /* 캔버스 바깥 여백 */
+    }
+    /* 9:16 세로 고정 캔버스(녹화 출력 720×1280과 일치). 화면을 꽉 채우되 비율 유지 */
+    #board {
+      width: 720px;
+      height: 1280px;
+      background: #ffffff;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+    }
+    #status {
+      position: fixed;
+      left: 8px;
+      bottom: 6px;
+      font: 12px/1.4 monospace;
+      color: #98a2b3;
+      pointer-events: none;
+      user-select: none;
+    }
+  </style>
+  <!-- 외부 의존성은 CDN (녹화봇 Chrome이 인터넷 접근 가능 전제) -->
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.2.js"></script>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="board" width="720" height="1280"></canvas>
+  </div>
+  <div id="status">init…</div>
+
+  <script>
+  'use strict';
+
+  // ────────────────────────────────────────────────────────────────────────
+  // DrawType — 백엔드 DrawEventDto / 프론트 lesson_model.dart 와 동일 (UPPER_SNAKE)
+  // ────────────────────────────────────────────────────────────────────────
+  const T = {
+    DRAW: 'DRAW', ERASE: 'ERASE', CLEAR: 'CLEAR', IMAGE_ADD: 'IMAGE_ADD',
+    UNDO: 'UNDO', REDO: 'REDO', CAMERA_ON: 'CAMERA_ON', CAMERA_OFF: 'CAMERA_OFF',
+    ZOOM: 'ZOOM', IMAGE_MOVE: 'IMAGE_MOVE', IMAGE_DELETE: 'IMAGE_DELETE',
+    LESSON_END: 'LESSON_END', MIC_ON: 'MIC_ON', MIC_OFF: 'MIC_OFF',
+    CAMERA_RATIO: 'CAMERA_RATIO', VIEWPORT: 'VIEWPORT', IMAGE_SYNC: 'IMAGE_SYNC',
+  };
+
+  // 기본값 — app_constants.dart / lesson_provider.dart 와 동일
+  const DEFAULT_PEN_COLOR = '#000000';
+  const DEFAULT_PEN_WIDTH = 3.0;
+  const DEFAULT_IMAGE_W = 400.0;
+  const DEFAULT_IMAGE_H = 300.0;
+
+  // ────────────────────────────────────────────────────────────────────────
+  // 보드 상태 (lesson_provider.dart 의 LessonState 일부를 포팅)
+  // ────────────────────────────────────────────────────────────────────────
+  const board = {
+    strokes: [],            // 확정된 스트로크: {id, points:[{x,y}], color, width, isEraser}
+    remoteStroke: null,     // 강사가 지금 그리는 중인 스트로크
+    images: [],             // {url, x, y, width, height, img:HTMLImageElement, loaded:bool}
+    // 줌/팬 (강사 화면과 동일하게 적용) — remoteScale/remoteOffset
+    scale: 1.0,
+    offsetX: 0.0,
+    offsetY: 0.0,
+    deletedStrokes: {},     // undo로 지워진 스트로크 보관 (redo 복원용)
+    tutorW: 0,              // 강사 화이트보드 폭 (VIEWPORT 이벤트로 수신)
+    tutorH: 0,              // 강사 화이트보드 높이
+  };
+
+  const clampScale = (s) => Math.min(4.0, Math.max(0.5, s));
+
+  // ────────────────────────────────────────────────────────────────────────
+  // 원격 이벤트 처리 (lesson_provider.dart 의 _onRemoteDrawEvent 포팅)
+  // ────────────────────────────────────────────────────────────────────────
+  function onRemoteDrawEvent(e) {
+    switch (e.type) {
+      case T.DRAW:
+      case T.ERASE:
+        applyRemoteDrawPoint(e);
+        break;
+
+      case T.CLEAR:
+        board.strokes = [];
+        board.remoteStroke = null;
+        board.images = [];
+        break;
+
+      case T.IMAGE_ADD:
+        if (e.imageUrl) {
+          addImage({
+            url: e.imageUrl,
+            x: e.x != null ? e.x : 0.0,
+            y: e.y != null ? e.y : 0.0,
+            width: e.width != null ? e.width : DEFAULT_IMAGE_W,
+            height: e.height != null ? e.height : DEFAULT_IMAGE_H,
+          });
+        }
+        break;
+
+      case T.IMAGE_MOVE: {
+        const idx = e.index;
+        if (idx == null || e.width == null || idx >= board.images.length) return;
+        const it = board.images[idx];
+        it.x = e.x; it.y = e.y; it.width = e.width; it.height = e.height;
+        break;
+      }
+
+      case T.IMAGE_DELETE: {
+        const di = e.index;
+        if (di == null || di >= board.images.length) return;
+        board.images.splice(di, 1);
+        break;
+      }
+
+      case T.UNDO:
+        applyRemoteUndo(e);
+        break;
+
+      case T.REDO:
+        applyRemoteRedo(e);
+        break;
+
+      case T.ZOOM:
+        if (e.scale != null) {
+          board.scale = clampScale(e.scale);
+          board.offsetX = e.offsetX != null ? e.offsetX : 0.0;
+          board.offsetY = e.offsetY != null ? e.offsetY : 0.0;
+        }
+        break;
+
+      case T.VIEWPORT:
+        // 강사 화이트보드 크기 — fit 스케일 계산에 사용
+        if (e.width != null && e.height != null && e.width > 0 && e.height > 0) {
+          board.tutorW = e.width;
+          board.tutorH = e.height;
+        }
+        break;
+
+      case T.IMAGE_SYNC:
+        // 전체 이미지 목록 스냅샷으로 board.images를 통째로 교체.
+        // 초기 이미지 누락 + index 어긋남을 한 번에 해결. (강사가 3초 주기 전송)
+        if (Array.isArray(e.images)) syncImages(e.images);
+        break;
+
+      case T.LESSON_END:
+        // 수업 종료 → 녹화 종료 트리거용 마커
+        document.title = 'ENDED';
+        document.body.setAttribute('data-lesson-ended', '1');
+        break;
+
+      // 녹화 화면과 무관한 이벤트는 무시
+      case T.CAMERA_ON: case T.CAMERA_OFF:
+      case T.MIC_ON: case T.MIC_OFF:
+      case T.CAMERA_RATIO:
+      default:
+        break;
+    }
+  }
+
+  // _applyRemoteDrawPoint 포팅
+  function applyRemoteDrawPoint(e) {
+    if (e.x == null || e.y == null) return;
+    const point = { x: e.x, y: e.y };
+    const color = e.color || DEFAULT_PEN_COLOR;
+    const width = e.strokeWidth != null ? e.strokeWidth : DEFAULT_PEN_WIDTH;
+    const isEraser = (e.type === T.ERASE);
+
+    const current = board.remoteStroke;
+    const forceNew = (e.isStart === true);
+
+    if (current == null || forceNew ||
+        current.color !== color || current.width !== width) {
+      // 진행 중이던 스트로크를 확정 목록으로 이동
+      if (current != null) board.strokes.push(current);
+      board.remoteStroke = {
+        id: e.strokeId || '',
+        points: [point],
+        color: color,
+        width: width,
+        isEraser: isEraser,
+      };
+    } else {
+      current.points.push(point);
+    }
+  }
+
+  // _applyRemoteUndo 포팅
+  function applyRemoteUndo(e) {
+    const sid = e.strokeId;
+    if (sid) {
+      // 확정 목록에서 해당 id 스트로크를 찾아 보관 후 제거
+      const found = board.strokes.find((s) => s.id === sid);
+      if (found) board.deletedStrokes[sid] = found;
+      if (board.remoteStroke && board.remoteStroke.id === sid) {
+        board.deletedStrokes[sid] = board.remoteStroke;
+        board.remoteStroke = null;
+      }
+      board.strokes = board.strokes.filter((s) => s.id !== sid);
+    } else {
+      // id 없는 undo: 마지막 확정 스트로크 제거 (best-effort)
+      board.strokes.pop();
+    }
+  }
+
+  // _applyRemoteRedo 포팅
+  function applyRemoteRedo(e) {
+    const sid = e.strokeId;
+    if (sid && board.deletedStrokes[sid]) {
+      board.strokes.push(board.deletedStrokes[sid]);
+      delete board.deletedStrokes[sid];
+    }
+  }
+
+  function addImage(meta) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const item = { ...meta, img: img, loaded: false };
+    img.onload = () => { item.loaded = true; };
+    img.onerror = () => { item.loaded = false; };
+    img.src = meta.url;
+    board.images.push(item);
+  }
+
+  // IMAGE_SYNC: 전체 목록을 새로 구성하되, 같은 url의 기존 Image 객체는 재사용해
+  // 3초마다 재로딩으로 깜빡이는 것을 방지한다.
+  function syncImages(list) {
+    // url → 기존 item 매핑 (먼저 만난 것 우선)
+    const prevByUrl = {};
+    for (const it of board.images) {
+      if (it.url && !(it.url in prevByUrl)) prevByUrl[it.url] = it;
+    }
+    const next = [];
+    for (const meta of list) {
+      if (!meta || !meta.url) continue;
+      const prev = prevByUrl[meta.url];
+      if (prev) {
+        // 기존 Image/loaded 상태 재사용, 위치/크기만 갱신
+        prev.x = meta.x != null ? meta.x : 0;
+        prev.y = meta.y != null ? meta.y : 0;
+        prev.width = meta.width != null ? meta.width : DEFAULT_IMAGE_W;
+        prev.height = meta.height != null ? meta.height : DEFAULT_IMAGE_H;
+        next.push(prev);
+      } else {
+        // 새 url → 새 Image 프리로드
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        const item = {
+          url: meta.url,
+          x: meta.x != null ? meta.x : 0,
+          y: meta.y != null ? meta.y : 0,
+          width: meta.width != null ? meta.width : DEFAULT_IMAGE_W,
+          height: meta.height != null ? meta.height : DEFAULT_IMAGE_H,
+          img: img,
+          loaded: false,
+        };
+        img.onload = () => { item.loaded = true; };
+        img.onerror = () => { item.loaded = false; };
+        img.src = meta.url;
+        next.push(item);
+      }
+    }
+    board.images = next; // 통째로 replace (삭제된 이미지는 자연히 빠짐)
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // 렌더링 (whiteboard_painter.dart 포팅)
+  //  - 이미지 레이어(아래) + 스트로크 레이어(위, 지우개는 스트로크 레이어만 뚫음)
+  //  - Flutter는 saveLayer + BlendMode.clear 로 스트로크 레이어를 격리.
+  //    canvas에선 오프스크린 스트로크 캔버스에 destination-out 으로 동일 재현.
+  // ────────────────────────────────────────────────────────────────────────
+  // 녹화 프레임 방향 — 백엔드가 recorderUrl에 붙인 ?orientation=landscape|portrait.
+  // landscape면 가로(1280×720), 그 외/미지정은 세로(720×1280) 폴백(HTML 기본값과 동일).
+  // 이 프레임 크기만 방향에 맞게 바뀌면 applyTransform()의 fit/레터박스가 자동 대응한다.
+  const _isLandscape =
+      new URLSearchParams(window.location.search).get('orientation') === 'landscape';
+  const FRAME_W = _isLandscape ? 1280 : 720;
+  const FRAME_H = _isLandscape ? 720 : 1280;
+
+  // <meta viewport> 폭도 프레임에 맞춘다(녹화봇 렌더 폭 정합).
+  const _vp = document.querySelector('meta[name="viewport"]');
+  if (_vp) _vp.setAttribute('content', 'width=' + FRAME_W + ', initial-scale=1.0');
+
+  const main = document.getElementById('board');
+  // canvas 내부 해상도(px) + 표시 크기(CSS)를 프레임에 맞춘다.
+  // inline style이 스타일시트의 #board 720×1280 지정을 덮어써 어긋남을 방지한다.
+  main.width = FRAME_W;
+  main.height = FRAME_H;
+  main.style.width = FRAME_W + 'px';
+  main.style.height = FRAME_H + 'px';
+  const mctx = main.getContext('2d');
+
+  // 스트로크 전용 오프스크린 (지우개 격리용) — main과 동일 프레임 크기
+  const strokeCanvas = document.createElement('canvas');
+  strokeCanvas.width = main.width;
+  strokeCanvas.height = main.height;
+  const sctx = strokeCanvas.getContext('2d');
+
+  function applyTransform(ctx) {
+    // 강사 좌표 → 강사 화면 픽셀: tutorPx = scale * canvas + offset (Flutter Matrix4)
+    // 강사 화면(tutorW×tutorH)을 1280×720 프레임에 fit(aspect 유지, 레터박스).
+    //   recorderPx = k * tutorPx + pad
+    //   → setTransform(k*scale, 0, 0, k*scale, k*offsetX + padX, k*offsetY + padY)
+    let k = 1, padX = 0, padY = 0;
+    if (board.tutorW > 0 && board.tutorH > 0) {
+      k = Math.min(main.width / board.tutorW, main.height / board.tutorH);
+      padX = (main.width - board.tutorW * k) / 2;   // 가로 레터박스
+      padY = (main.height - board.tutorH * k) / 2;  // 세로 레터박스
+    }
+    // tutorW/H 미수신(VIEWPORT 못 받음)이면 k=1, pad=0 → 기존 1:1 동작 (fallback)
+    ctx.setTransform(
+      k * board.scale, 0, 0, k * board.scale,
+      k * board.offsetX + padX, k * board.offsetY + padY
+    );
+  }
+
+  function drawStroke(ctx, stroke) {
+    const pts = stroke.points;
+    if (!pts || pts.length === 0) return;
+
+    ctx.lineWidth = stroke.width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (stroke.isEraser) {
+      // BlendMode.clear 대응 — 스트로크 레이어에서 픽셀 제거
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.strokeStyle = 'rgba(0,0,0,1)';
+      ctx.fillStyle = 'rgba(0,0,0,1)';
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = stroke.color;
+      ctx.fillStyle = stroke.color;
+    }
+
+    if (pts.length === 1) {
+      // 점 하나 = 탭 → 원
+      ctx.beginPath();
+      ctx.arc(pts[0].x, pts[0].y, stroke.width / 2, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+  }
+
+  function render() {
+    // 1) 메인 캔버스: 흰 배경
+    mctx.setTransform(1, 0, 0, 1, 0, 0);
+    mctx.globalCompositeOperation = 'source-over';
+    mctx.clearRect(0, 0, main.width, main.height);
+    mctx.fillStyle = '#ffffff';
+    mctx.fillRect(0, 0, main.width, main.height);
+
+    // 2) 이미지 레이어 (변환 적용)
+    applyTransform(mctx);
+    mctx.globalCompositeOperation = 'source-over';
+    for (const it of board.images) {
+      if (it.loaded) {
+        try { mctx.drawImage(it.img, it.x, it.y, it.width, it.height); } catch (_) {}
+      }
+    }
+
+    // 3) 스트로크 레이어 (오프스크린, 변환 적용)
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.globalCompositeOperation = 'source-over';
+    sctx.clearRect(0, 0, strokeCanvas.width, strokeCanvas.height);
+    applyTransform(sctx);
+
+    const all = board.strokes.slice();
+    if (board.remoteStroke) all.push(board.remoteStroke);
+    for (const s of all) drawStroke(sctx, s);
+
+    // 4) 스트로크 레이어를 메인에 합성 (이미지 위에)
+    mctx.setTransform(1, 0, 0, 1, 0, 0);
+    mctx.globalCompositeOperation = 'source-over';
+    mctx.drawImage(strokeCanvas, 0, 0);
+
+    requestAnimationFrame(render);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // STOMP 연결 (SockJS + STOMP.js) — lesson_repository.connectStomp 포팅
+  // ────────────────────────────────────────────────────────────────────────
+  const params = new URLSearchParams(window.location.search);
+  const channel = params.get('channel') || '';
+  // 화이트보드 STOMP 구독 인가용 채널 스코프 토큰(서버가 녹화 시작 시 URL로 주입, 읽기 전용).
+  const wbToken = params.get('wbToken') || '';
+  const statusEl = document.getElementById('status');
+  function setStatus(s) { statusEl.textContent = s; }
+
+  function connectStomp() {
+    if (!channel) { setStatus('ERROR: no ?channel'); return; }
+
+    const origin = window.location.origin;   // 페이지와 동일 origin 사용
+    const client = new StompJs.Client({
+      // 웹용 SockJS 엔드포인트 (/ws). 백엔드 WebSocketConfig 와 일치
+      webSocketFactory: () => new SockJS(origin + '/ws'),
+      // 녹화봇 인가 — 서버 인터셉터가 이 토큰으로 채널 읽기 권한을 확인한다.
+      connectHeaders: wbToken ? { Authorization: 'Bearer ' + wbToken } : {},
+      reconnectDelay: 3000,
+      onConnect: () => {
+        client.subscribe('/topic/lesson/' + channel + '/draw', (frame) => {
+          if (!frame.body) return;
+          try {
+            const e = JSON.parse(frame.body);
+            onRemoteDrawEvent(e);
+          } catch (_) {}
+        });
+        // 녹화봇 감지용 — 구독 완료되면 READY
+        document.title = 'READY';
+        document.body.setAttribute('data-recorder-ready', '1');
+        setStatus('READY · ' + channel);
+      },
+      onStompError: (f) => setStatus('STOMP ERR: ' + (f.headers && f.headers.message)),
+      onWebSocketClose: () => setStatus('WS closed · reconnecting…'),
+    });
+    client.activate();
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // RTC 오디오 구독 (Agora Web SDK) — 강사+학생 음성을 받아 재생하면
+  // 녹화봇이 페이지 오디오를 함께 녹화한다. (화면 녹화와 독립 — 실패해도 화면은 진행)
+  // ────────────────────────────────────────────────────────────────────────
+  const RECORDER_RTC_UID = 1234567; // 강사(userId)/학생(userId+10000)과 안 겹치는 고정 uid
+
+  function setRtcState(s) {
+    // 녹화봇/운영자 디버깅용 마커 (화면엔 status 줄에만 덧붙임)
+    document.body.setAttribute('data-rtc-state', s);
+    setStatus('READY · ' + channel + ' · rtc:' + s);
+  }
+
+  async function joinRtcAudio() {
+    if (!channel) return;
+    if (typeof AgoraRTC === 'undefined') {
+      console.error('[RTC] AgoraRTC SDK 로드 실패');
+      setRtcState('sdk-missing');
+      return;
+    }
+    try {
+      // 1) 토큰 발급 (SecurityConfig permitAll — 인증 불필요)
+      const res = await fetch(window.location.origin + '/api/v1/lesson/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channelName: channel,
+          uid: String(RECORDER_RTC_UID),
+          role: 'SUBSCRIBER',
+        }),
+      });
+      if (!res.ok) throw new Error('token http ' + res.status);
+      const json = await res.json();
+      const data = json.data || json;        // ApiResponse 봉투: { data: {...} }
+      const token = data.token;
+      const appId = data.appId;
+      if (!appId || !token) throw new Error('token/appId 누락');
+
+      // 2) 채널 입장 (구독자) + 원격 오디오 자동 구독·재생
+      const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+      client.on('user-published', async (user, mediaType) => {
+        if (mediaType !== 'audio') return;   // 화면은 STOMP로 그리므로 오디오만
+        try {
+          await client.subscribe(user, 'audio');
+          user.audioTrack.play();            // 강사+학생 모두 재생 → 녹화 포함
+          console.log('[RTC] audio subscribed uid=' + user.uid);
+        } catch (e) {
+          console.error('[RTC] subscribe 실패 uid=' + user.uid, e);
+        }
+      });
+      client.on('user-unpublished', (user, mediaType) => {
+        if (mediaType === 'audio') console.log('[RTC] audio unpublished uid=' + user.uid);
+      });
+
+      await client.join(appId, channel, token, RECORDER_RTC_UID);
+      console.log('[RTC] joined channel=' + channel + ' uid=' + RECORDER_RTC_UID);
+      setRtcState('joined');
+    } catch (e) {
+      console.error('[RTC] join 실패', e);
+      setRtcState('error:' + (e && e.message ? e.message : 'unknown'));
+    }
+  }
+
+  // window.onload 후 렌더 루프 + STOMP 연결 + RTC 오디오 구독
+  window.addEventListener('load', () => {
+    requestAnimationFrame(render);
+    connectStomp();
+    joinRtcAudio(); // 화면 녹화와 독립 실행 (음성 실패해도 화면은 녹화됨)
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+spring:
+  application:
+    name: ieum-backend
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+  cloud:
+    aws:
+      region:
+        static: ap-northeast-2
+      s3:
+        bucket: onsaem-bucket
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID}
+        secret-key: ${AWS_SECRET_ACCESS_KEY}
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+server:
+  port: 8080
+
+# 관리자 콘솔(Thymeleaf) 단일 운영 계정 — application.yml 환경변수 기반(별도 admin 테이블 미사용)
+admin:
+  username: ${ADMIN_USERNAME:admin}
+  password: ${ADMIN_PASSWORD:admin1234}
+
+file:
+  upload-dir: uploads
+
+# 비밀번호 재설정(이메일 인증 코드)
+password-reset:
+  # true면 실제 메일 발송(SMTP 계정 필요), false면 코드를 서버 로그에 출력(로컬 테스트용)
+  mail-enabled: ${MAIL_ENABLED:true}
+  from: ${MAIL_USERNAME:ieum.team@gmail.com}
+  code-ttl-minutes: 10
+
+gemini:
+  api:
+    key: ${GEMINI_API_KEY:none}
+
+agora:
+  app-id: ${AGORA_APP_ID:none}
+  app-certificate: ${AGORA_APP_CERTIFICATE:none}
+  token-expiry-seconds: 5400   # 90분 (최대 강의 60분 + 결제 대기 여유)
+  customer-id: ${AGORA_CUSTOMER_ID:none}
+  customer-secret: ${AGORA_CUSTOMER_SECRET:none}
+  # Web Page Recording 녹화봇이 열 recorder.html 주소 (최종 url = {base}?channel={channelName})
+  # HTTPS 필수 — Agora Web SDK가 secure context를 요구 (RTC 오디오 구독용)
+  recorder-url-base: ${AGORA_RECORDER_URL_BASE:https://3-35-10-251.sslip.io/recorder.html}
+
+portone:
+  api-secret: ${PORTONE_API_SECRET:}
+  api-base-url: ${PORTONE_API_BASE_URL:https://api.portone.io}
+  verification-enabled: ${PORTONE_VERIFY:false}
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiry-ms: 3600000
+  refresh-token-expiry-ms: 1209600000
+
+oauth:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}
+  kakao:
+    client-id: ${KAKAO_JS_CLIENT_ID}
+    client-secret: ${KAKAO_CLIENT_SECRET:}
+
+  naver:
+    client-id: ${NAVER_CLIENT_ID}
+    client-secret: ${NAVER_CLIENT_SECRET}
