@@ -10,29 +10,11 @@
 
 ---
 
-## 목차
-
-1. [프로젝트 소개](#프로젝트-소개)
-2. [주요 기능](#주요-기능)
-3. [화면 미리보기](#화면-미리보기)
-4. [기술 스택](#기술-스택)
-5. [시스템 아키텍처](#시스템-아키텍처)
-6. [기술적 도전](#기술적-도전)
-7. [프로젝트 구조](#프로젝트-구조)
-8. [시작하기](#시작하기)
-9. [환경 변수](#환경-변수)
-10. [ERD / 데이터베이스](#erd--데이터베이스)
-11. [팀](#팀)
-
----
-
 ## 프로젝트 소개
 
 > **개발 기간** · 2026.05.05 ~ 2026.07.05 (약 2개월, 8주)  
 > **진행** · 한국능률협회 미래내일 일경험 프로젝트형 (참여기업: 모바일앱개발협동조합)  
 > **팀** · 4인 (백엔드 · 프론트엔드)
-
-<!-- 시연 영상: 취업 시즌에 유튜브 링크 추가 예정 -->
 
 비대면 교육이 확대되었지만, 카카오톡 등 메신저 기반 텍스트·이미지 질의응답은 인지 부하가 크고, Zoom 같은 화상회의 도구는 회의실 생성·링크 공유 절차가 반복되어 단발성 질문에 비효율적입니다. 온샘(Onsaem)은 학생이 막힌 문제를 사진으로 올리는 순간 대기 중인 강사와 실시간으로 매칭되어, 문제 이미지를 배경으로 한 양방향 화이트보드에서 대면 수업처럼 풀이 과정을 함께 공유하며 즉시 과외를 받을 수 있는 온디맨드 과외 매칭 플랫폼입니다.
 
@@ -41,13 +23,6 @@
 전체 플로우: **문제 등록 → 강사 매칭 → 실시간 화상 강의 → 코인 결제·정산 → AI 복습**
 
 클라이언트는 Flutter 기반으로 iOS · Android · Web을 동시에 지원합니다.
-
-<p align="center">
-  <img src="docs/images/demo-main.gif" width="700" alt="문제 등록부터 강사 매칭, 실시간 화상강의까지 이어지는 온샘 데모"/>
-</p>
-<p align="center"><sub>문제 등록부터 강사 매칭, 실시간 화상강의까지</sub></p>
-
-<!-- docs/images/ 에 demo-main.gif 를 넣으면 자동 표시됩니다. 파일명을 정확히 맞춰주세요. -->
 
 ---
 
@@ -61,60 +36,10 @@
 | 문제 등록 / OCR | 문제 사진 업로드(S3), Gemini OCR 텍스트 추출·자동 분류 | [상세보기 →](./wiki/문제-등록-OCR.md) |
 | 강사 매칭 | 문제 조건에 맞는 강사 지원·상호확인·확정, 탐색 만료 처리 | [상세보기 →](./wiki/매칭-시스템.md) |
 | 실시간 화상 강의 | Agora RTC 화상 강의, 판서 공유, 강의 녹화(Cloud Recording → S3) | [상세보기 →](./wiki/화상강의.md) |
-| 코인 결제 / 구독 | PortOne 결제로 코인 충전, 지갑(hold·차감·환불), 구독 플랜 | [상세보기 →](./wiki/결제-코인.md) |
+| 코인 결제 / 구독 | PortOne 결제로 코인 충전, 지갑(hold·차감·환불), 구독 플랜 | [상세보기 →](./wiki/결제-코인-구독.md) |
 | 정산 | 강의 완료 시 강사 몫 코인 산정·현금 정산, 정산 계좌 관리 | [상세보기 →](./wiki/정산.md) |
 | AI 튜터 / 복습 | 문제 풀이 챗봇, 강의 녹화 전사(STT)·요약 PDF·복습 챗봇 | [상세보기 →](./wiki/AI-튜터-복습.md) |
 | 리뷰 / 신고 | 강의별 강사 평점·후기, 학생↔강사 신고 및 관리자 처리 | [상세보기 →](./wiki/리뷰-신고.md) |
-
----
-
-## 화면 미리보기
-
-### 핵심 플로우
-
-<table>
-  <tr>
-    <td align="center"><img src="docs/images/problem.png" width="230" alt="문제 등록 및 OCR 자동 분류 화면"/></td>
-    <td align="center"><img src="docs/images/matching.png" width="230" alt="강사 매칭 화면"/></td>
-    <td align="center"><img src="docs/images/lesson.png" width="230" alt="실시간 화상강의 화면"/></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>사진 올리면 AI가 자동 분류</sub></td>
-    <td align="center"><sub>조건 맞는 강사와 매칭</sub></td>
-    <td align="center"><sub>화상·판서 실시간 과외</sub></td>
-  </tr>
-</table>
-
-<!-- docs/images/ 에 problem.png · matching.png · lesson.png 를 넣으면 자동 표시됩니다. 파일명을 정확히 맞춰주세요. -->
-
-### 부가 기능
-
-<table>
-  <tr>
-    <td align="center"><img src="docs/images/payment.png" width="230" alt="코인 충전 결제 화면"/></td>
-    <td align="center"><img src="docs/images/aitutor.png" width="230" alt="AI 튜터 챗봇 화면"/></td>
-    <td align="center"><img src="docs/images/review.png" width="230" alt="AI 복습 화면"/></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>PortOne 결제로 코인 충전</sub></td>
-    <td align="center"><sub>문제 풀이 AI 챗봇</sub></td>
-    <td align="center"><sub>녹화 전사·요약 복습</sub></td>
-  </tr>
-</table>
-
-<!-- docs/images/ 에 payment.png · aitutor.png · review.png 를 넣으면 자동 표시됩니다. 파일명을 정확히 맞춰주세요. -->
-
-### 주요 인터랙션
-
-<table>
-  <tr>
-    <td align="center"><img src="docs/images/gif-drawing.gif" width="230" alt="실시간 판서 인터랙션"/></td>
-    <td align="center"><img src="docs/images/gif-matching.gif" width="230" alt="강사 매칭 인터랙션"/></td>
-    <td align="center"><img src="docs/images/gif-aitutor.gif" width="230" alt="AI 튜터 대화 인터랙션"/></td>
-  </tr>
-</table>
-
-<!-- docs/images/ 에 gif-drawing.gif · gif-matching.gif · gif-aitutor.gif 를 넣으면 자동 표시됩니다. 파일명을 정확히 맞춰주세요. -->
 
 ---
 
@@ -237,16 +162,22 @@ flowchart TB
 
 | 도전 | 해결 요약 | 상세 |
 |---|---|---|
-| 실시간 화이트보드 동기화 | 점 단위 좌표 전송 + 에코 필터로 지연·충돌 방지, 제스처 충돌·투명 지우개 해결 | [상세 →](./wiki/화이트보드-동기화.md) |
+| 실시간 화이트보드 동기화 | 점 단위 좌표 전송 + 에코 필터로 지연·충돌 방지, 제스처 충돌·투명 지우개 해결, STOMP JWT 인증·채널 참여자 인가로 무단 접근 차단 | [상세 →](./wiki/화이트보드-동기화.md) |
 | 결제·정산 데이터 무결성 | 비관적 락 + Append-Only 원장 + 수업 기록 기반 정산으로 위변조 차단 | [상세 →](./wiki/결제-정산-무결성.md) |
 | AI 문제 인식 폴백 | OCR·분류 분리 호출, 백오프 재시도 + 폴백 모델 + graceful degradation | [상세 →](./wiki/AI-폴백-처리.md) |
 | 복습 자동화 파이프라인 | 녹화→Gemini 전사→5섹션 요약→한글 PDF 자동 생성 | [상세 →](./wiki/복습-자동화.md) |
 | Agora 화상·녹화 연동 | RTC 토큰 알고리즘 서버 포팅 + Web Page Recording 방식 | [상세 →](./wiki/Agora-화상-녹화.md) |
-| 매칭 상태 머신·스케줄러 | 상태 머신 + 30초 스케줄러로 만료·타임아웃 자동화 | [상세 →](./wiki/매칭-상태머신.md) |
+| 매칭 상태 머신·스케줄러 | 상태 머신 + 30초 스케줄러로 만료·타임아웃 자동화, 비관적 락 + UNIQUE 제약으로 이중 매칭 차단 | [상세 →](./wiki/매칭-상태머신.md) |
+| 인프라 구축·배포 | EC2·nginx(TLS 종단)·Let's Encrypt·GitHub Actions CI/CD, 배포 장애 대응 | [상세 →](./wiki/인프라-배포.md) |
 
 ---
 
 ## 프로젝트 구조
+
+백엔드는 도메인별 패키지(entity·controller·service·repository), 프론트는 기능 모듈(`features/`) 단위로 구성했습니다.
+
+<details>
+<summary>디렉터리 구조</summary>
 
 ```
 onsaem/
@@ -285,9 +216,16 @@ onsaem/
 └── .github/workflows/deploy.yml    # CI/CD (EC2 배포)
 ```
 
+</details>
+
 ---
 
 ## 시작하기
+
+로컬 실행에는 JDK 17 · Flutter(Dart 3.11+) · MySQL 8이 필요합니다. 상세 절차와 환경 변수는 아래를 펼쳐 주세요.
+
+<details>
+<summary>로컬 실행 절차</summary>
 
 ### 사전 요구사항
 
@@ -314,7 +252,7 @@ CREATE DATABASE onsaem CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 ### 3. 백엔드 실행
 
-환경 변수를 설정한 뒤([환경 변수](#환경-변수) 참고) `backend/`에서 실행합니다.
+환경 변수를 설정한 뒤(아래 *환경 변수* 참고) `backend/`에서 실행합니다.
 
 ```bash
 cd backend
@@ -349,9 +287,10 @@ flutter build web --release --dart-define=PRODUCTION=true
 
 > API 서버 주소는 `lib/core/constants/api_constants.dart`에서 관리됩니다. `--dart-define=PRODUCTION=true`이면 운영 서버, 미지정이면 로컬(`localhost:8080`, Android 에뮬레이터는 `10.0.2.2:8080`)로 연결됩니다.
 
----
+</details>
 
-## 환경 변수
+<details>
+<summary>환경 변수</summary>
 
 백엔드는 환경 변수로 시크릿을 주입받습니다. (키 이름만 표기, 값은 저장소에 커밋 금지)
 
@@ -380,7 +319,7 @@ flutter build web --release --dart-define=PRODUCTION=true
 |---|---|---|
 | `PRODUCTION` | 운영 서버 연결 여부 (기본 false) | `flutter build/run --dart-define=PRODUCTION=true` |
 
-<!-- TODO: Kakao/Naver 소셜 로그인 키의 안전한 주입 방식 정리 (현재 일부 키가 코드에 하드코딩됨) -->
+</details>
 
 ---
 
@@ -388,6 +327,9 @@ flutter build web --release --dart-define=PRODUCTION=true
 
 - **DBMS:** MySQL (Hibernate `ddl-auto: update`로 스키마 자동 생성)
 - **규모:** 총 **26개 테이블**, **8개 도메인**
+
+<details>
+<summary>도메인별 주요 테이블</summary>
 
 | 도메인 | 주요 테이블 |
 |---|---|
@@ -399,6 +341,8 @@ flutter build web --release --dart-define=PRODUCTION=true
 | 정산 (Settlement) | `settlements` |
 | AI 튜터·복습 (AI) | `ai_tutor_session`, `ai_tutor_message`, `lesson_review_session`, `lesson_review_message`, `lesson_transcript` |
 | 소셜·신뢰 (Social) | `reviews`, `reports`, `report_reasons` |
+
+</details>
 
 ### 전체 ERD
 
@@ -414,12 +358,10 @@ flutter build web --release --dart-define=PRODUCTION=true
 
 | 이름 | 역할 | GitHub | 담당 파트 | 대표 기술 |
 |---|---|---|---|---|
-| 이류진 (팀장) | 서버 · 백엔드/프론트 API 연결 · UI | [@](https://github.com/) | 실시간 매칭~강의 전체, 온보딩(백엔드+프론트 단독 구현, API 연결 포함), 서버 구축, UI 수정 · [문서 →](./wiki/.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
-| 이유나 | 프론트엔드 UI 초기 구현 | [@](https://github.com/) | 디자인 기반 초기 목업 구현 · [문서 →](./wiki/.md) | ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
-| 정수민 | 백엔드/프론트 API 연결 · UI | [@](https://github.com/) | 결제·정산·문제 업로드(OCR)·신고/리뷰·관리자 페이지(단독), 프론트 페이지 보완 · [문서 →](./wiki/.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
-| 함한솔 | 백엔드/프론트 API 연결 · UI | [@](https://github.com/) | 회원가입·로그인(JWT)·AI 튜터·복습, 프론트 페이지 보완 · [문서 →](./wiki/.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
-
-<!-- GitHub 핸들([@](https://github.com/))과 담당 위키 링크는 실제 값으로 교체해 주세요. -->
+| 이류진 (팀장) | 서버 · 백엔드/프론트 API 연결 · UI | [@ryurujxx](https://github.com/ryurujxx) | 실시간 매칭·화상강의·화이트보드 전체 설계·구현, WebSocket 실시간 통신 보안(STOMP JWT 인증), 매칭 확정 동시성 제어, AWS 인프라 구축(EC2·nginx·SSL)·CI/CD 자동 배포, 온보딩(백엔드+프론트 단독 구현), API 연결·UI 수정 · [문서 →](./wiki/매칭-시스템.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) ![AWS](https://img.shields.io/badge/-AWS-FF9900?style=flat-square&logo=amazonwebservices&logoColor=white) |
+| 이유나 | 프론트엔드 UI 초기 구현 | [@0x04230](https://github.com/0x04230) | 디자인 기반 초기 목업 구현 | ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
+| 정수민 | 백엔드/프론트 API 연결 · UI | [@SO0omin](https://github.com/SO0omin) | 결제·정산·문제 업로드(OCR)·신고/리뷰·관리자 페이지(단독), 프론트 페이지 보완 · [문서 →](./wiki/결제-정산-무결성.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
+| 함한솔 | 백엔드/프론트 API 연결 · UI | [@	h-ns-l0](https://github.com/h-ns-l0) | 회원가입·로그인(JWT)·AI 튜터·복습, 프론트 페이지 보완 · [문서 →](./wiki/인증-계정.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
 
 ### 브랜치 전략
 
@@ -430,18 +372,4 @@ flutter build web --release --dart-define=PRODUCTION=true
 
 ### 커밋 컨벤션
 
-`type: 한글 설명` 형태의 타입 prefix를 사용합니다. (실제 커밋 히스토리 기준 — merge 제외 225건 중 약 75%가 아래 타입 prefix 사용, 나머지는 prefix 없는 자유형 한글 메시지)
-
-실제로 사용된 타입:
-
-| 타입 | 사용 횟수 | 용도 |
-|---|---|---|
-| `feat` | 86 | 새 기능 추가 |
-| `fix` | 59 | 버그 수정 |
-| `chore` | 16 | 설정·빌드·기타 잡무 |
-| `refactor` | 4 | 리팩터링 |
-| `test` | 2 | 테스트 |
-
-- 형식: `feat: 강사 화면 방향에 따라 강의 녹화 가로/세로 대응` 처럼 **타입 뒤 한글 설명**.
-- scope는 선택적으로만 사용: `feat(frontend): ...`, `fix(frontend): ...` 형태가 일부 존재.
-- 병합 커밋은 GitHub PR 기본 메시지(`Merge pull request #NN ...`)를 그대로 사용합니다.
+`type: 한글 설명` 형식을 사용합니다. (예: `feat: 강사 화면 방향에 따라 강의 녹화 가로/세로 대응`)
