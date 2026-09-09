@@ -28,18 +28,18 @@
 
 ## 주요 기능
 
-각 기능의 상세 설계·플로우·API는 위키 문서에서 관리합니다. (링크된 위키 페이지는 순차적으로 채워집니다.)
+각 기능의 상세 설계·플로우·API는 위키 문서에서 관리합니다.
 
 | 기능 | 요약 | 담당 | 문서 |
 |---|---|---|---|
-| 인증 / 계정 | 학생·강사 가입, JWT, 소셜 로그인(Google·Kakao·Naver), 비밀번호 재설정 | 함한솔 | [상세보기 →](./wiki/인증-계정.md) |
-| 문제 등록 / OCR | 문제 사진 업로드(S3), Gemini OCR 텍스트 추출·자동 분류 | 정수민 | [상세보기 →](./wiki/문제-등록-OCR.md) |
-| 강사 매칭 | 문제 조건에 맞는 강사 지원·상호확인·확정, 탐색 만료 처리 | 이류진 | [상세보기 →](./wiki/매칭-시스템.md) |
-| 실시간 화상 강의 | Agora RTC 화상 강의, 판서 공유, 강의 녹화(Cloud Recording → S3) | 이류진 | [상세보기 →](./wiki/화상강의.md) |
-| 코인 결제 / 구독 | PortOne 결제로 코인 충전, 지갑(hold·차감·환불), 구독 플랜 | 정수민 | [상세보기 →](./wiki/결제-코인-구독.md) |
-| 정산 | 강의 완료 시 강사 몫 코인 산정·현금 정산, 정산 계좌 관리 | 정수민 | [상세보기 →](./wiki/정산.md) |
-| AI 튜터 / 복습 | 문제 풀이 챗봇, 강의 녹화 전사(STT)·요약 PDF·복습 챗봇 | 함한솔 | [상세보기 →](./wiki/AI-튜터-복습.md) |
-| 리뷰 / 신고 | 강의별 강사 평점·후기, 학생↔강사 신고 및 관리자 처리 | 정수민 | [상세보기 →](./wiki/리뷰-신고.md) |
+| 인증 / 계정 | 학생·강사 가입, JWT, 소셜 로그인(Google·Kakao·Naver), 비밀번호 재설정 | 함한솔 | [상세보기 →](https://github.com/ieums/onsaem/wiki/인증-계정) |
+| 문제 등록 / OCR | 문제 사진 업로드(S3), Gemini OCR 텍스트 추출·자동 분류 | 정수민 | [상세보기 →](https://github.com/ieums/onsaem/wiki/문제-등록-OCR) |
+| 강사 매칭 | 문제 조건에 맞는 강사 지원·상호확인·확정, 탐색 만료 처리 | 이류진 | [상세보기 →](https://github.com/ieums/onsaem/wiki/매칭-시스템) |
+| 실시간 화상 강의 | Agora RTC 화상 강의, 판서 공유, 강의 녹화(Cloud Recording → S3) | 이류진 | [상세보기 →](https://github.com/ieums/onsaem/wiki/화상강의) |
+| 코인 결제 / 구독 | PortOne 결제로 코인 충전, 지갑(hold·차감·환불), 구독 플랜 | 정수민 | [상세보기 →](https://github.com/ieums/onsaem/wiki/결제-코인-구독) |
+| 정산 | 강의 완료 시 강사 몫 코인 산정·현금 정산, 정산 계좌 관리 | 정수민 | [상세보기 →](https://github.com/ieums/onsaem/wiki/정산) |
+| AI 튜터 / 복습 | 문제 풀이 챗봇, 강의 녹화 전사(STT)·요약 PDF·복습 챗봇 | 함한솔 | [상세보기 →](https://github.com/ieums/onsaem/wiki/AI-튜터-복습) |
+| 리뷰 / 신고 | 강의별 강사 평점·후기, 학생↔강사 신고 및 관리자 처리 | 정수민 | [상세보기 →](https://github.com/ieums/onsaem/wiki/리뷰-신고) |
 
 ---
 
@@ -162,13 +162,15 @@ flowchart TB
 
 | 도전 | 해결 요약 | 담당 | 상세 |
 |---|---|---|---|
-| 실시간 화이트보드 동기화 | 점 단위 좌표 전송 + 에코 필터로 지연·충돌 방지, 제스처 충돌·투명 지우개 해결, STOMP JWT 인증·채널 참여자 인가로 무단 접근 차단 | 이류진 | [상세 →](./wiki/화이트보드-동기화.md) |
-| 결제·정산 데이터 무결성 | 비관적 락 + Append-Only 원장 + 수업 기록 기반 정산으로 위변조 차단 | 정수민 | [상세 →](./wiki/결제-정산-무결성.md) |
-| AI 문제 인식 폴백 | OCR·분류 분리 호출, 백오프 재시도 + 폴백 모델 + graceful degradation | 정수민 | [상세 →](./wiki/AI-폴백-처리.md) |
-| 복습 자동화 파이프라인 | 녹화→Gemini 전사→5섹션 요약→한글 PDF 자동 생성 | 함한솔 | [상세 →](./wiki/복습-자동화.md) |
-| Agora 화상·녹화 연동 | RTC 토큰 알고리즘 서버 포팅 + Web Page Recording 방식 | 이류진 | [상세 →](./wiki/Agora-화상-녹화.md) |
-| 매칭 상태 머신·스케줄러 | 상태 머신 + 30초 스케줄러로 만료·타임아웃 자동화, 비관적 락 + UNIQUE 제약으로 이중 매칭 차단 | 이류진 | [상세 →](./wiki/매칭-상태머신.md) |
-| 인프라 구축·배포 | EC2·nginx(TLS 종단)·Let's Encrypt·GitHub Actions CI/CD, 배포 장애 대응 | 이류진 | [상세 →](./wiki/인프라-배포.md) |
+| 실시간 화이트보드 동기화 | 점 단위 좌표 전송 + 에코 필터로 지연·충돌 방지, 제스처 충돌·투명 지우개 해결, STOMP JWT 인증·채널 참여자 인가로 무단 접근 차단 | 이류진 | [상세 →](https://github.com/ieums/onsaem/wiki/화이트보드-동기화) |
+| 결제·정산 데이터 무결성 | 비관적 락 + Append-Only 원장 + 수업 기록 기반 정산으로 위변조 차단 | 정수민 | [상세 →](https://github.com/ieums/onsaem/wiki/결제-정산-무결성) |
+| 리뷰·신고 무결성 | 선검사 + UNIQUE 제약 2중 장치로 중복 리뷰·신고 차단, 미해결 신고 시 정산 자동 보류(REPORT_HOLD)·인정 시 취소 | 정수민 | [상세 →](https://github.com/ieums/onsaem/wiki/리뷰-신고-무결성) |
+| AI 문제 인식 폴백 | OCR·분류 분리 호출, 백오프 재시도 + 폴백 모델 + graceful degradation | 정수민 | [상세 →](https://github.com/ieums/onsaem/wiki/AI-폴백-처리) |
+| 문제 등록 정합성·다중 인식 | 등록 규칙 R1~R6 가드로 쓰레기·오분류 차단, SERIALIZABLE 상한 검사 + Idempotency-Key로 동시 업로드·중복 등록 방지, 다중 감지 캐시로 재OCR 제거 | 정수민 | [상세 →](https://github.com/ieums/onsaem/wiki/문제-등록-정합성-다중-인식) |
+| 복습 자동화 파이프라인 | 녹화→Gemini 전사→5섹션 요약→한글 PDF 자동 생성 | 함한솔 | [상세 →](https://github.com/ieums/onsaem/wiki/복습-자동화) |
+| Agora 화상·녹화 연동 | RTC 토큰 알고리즘 서버 포팅 + Web Page Recording 방식 | 이류진 | [상세 →](https://github.com/ieums/onsaem/wiki/Agora-화상-녹화) |
+| 매칭 상태 머신·스케줄러 | 상태 머신 + 30초 스케줄러로 만료·타임아웃 자동화, 비관적 락 + UNIQUE 제약으로 이중 매칭 차단 | 이류진 | [상세 →](https://github.com/ieums/onsaem/wiki/매칭-상태머신) |
+| 인프라 구축·배포 | EC2·nginx(TLS 종단)·Let's Encrypt·GitHub Actions CI/CD, 배포 장애 대응 | 이류진 | [상세 →](https://github.com/ieums/onsaem/wiki/인프라-배포) |
 
 ---
 
@@ -358,10 +360,10 @@ flutter build web --release --dart-define=PRODUCTION=true
 
 | 이름 | 역할 | GitHub | 담당 파트 | 대표 기술 |
 |---|---|---|---|---|
-| 이류진 (팀장) | 서버 · 백엔드/프론트 API 연결 · UI | [@ryurujxx](https://github.com/ryurujxx) | 실시간 매칭·화상강의·화이트보드 설계·구현 · WebSocket JWT 인증 · 매칭 동시성 제어 · AWS 인프라·CI/CD · 온보딩(단독) · API 연결 · [문서 →](./wiki/매칭-시스템.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) ![AWS](https://img.shields.io/badge/-AWS-FF9900?style=flat-square&logo=amazonwebservices&logoColor=white) |
+| 이류진 (팀장) | 서버 · 백엔드/프론트 API 연결 · UI | [@ryurujxx](https://github.com/ryurujxx) | 실시간 매칭·화상강의·화이트보드 설계·구현 · WebSocket JWT 인증 · 매칭 동시성 제어 · AWS 인프라·CI/CD · 온보딩(단독) · API 연결 · [문서 →](https://github.com/ieums/onsaem/wiki/매칭-시스템) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) ![AWS](https://img.shields.io/badge/-AWS-FF9900?style=flat-square&logo=amazonwebservices&logoColor=white) |
 | 이유나 | 프론트엔드 UI 초기 구현 | [@0x04230](https://github.com/0x04230) | 디자인 기반 초기 목업 구현 | ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
-| 정수민 | 백엔드/프론트 API 연결 · UI | [@SO0omin](https://github.com/SO0omin) | 결제·정산·문제 OCR·신고/리뷰·관리자(단독) · 프론트 API 연결·보완 · [문서 →](./wiki/결제-정산-무결성.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
-| 함한솔 | 백엔드/프론트 API 연결 · UI | [@h-ns-l0](https://github.com/h-ns-l0) | 회원가입·로그인(JWT)·AI 튜터·복습 · 프론트 API 연결·보완 · [문서 →](./wiki/인증-계정.md) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
+| 정수민 | 백엔드/프론트 API 연결 · UI | [@SO0omin](https://github.com/SO0omin) | 결제·정산·문제 OCR·신고/리뷰·관리자(단독) · 프론트 API 연결·보완 · [문서 →](https://github.com/ieums/onsaem/wiki/결제-정산-무결성) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
+| 함한솔 | 백엔드/프론트 API 연결 · UI | [@h-ns-l0](https://github.com/h-ns-l0) | 회원가입·로그인(JWT)·AI 튜터·복습 · 프론트 API 연결·보완 · [문서 →](https://github.com/ieums/onsaem/wiki/인증-계정) | ![Spring Boot](https://img.shields.io/badge/-Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Flutter](https://img.shields.io/badge/-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) |
 
 ### 브랜치 전략
 
