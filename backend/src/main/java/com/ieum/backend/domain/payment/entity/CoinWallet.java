@@ -74,7 +74,10 @@ public class CoinWallet {
 
     // AI 사용 (즉시 차감)
     public void useForAi(int amount) {
-        if (this.availableBalance < amount) { //race condition: check-then-act
+        // 검사-차감이 원자적으로 보이지 않지만, 호출부(CoinService)가 비관적 락으로
+        // 지갑 행을 잠근 뒤 호출하므로 같은 학생의 요청은 직렬화된다.
+        // (WalletConcurrencyTest: 동시 차감에도 잔액이 음수가 되지 않음)
+        if (this.availableBalance < amount) {
             throw BusinessException.badRequest("코인이 부족합니다. 잔액: " + this.availableBalance);
         }
         this.balance -= amount;

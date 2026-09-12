@@ -113,7 +113,8 @@ public class CoinService {
     }
 
     /**
-     * 가입 보너스 (30코인)
+     * 가입 축하 보너스 지급.
+     * 금액은 {@link PaymentPolicy#SIGNUP_BONUS_COIN} — 상수를 참조해 주석이 다시 낡지 않게 한다.
      */
     @Transactional
     public CoinBalanceResponse giveSignupBonus(Long studentId) {
