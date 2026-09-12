@@ -42,7 +42,12 @@ public class ProblemIdempotencyService {
                 return cached.response();
             }
             ProblemCreateResponse resp = action.get(); // 실패 시 예외 → 캐싱 안 함
-            store.put(key, new Entry(resp, Instant.now().plus(TTL)));
+            // 선택 대기(needsSelection) 응답은 일회용 detectionId를 담는다 —
+            // 캐시해 두면 재업로드 시 이미 소비된 detectionId를 되돌려줘 /select에서 "만료" 에러가 난다.
+            // 따라서 최종 결과(등록 완료/분류 실패)만 캐시하고, 선택 대기 응답은 매번 새로 OCR하게 둔다.
+            if (!Boolean.TRUE.equals(resp.getNeedsSelection())) {
+                store.put(key, new Entry(resp, Instant.now().plus(TTL)));
+            }
             return resp;
         }
     }
