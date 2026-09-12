@@ -25,8 +25,8 @@ public class SettlementController {
 
     /**
      * 정산 계산 (강의 완료 시 호출)
-     * 추후 강의 도메인이 완성되면 LectureService에서 자동 호출
-     * 지금은 수동 호출 (테스트용)
+     * 정상 경로에서는 강의 완료 시 LessonSettlementFinalizer가 자동 호출한다.
+     * 이 엔드포인트는 누락분 보정 등 운영/관리 목적의 수동 생성용.
      *
      * POST /api/v1/settlements/calculate
      */
