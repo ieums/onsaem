@@ -86,7 +86,7 @@ flowchart TB
   - `service/ProblemPersistence.java` — 3개 상한 확인 + INSERT(SERIALIZABLE)
   - `service/ProblemIdempotencyService.java` — Idempotency-Key 중복 차단
   - `service/ImageStorageService.java` (+ `S3ImageStorageService` / `LocalImageStorageService`)
-  - `scheduler/ProblemImageCleanupScheduler.java` — 고아 이미지 10분 주기 청소
+  - `scheduler/ProblemImageCleanupScheduler.java` — 삭제되지 않은 이미지 10분 주기 청소
   - `entity/Problem.java` (+ `enums/`) — 상태 전이·페이지 재정렬
 - 프론트 (`frontend/lib/features/student/`)
   - `screens/` — 문제 업로드·분류 수정·내 질문 목록/상세

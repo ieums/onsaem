@@ -26,7 +26,6 @@ public class LessonSettlementFinalizer {
     @Transactional
     public void finalizeOne(Lesson lesson) {
         coinService.confirmDeduct(lesson.getStudentId(), lesson.getCoinCost(), lesson.getId());
-        settlementService.calculate(new CalculateSettlementRequest(
-                lesson.getTutorId(), lesson.getId(), lesson.getCoinCost()));
+        settlementService.calculate(new CalculateSettlementRequest(lesson.getId()));
     }
 }

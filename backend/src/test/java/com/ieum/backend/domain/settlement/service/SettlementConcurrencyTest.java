@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CyclicBarrier;
@@ -49,9 +50,11 @@ class SettlementConcurrencyTest {
     @BeforeEach
     void setUp() {
         settlementRepository.deleteAll();
-        Lesson lesson = lessonRepository.save(
-                new Lesson("ch-settle-concurrency", TUTOR_ID, STUDENT_ID));
-        lessonId = lesson.getId();
+        // 정산은 강사·금액을 모두 강의에서 가져오므로, coinCost가 있는 '과금 강의'여야 한다.
+        // (startBilling 없이 만들면 calculate()가 "과금 강의가 아님"으로 거부한다)
+        Lesson lesson = new Lesson("ch-settle-concurrency", TUTOR_ID, STUDENT_ID);
+        lesson.startBilling(STUDENT_ID, TUTOR_ID, TOTAL_COIN, LocalDateTime.now().plusMinutes(30));
+        lessonId = lessonRepository.save(lesson).getId();
     }
 
     @AfterEach
@@ -74,7 +77,7 @@ class SettlementConcurrencyTest {
                 try {
                     barrier.await();
                     settlementService.calculate(
-                            new CalculateSettlementRequest(TUTOR_ID, lessonId, TOTAL_COIN));
+                            new CalculateSettlementRequest(lessonId));
                 } catch (Throwable t) {
                     synchronized (errors) {
                         errors.add(t);

@@ -55,19 +55,19 @@ public class DetectionCache {
 
     /**
      * 만료된(= 학생이 선택 안 한 채 TTL 지난) 항목을 제거하고, 그 이미지 URL들을 반환한다.
-     * 선택 완료 건은 이미 remove()로 빠졌으므로, 여기 남은 만료 건의 이미지는 고아.
+     * 선택 완료 건은 이미 remove()로 빠졌으므로, 여기 남은 만료 건의 이미지는 삭제되지 않은 채 남는다.
      * 청소 스케줄러가 이 URL들을 실제 스토리지에서 삭제한다.
      */
     public List<String> sweepExpired() {
         Instant now = Instant.now();
-        List<String> orphanImageUrls = new ArrayList<>();
+        List<String> unusedImageUrls = new ArrayList<>();
         store.entrySet().removeIf(en -> {
             if (en.getValue().expiresAt().isBefore(now)) {
-                orphanImageUrls.addAll(en.getValue().imageUrls());
+                unusedImageUrls.addAll(en.getValue().imageUrls());
                 return true;
             }
             return false;
         });
-        return orphanImageUrls;
+        return unusedImageUrls;
     }
 }
