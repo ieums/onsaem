@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 /**
  * 여러 문제 감지 후 학생이 하나를 선택해 확정 등록하는 요청.
  * 1차 응답의 detectionId로 캐시된 OCR 결과를 꺼내 쓰므로 재OCR/재업로드가 없다.
+ * 선택하는 학생은 요청값이 아니라 JWT 인증 주체에서 정한다.
  */
 @Getter
 @NoArgsConstructor
@@ -22,9 +23,6 @@ public class ProblemSelectRequest {
 
     @NotNull(message = "선택한 문제 인덱스는 필수입니다")
     private Integer selectedIndex;
-
-    @NotNull(message = "학생 ID는 필수입니다")
-    private Long studentId;
 
     /** 학생이 고른 과목 (없으면 AI 판정값) */
     private Subject subject;

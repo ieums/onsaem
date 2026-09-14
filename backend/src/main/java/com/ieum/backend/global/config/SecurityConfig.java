@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -97,6 +98,12 @@ public class SecurityConfig {
                         ).hasRole("ADMIN")
                         .requestMatchers("/api/v1/settlements/**").hasRole("TUTOR")
                         .requestMatchers("/api/v1/reviews/**", "/api/v1/reports/**").authenticated()
+                        // 문제 — JWT 주체 기반. 탐색 목록은 강사, 단건 조회는 인증(학생은 본인 것만 — 서비스에서 검사),
+                        // 그 외(등록·선택·내 목록·분류/순서 수정·취소)는 학생.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/problems/searching").hasRole("TUTOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/problems/student").hasRole("STUDENT")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/problems/*").authenticated()
+                        .requestMatchers("/api/v1/problems/**").hasRole("STUDENT")
                         // 본인 전용(정산 계좌 등록/조회 등) — @AuthenticationPrincipal 의존.
                         // permitAll 그룹의 /tutors/** 보다 먼저 둬야 함(순서 매칭): 토큰 만료/누락 시
                         // NPE 500이 아니라 401을 내보내 FE가 토큰 재발급·재시도하도록 유도.
@@ -104,7 +111,6 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/health",
-                                "/api/v1/problems/**",
                                 "/api/v1/tutors/**",
                                 "/api/v1/lesson/token",
                                 "/api/v1/lesson/*/images",

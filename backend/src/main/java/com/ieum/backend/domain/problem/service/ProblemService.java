@@ -1,5 +1,6 @@
 package com.ieum.backend.domain.problem.service;
 
+import com.ieum.backend.domain.auth.entity.Role;
 import com.ieum.backend.domain.auth.entity.Tutor;
 import com.ieum.backend.domain.auth.repository.TutorRepository;
 import com.ieum.backend.domain.matching.entity.ApplicationStatus;
@@ -20,15 +21,20 @@ import com.ieum.backend.domain.problem.entity.Problem;
 import com.ieum.backend.domain.problem.repository.ProblemRepository;
 import com.ieum.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -41,6 +47,7 @@ public class ProblemService {
     private final ImageStorageService imageStorageService;
     private final GeminiClient geminiClient;
     private final DetectionCache detectionCache;
+    private final PendingImageDeletions pendingImageDeletions;
     private final ProblemPersistence problemPersistence;
     private final com.ieum.backend.domain.lesson.repository.LessonRepository lessonRepository;
 
@@ -61,9 +68,10 @@ public class ProblemService {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ProblemCreateResponse createProblem(List<MultipartFile> images,
-                                               ProblemCreateRequest request) {
+                                               ProblemCreateRequest request,
+                                               Long studentId) {
         // 0. 동시 등록 개수 제한 — OCR/이미지 저장 전에 먼저 막아 불필요한 비용을 줄인다.
-        assertUnderActiveLimit(request.getStudentId());
+        assertUnderActiveLimit(studentId);
 
         // 1. 이미지들 저장 (트랜잭션 밖)
         List<String> imageUrls = imageStorageService.storeAll(images);
@@ -100,38 +108,24 @@ public class ProblemService {
             if (aiResult.getMode() == OcrResult.OcrMode.SINGLE_MULTIPAGE) {
                 List<String> orderedUrls = reorderByIndex(imageUrls, aiResult.getImageOrder());
                 Problem problem = saveProblem(detected.get(0), orderedUrls, aiResult.getPageTexts(),
-                        request.getStudentId(), request.getSubject(), request.getStudentDescription());
+                        studentId, request.getSubject(), request.getStudentDescription());
                 committed = true; // 저장 성공 → 이후 예외에도 이미지 보존
                 return ProblemCreateResponse.from(problem, detected.get(0).isClassificationFailed());
             }
-
-            Integer selectedIndex = request.getSelectedProblemIndex();
 
             // (a) 1개만 감지 → 자동 등록
             if (detected.size() == 1) {
                 Problem problem = saveProblem(detected.get(0), imageUrls, List.of(),
-                        request.getStudentId(), request.getSubject(), request.getStudentDescription());
+                        studentId, request.getSubject(), request.getStudentDescription());
                 committed = true; // 저장 성공 → 이후 예외에도 이미지 보존
                 return ProblemCreateResponse.from(problem, detected.get(0).isClassificationFailed());
             }
 
-            // (b) 여러 개 감지 + 학생이 선택함(레거시 경로) → 선택한 문제 + 그 문제 이미지만 등록
-            if (selectedIndex != null) {
-                if (selectedIndex < 0 || selectedIndex >= detected.size()) {
-                    throw BusinessException.badRequest("올바르지 않은 문제 인덱스입니다: " + selectedIndex);
-                }
-                AiAnalysisResult.DetectedProblem chosen = detected.get(selectedIndex);
-                List<String> kept = keptImagesFor(imageUrls, chosen.getImageIndices());
-                Problem problem = saveProblem(chosen, kept, List.of(),
-                        request.getStudentId(), request.getSubject(), request.getStudentDescription());
-                committed = true; // 저장 성공 → 이후 예외에도 kept 이미지 보존
-                deleteUnkept(imageUrls, kept); // 다른 문제의 장은 안 쓰이므로 → 삭제
-                return ProblemCreateResponse.from(problem, chosen.isClassificationFailed());
-            }
-
-            // (c) 여러 개 감지 + 선택 안 함 → 결과를 캐시하고 detectionId 반환.
+            // (b) 여러 개 감지 → 결과를 업로드한 학생에게 묶어 캐시하고 detectionId 반환.
             //     선택은 /problems/select가 캐시에서 꺼내 저장(재OCR·재업로드 없음).
-            String detectionId = detectionCache.put(detected, imageUrls);
+            //     (예전에는 선택 인덱스를 담아 다시 업로드하는 경로가 있었으나, 재OCR 결과가 1차와
+            //      달라지면 인덱스가 다른 문제를 가리킬 수 있어 제거했다.)
+            String detectionId = detectionCache.put(studentId, detected, imageUrls);
             committed = true; // 캐시에 보관(선택 대기) → 이후 예외에도 이미지 보존
             return ProblemCreateResponse.fromDetection(detected, imageUrls, detectionId);
 
@@ -149,54 +143,88 @@ public class ProblemService {
     /**
      * 여러 문제 감지 후 학생이 하나를 선택해 확정 등록.
      * 1차 OCR 결과를 캐시에서 꺼내 쓰므로 재OCR/재업로드가 없다.
+     *
+     * - 트랜잭션 밖(NOT_SUPPORTED)에서 실행한다. 여기서 트랜잭션을 열면 ProblemPersistence가 그 트랜잭션에
+     *   합류해 SERIALIZABLE 격리가 적용되지 않는다(격리 수준은 새 트랜잭션에만 적용됨).
+     * - 캐시 항목은 take()로 꺼내는 순간 제거된다. 같은 detectionId로 동시에 두 번 들어와도 한 요청만 처리된다.
+     *   저장이 실패하면 항목을 되돌려 학생이 다시 고를 수 있게 한다.
      */
-    @Transactional
-    public ProblemCreateResponse selectDetectedProblem(ProblemSelectRequest request) {
-        DetectionCache.Entry entry = detectionCache.get(request.getDetectionId());
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public ProblemCreateResponse selectDetectedProblem(ProblemSelectRequest request, Long studentId) {
+        String detectionId = request.getDetectionId();
+        DetectionCache.Entry entry = detectionCache.take(detectionId);
         if (entry == null) {
-            throw BusinessException.badRequest("문제 선택 시간이 만료됐어요. 다시 업로드해 주세요.");
-        }
-        int idx = request.getSelectedIndex();
-        if (idx < 0 || idx >= entry.detected().size()) {
-            throw BusinessException.badRequest("올바르지 않은 문제 인덱스입니다: " + idx);
+            throw BusinessException.badRequest("문제 선택 시간이 만료됐거나 이미 등록된 선택이에요. 다시 업로드해 주세요.");
         }
 
-        // 다중 감지(선택) 경로는 항상 MULTI_PROBLEM이므로 pageTexts 없음.
-        // 선택한 문제가 있는 이미지만 저장하고, 나머지 장은 삭제(삭제 누락 방지).
-        AiAnalysisResult.DetectedProblem chosen = entry.detected().get(idx);
-        List<String> kept = keptImagesFor(entry.imageUrls(), chosen.getImageIndices());
-        Problem problem = saveProblem(chosen, kept, List.of(),
-                request.getStudentId(), request.getSubject(), request.getStudentDescription());
-        detectionCache.remove(request.getDetectionId());
-        deleteUnkept(entry.imageUrls(), kept); // 저장 성공 후 다른 문제 장 삭제
+        AiAnalysisResult.DetectedProblem chosen;
+        List<String> kept;
+        Problem problem;
+        try {
+            if (!entry.studentId().equals(studentId)) {
+                throw BusinessException.forbidden("본인이 업로드한 문제만 선택할 수 있어요.");
+            }
+            int idx = request.getSelectedIndex();
+            if (idx < 0 || idx >= entry.detected().size()) {
+                throw BusinessException.badRequest("올바르지 않은 문제 인덱스입니다: " + idx);
+            }
+            // 다중 감지(선택) 경로는 항상 MULTI_PROBLEM이므로 pageTexts 없음.
+            chosen = entry.detected().get(idx);
+            kept = imagesToKeep(entry.imageUrls(), entry.detected(), idx);
+            problem = saveProblem(chosen, kept, List.of(),
+                    studentId, request.getSubject(), request.getStudentDescription());
+        } catch (RuntimeException e) {
+            detectionCache.restore(detectionId, entry); // 실패 → 다시 고를 수 있게 되돌림
+            throw e;
+        }
+
+        scheduleUnkeptDeletion(entry.imageUrls(), kept);
         return ProblemCreateResponse.from(problem, chosen.isClassificationFailed());
     }
 
     /**
-     * imageIndices로 그 문제가 걸친 이미지들만 고른다(삭제는 안 함). 업로드 순서 유지.
-     * 비었거나, 범위 밖 인덱스가 하나라도 있거나, 이미지가 1장뿐이면 안전하게 전부 유지(이미지 손실 방지).
+     * 선택한 문제에 붙여 저장할 이미지를 고른다(업로드 순서 유지).
+     *
+     * 모델이 매긴 장 번호(imageIndices)는 틀릴 수 있으므로, 지우는 쪽은 최대한 보수적으로 판단한다.
+     * - 어느 문제든 범위 밖 인덱스가 있거나, 고른 문제의 인덱스가 비었거나, 업로드가 1장뿐이면 → 전부 유지.
+     * - 그 외에는 "고른 문제의 장" + "어느 문제에도 배정되지 않은 장"을 유지하고,
+     *   다른 문제에만 배정된 장만 제외한다(모델이 판단을 못 한 장까지 지워 원본을 잃지 않게).
      */
-    private List<String> keptImagesFor(List<String> allUrls, List<Integer> imageIndices) {
-        if (imageIndices == null || imageIndices.isEmpty() || allUrls.size() <= 1) {
+    private List<String> imagesToKeep(List<String> allUrls,
+                                      List<AiAnalysisResult.DetectedProblem> detected,
+                                      int chosenIdx) {
+        List<Integer> chosenPages = detected.get(chosenIdx).getImageIndices();
+        if (chosenPages == null || chosenPages.isEmpty() || allUrls.size() <= 1) {
             return allUrls;
         }
-        for (Integer idx : imageIndices) {
-            if (idx == null || idx < 0 || idx >= allUrls.size()) {
-                return allUrls; // 신뢰 못 하면 전부 유지
+        Set<Integer> claimedByOthers = new HashSet<>();
+        for (int i = 0; i < detected.size(); i++) {
+            List<Integer> pages = detected.get(i).getImageIndices();
+            if (pages == null) continue;
+            for (Integer page : pages) {
+                if (page == null || page < 0 || page >= allUrls.size()) {
+                    return allUrls; // 장 번호를 신뢰할 수 없으면 전부 유지
+                }
+                if (i != chosenIdx) claimedByOthers.add(page);
             }
         }
-        // 업로드 순서대로, 중복 제거하여 선택 이미지만
-        return allUrls.stream()
-                .filter(u -> imageIndices.stream().anyMatch(i -> allUrls.get(i).equals(u)))
-                .distinct()
-                .toList();
+        List<String> kept = new ArrayList<>();
+        for (int page = 0; page < allUrls.size(); page++) {
+            if (chosenPages.contains(page) || !claimedByOthers.contains(page)) {
+                kept.add(allUrls.get(page));
+            }
+        }
+        return kept;
     }
 
-    /** allUrls 중 kept에 없는 이미지(선택 안 된 다른 문제의 장)를 삭제한다(best-effort). */
-    private void deleteUnkept(List<String> allUrls, List<String> kept) {
+    /**
+     * 선택되지 않은 다른 문제의 장은 즉시 지우지 않고 유예 삭제 목록에 넣는다.
+     * 장 번호 판단이 틀렸을 때 운영자가 원본을 되살릴 시간을 남기기 위함이다(ProblemImageCleanupScheduler가 처리).
+     */
+    private void scheduleUnkeptDeletion(List<String> allUrls, List<String> kept) {
         List<String> others = allUrls.stream().filter(u -> !kept.contains(u)).toList();
         if (!others.isEmpty()) {
-            imageStorageService.deleteAll(others);
+            pendingImageDeletions.schedule(others);
         }
     }
 
@@ -246,7 +274,7 @@ public class ProblemService {
         Problem problem = Problem.builder()
                 .studentId(studentId)
                 .imageUrls(imageUrls)
-                .pageTexts(pageTexts != null ? new java.util.ArrayList<>(pageTexts) : new java.util.ArrayList<>())
+                .pageTexts(pageTexts != null ? new ArrayList<>(pageTexts) : new ArrayList<>())
                 .extractedText(dp.getExtractedText())
                 .summary(dp.getSummary())
                 .problemNumber(dp.getProblemNumber())
@@ -260,7 +288,14 @@ public class ProblemService {
                 .build();
 
         // 등록 직전 개수 확인 + INSERT를 한 트랜잭션에서 원자적으로(동시 업로드 경합 방어).
-        return problemPersistence.saveUnderActiveLimit(problem, studentId, MAX_ACTIVE_PROBLEMS);
+        try {
+            return problemPersistence.saveUnderActiveLimit(problem, studentId, MAX_ACTIVE_PROBLEMS);
+        } catch (ConcurrencyFailureException e) {
+            // SERIALIZABLE에서 같은 학생의 등록이 동시에 겹치면 DB가 한쪽을 교착/직렬화 실패로 끊는다.
+            // 상한 초과가 아니라 '겹침'이므로 재시도를 안내한다.
+            log.warn("문제 등록 동시성 충돌 studentId={}: {}", studentId, e.getMessage());
+            throw BusinessException.conflict("같은 계정의 질문 등록이 동시에 처리되고 있어요. 잠시 후 다시 시도해 주세요.", e);
+        }
     }
 
     /**
@@ -291,21 +326,38 @@ public class ProblemService {
     }
 
     /**
-     * 문제 단건 조회
+     * 문제 단건 조회.
+     * 학생은 본인 문제만 볼 수 있다. 강사는 매칭 과정에서 문제를 봐야 하므로 제한하지 않는다.
      */
-    public ProblemDetailResponse getProblem(Long id) {
+    public ProblemDetailResponse getProblem(Long id, Long requesterId, Role requesterRole) {
         Problem problem = problemRepository.findById(id)
                 .orElseThrow(() -> BusinessException.notFound("문제를 찾을 수 없습니다: " + id));
+        if (requesterRole == Role.STUDENT) {
+            assertOwner(problem, requesterId);
+        }
         return ProblemDetailResponse.from(problem);
+    }
+
+    /** 수정·취소 대상 문제를 조회하고, 요청한 학생의 문제인지 확인한다. */
+    private Problem findOwnedProblem(Long id, Long studentId) {
+        Problem problem = problemRepository.findById(id)
+                .orElseThrow(() -> BusinessException.notFound("문제를 찾을 수 없습니다. id=" + id));
+        assertOwner(problem, studentId);
+        return problem;
+    }
+
+    private void assertOwner(Problem problem, Long studentId) {
+        if (!problem.getStudentId().equals(studentId)) {
+            throw BusinessException.forbidden("본인의 질문만 조회하거나 수정할 수 있어요.");
+        }
     }
 
     /**
      * 분류 수정 (학생이 AI 분류 결과 수정)
      */
     @Transactional
-    public ProblemDetailResponse updateClassification(Long id, ClassificationUpdateRequest request) {
-        Problem problem = problemRepository.findById(id)
-                .orElseThrow(() -> BusinessException.notFound("문제를 찾을 수 없습니다. id=" + id));
+    public ProblemDetailResponse updateClassification(Long id, ClassificationUpdateRequest request, Long studentId) {
+        Problem problem = findOwnedProblem(id, studentId);
 
         problem.updateClassification(
                 request.getSubject(),
@@ -323,9 +375,8 @@ public class ProblemService {
      * order는 현재 인덱스의 순열(예: [2,0,1]). 보관된 pageTexts를 새 순서로 재조합 → extractedText 갱신(재OCR 없음).
      */
     @Transactional
-    public ProblemDetailResponse reorderPages(Long id, List<Integer> order) {
-        Problem problem = problemRepository.findById(id)
-                .orElseThrow(() -> BusinessException.notFound("문제를 찾을 수 없습니다. id=" + id));
+    public ProblemDetailResponse reorderPages(Long id, List<Integer> order, Long studentId) {
+        Problem problem = findOwnedProblem(id, studentId);
 
         if (!problem.isMultiPage()) {
             throw BusinessException.badRequest("페이지 순서 변경은 여러 장으로 등록된 한 문제만 가능해요.");
@@ -407,9 +458,8 @@ public class ProblemService {
      * 문제 취소
      */
     @Transactional
-    public void cancelProblem(Long id) {
-        Problem problem = problemRepository.findById(id)
-                .orElseThrow(() -> BusinessException.notFound("문제를 찾을 수 없습니다. id=" + id));
+    public void cancelProblem(Long id, Long studentId) {
+        Problem problem = findOwnedProblem(id, studentId);
 
         matchingApplicationRepository
                 .findByProblemIdAndStatusIn(id, List.of(ApplicationStatus.PENDING))

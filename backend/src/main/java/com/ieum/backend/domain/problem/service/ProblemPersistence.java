@@ -7,6 +7,7 @@ import com.ieum.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -14,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
  * 별도 빈으로 분리해 프록시 기반 @Transactional이 동작하도록 한다(ProblemService는 NOT_SUPPORTED라 자가호출 불가).
  *
  * SERIALIZABLE로 둬서 동시에 같은 학생이 여러 업로드를 끝내도 상한을 넘겨 저장되지 않는다(저빈도라 경합 비용 무시 가능).
+ *
+ * 격리 수준은 '새로 시작하는 트랜잭션'에만 적용된다. 호출부가 이미 트랜잭션 안이면 REQUIRED는 그 트랜잭션에
+ * 합류하면서 SERIALIZABLE을 조용히 무시하므로, REQUIRES_NEW로 항상 자기 트랜잭션을 연다.
  */
 @Service
 @RequiredArgsConstructor
@@ -21,7 +25,7 @@ public class ProblemPersistence {
 
     private final ProblemRepository problemRepository;
 
-    @Transactional(isolation = Isolation.SERIALIZABLE)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.SERIALIZABLE)
     public Problem saveUnderActiveLimit(Problem problem, Long studentId, int maxActive) {
         long active = problemRepository.countByStudentIdAndStatus(studentId, ProblemStatus.PENDING);
         if (active >= maxActive) {

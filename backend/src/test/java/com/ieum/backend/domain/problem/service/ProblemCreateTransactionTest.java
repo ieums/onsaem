@@ -45,7 +45,8 @@ class ProblemCreateTransactionTest {
 
         ProblemCreateResponse response = problemService.createProblem(
                 List.of(image),
-                new ProblemCreateRequest(42L, null, "이 문제 풀이 부탁해요", null));
+                new ProblemCreateRequest(null, "이 문제 풀이 부탁해요"),
+                42L);
 
         // 응답 정상 (LAZY imageUrls 접근 포함)
         assertThat(response.getId()).isNotNull();
