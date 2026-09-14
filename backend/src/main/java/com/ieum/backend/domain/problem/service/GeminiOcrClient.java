@@ -121,7 +121,9 @@ public class GeminiOcrClient {
             ★ imageIndices: 각 문제가 "어느 이미지(들)에 있는지"를 정확히. 위 [페이지 N / 총 M] 라벨을 보고 N-1을 배열로.
               - 한 문제가 한 장에만 있으면 [0] 처럼 1개.
               - 한 문제가 여러 장에 걸치면(긴 지문 등) [0,1] 처럼 모두 넣어라.
-              - 서로 다른 장의 다른 문제는 imageIndices가 겹치지 않아야 함. 모르면 [0].
+              - 서로 다른 문제는 보통 imageIndices가 겹치지 않는다.
+                단, 같은 지문을 공유하는 묶음([14~17] 등)의 문제는 지문이 있는 장 번호도 함께 넣어라(이 경우 겹쳐도 됨).
+              - 모르면 [0].
 
             (B) mode = "SINGLE_MULTIPAGE" 일 때:
             {
@@ -145,7 +147,9 @@ public class GeminiOcrClient {
                - 실제 문제 = 발문(예: "~것은?", "~고르시오", "구하시오")과 보통 선택지(①②③④⑤)를 가진 질문.
                - "[01~03] 다음 글을 읽고 물음에 답하시오." 같은 안내문, 긴 지문, <보기>는
                  그 자체로는 문제가 아니다 → 단독 detectedText로 절대 만들지 말 것.
-               - 안내문·지문·<보기>는 그 묶음에 속한 각 "실제 문제" 객체의 extractedText 안에 함께 넣어라(지문 반복 OK).
+               - 안내문·지문은 묶음의 첫 번째 "실제 문제" 객체 extractedText에 [14~17] 같은 범위 표기와 함께 한 번만 넣어라.
+                 나머지 문제에 지문을 반복할 필요는 없다(서버가 범위 표기와 문제 번호로 연결한다). 범위 표기는 원문 그대로 남길 것.
+               - <보기>는 그 <보기>를 쓰는 문제의 extractedText에 넣어라.
                - 1개 실제 문제 = 1개 detectedText. 묶음 [01~03]에서 01·02·03이 지문을 공유하면 각 문제마다 별도 객체.
                - 한 문제가 페이지에 걸쳐 분할되면 → 합쳐서 1개 객체.
                - ★ 이미지에 발문/선택지를 가진 "실제 문제"가 하나도 없고 안내문·지문만 보이면,
@@ -228,6 +232,7 @@ public class GeminiOcrClient {
             ─────────────────────────────────────────────
             ☐ mode를 SINGLE_MULTIPAGE / MULTI_PROBLEM 중 하나로 명시
             ☐ 안내문("다음 글을 읽고 물음에 답하시오")·지문·<보기>만으로 가짜 문제를 만들지 않음
+            ☐ 지문 묶음의 범위 표기([14~17])를 첫 문제 본문에 원문 그대로 남기고, 묶음 문제의 problemNumber를 빠짐없이 적음
             ☐ [01~03] 같은 범위/묶음 숫자를 problemNumber로 쓰지 않음(단독 번호만)
             ☐ MULTI_PROBLEM: 보이는 "실제 문제"(발문+선택지) 개수와 detectedTexts 배열 길이가 일치
             ☐ SINGLE_MULTIPAGE: pages가 업로드 장수와 일치, suggestedOrder에 모든 인덱스 1회씩
@@ -354,7 +359,8 @@ public class GeminiOcrClient {
         return parseResponse(response.getBody());
     }
 
-    private OcrResult parseResponse(String responseBody) {
+    // 패키지 공개: 모델 응답 JSON → 후처리까지를 외부 호출 없이 테스트하기 위함
+    OcrResult parseResponse(String responseBody) {
         try {
             JsonNode root = objectMapper.readTree(responseBody);
 
@@ -412,6 +418,8 @@ public class GeminiOcrClient {
             }
             // 안전망: 지문 안내문/지문만 있는 블록은 "버리지 말고" 실제 문제에 합친다(지문 손실 방지).
             List<DetectedText> merged = mergePassageOnly(list);
+            // 보정: 범위 표기([14~17])로 지문을 공유하는 문제에 지문 텍스트와 지문 장을 붙인다(모델이 지문을 첫 문제에만 넣는 경우 대비).
+            PassageRangeLinker.apply(merged);
             // 보정: 묶음([14~17])의 지문 이미지가 다른 장에 있는 문제(16·17)에도 붙도록 이미지 인덱스를 잇는다.
             linkPassageGroups(merged);
             result.setDetectedTexts(merged);
