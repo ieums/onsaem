@@ -19,7 +19,6 @@ class ProblemRepository {
     required int studentId,
     String? subject, // Subject enum 이름 (예: 'MATH'). 지정 시 AI 판정보다 우선
     String? studentDescription,
-    int? selectedProblemIndex,
   }) async {
     final data = <String, dynamic>{'studentId': studentId};
     if (subject != null) {
@@ -27,9 +26,6 @@ class ProblemRepository {
     }
     if (studentDescription != null && studentDescription.isNotEmpty) {
       data['studentDescription'] = studentDescription;
-    }
-    if (selectedProblemIndex != null) {
-      data['selectedProblemIndex'] = selectedProblemIndex;
     }
 
     final form = FormData.fromMap({

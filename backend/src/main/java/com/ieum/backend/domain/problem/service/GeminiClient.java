@@ -16,8 +16,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -58,9 +60,19 @@ public class GeminiClient {
         checkDeadline(deadline);
 
         // (2) 한 문제 여러 장(SINGLE_MULTIPAGE): 순서대로 텍스트를 합쳐 "1개 문제"로 1회 분류.
+        //     모드는 모델이 정하지만 서버가 그대로 믿지 않는다 — 이후 분기(선택 화면 생략·R3 생략)가
+        //     모두 이 판단에 걸려 있어서, 구조적으로 성립하지 않는 판단은 여기서 바로잡거나 거부한다.
         if (ocrResult.getMode() == OcrResult.OcrMode.SINGLE_MULTIPAGE
                 && ocrResult.getPages() != null && !ocrResult.getPages().isEmpty()) {
-            return analyzeSingleMultipage(ocrResult, images.size());
+            if (images.size() == 1) {
+                // 한 장은 정의상 '여러 장에 걸친 한 문제'가 될 수 없다 → 일반 경로(MULTI_PROBLEM)로 되돌린다.
+                log.warn("이미지 1장인데 SINGLE_MULTIPAGE 응답 — MULTI_PROBLEM으로 처리");
+                ocrResult = asSinglePageProblem(ocrResult);
+            } else {
+                validatePagesCoverAllImages(ocrResult.getPages(), images.size());
+                rejectIfSeveralProblemsMerged(ocrResult.getPages());
+                return analyzeSingleMultipage(ocrResult, images.size());
+            }
         }
 
         log.info("OCR 완료 — 감지된 문제 {}개", ocrResult.getDetectedTexts().size());
@@ -208,6 +220,76 @@ public class GeminiClient {
         result.setImageOrder(order);
         result.setPageTexts(orderedPageTexts);
         return result;
+    }
+
+    /** SINGLE_MULTIPAGE로 온 1장짜리 응답을, 그 장을 가리키는 문제 1개짜리 MULTI_PROBLEM 결과로 바꾼다. */
+    private OcrResult asSinglePageProblem(OcrResult ocr) {
+        StringBuilder sb = new StringBuilder();
+        for (OcrResult.PageText p : ocr.getPages()) {
+            String t = p.getPageText() == null ? "" : p.getPageText().strip();
+            if (!t.isBlank()) {
+                if (sb.length() > 0) sb.append("\n\n");
+                sb.append(t);
+            }
+        }
+        DetectedText only = new DetectedText();
+        only.setExtractedText(sb.toString());
+        only.setImageIndices(new ArrayList<>(List.of(0)));
+
+        OcrResult converted = new OcrResult();
+        converted.setMode(OcrResult.OcrMode.MULTI_PROBLEM);
+        converted.setDetectedTexts(new ArrayList<>(List.of(only)));
+        return converted;
+    }
+
+    /**
+     * 장별 텍스트가 업로드한 이미지와 1:1인지 검사한다.
+     * 모델이 장을 빠뜨리거나 같은 장을 두 번 주면, 빠진 장의 글이 조용히 사라진 채 등록될 수 있다.
+     * 등록 후에는 본문을 고칠 수단이 없으므로 다시 올리도록 거부한다(상위 catch가 이미지 정리).
+     */
+    private void validatePagesCoverAllImages(List<OcrResult.PageText> pages, int imageCount) {
+        boolean[] seen = new boolean[imageCount];
+        boolean valid = pages.size() == imageCount;
+        for (OcrResult.PageText p : pages) {
+            int idx = p.getImageIndex();
+            if (idx < 0 || idx >= imageCount || seen[idx]) {
+                valid = false;
+                break;
+            }
+            seen[idx] = true;
+        }
+        if (!valid) {
+            log.warn("SINGLE_MULTIPAGE 장별 텍스트가 이미지와 맞지 않음 — 이미지 {}장, 응답 장 {}개", imageCount, pages.size());
+            throw BusinessException.badRequest("일부 페이지의 글자를 인식하지 못했어요. 사진을 다시 올려 주세요.");
+        }
+    }
+
+    /**
+     * 여러 문제가 한 문제(SINGLE_MULTIPAGE)로 묶였다는 뚜렷한 신호가 있으면 거부한다.
+     * - 선택지(①)가 두 장 이상에서 각각 보임 → 장마다 별도 문제일 가능성이 높다.
+     * - EBS 문제 코드가 두 종류 이상 → 코드는 문제마다 다르다.
+     * 묶인 채 등록되면 선택 화면·과목 혼합 검사(R3)를 모두 건너뛰므로, 문제별로 나눠 올리도록 안내한다.
+     * (뚜렷한 경우만 잡는 휴리스틱이다 — 신호가 없는 오판까지 막지는 못한다.)
+     */
+    private void rejectIfSeveralProblemsMerged(List<OcrResult.PageText> pages) {
+        int pagesWithChoices = 0;
+        Set<String> examCodes = new HashSet<>();
+        for (OcrResult.PageText p : pages) {
+            String text = p.getPageText() == null ? "" : p.getPageText();
+            if (text.contains("①")) {
+                pagesWithChoices++;
+            }
+            Matcher m = EBS_CODE_PATTERN.matcher(text);
+            while (m.find()) {
+                examCodes.add(m.group(0));
+            }
+        }
+        if (pagesWithChoices >= 2 || examCodes.size() >= 2) {
+            log.warn("SINGLE_MULTIPAGE인데 여러 문제 신호 — 선택지 있는 장 {}개, 문제 코드 {}개",
+                    pagesWithChoices, examCodes.size());
+            throw BusinessException.badRequest(
+                    "여러 문제가 한 문제로 합쳐져 인식됐어요. 문제별로 나눠서 올려 주세요.");
+        }
     }
 
     /**
