@@ -28,8 +28,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * 강의 과금 ↔ 코인 ↔ 정산 연결(#8) 검증.
  *
- * v1 모델: 30분 고정 50코인. 시작 hold(50) → 완료 confirmDeduct(50) 전액 + 강사 정산.
+ * v1 모델: 30분 고정 50코인. 시작 hold(50) → 완료 후 24h 보류 → 확정 시 confirmDeduct(50) 전액 + 강사 정산.
  * 조기종료 무환불, 불성립(취소)만 releaseHold.
+ *
+ * 완료(completeLesson)는 코인을 '홀드 상태로 둔 채' 종료만 시킨다 —
+ * 완료 직후 신고가 들어오면 정산을 막아야 하므로 24시간 보류하기 때문이다.
+ * 실제 확정 차감·정산은 LessonScheduler → LessonService.finalizeDueSettlements()가
+ * 24h 경과 + 미신고 강의에 대해 LessonSettlementFinalizer.finalizeOne()을 호출해 수행한다.
+ * 테스트는 시간을 기다릴 수 없으므로 finalizeOne()을 직접 호출해 '보류 해제 시점'을 재현한다.
  */
 @SpringBootTest
 @ActiveProfiles({"local", "test"})
@@ -42,6 +48,7 @@ class LessonBillingTest {
     @Autowired CoinWalletRepository walletRepository;
     @Autowired CoinTransactionRepository transactionRepository;
     @Autowired SettlementRepository settlementRepository;
+    @Autowired LessonSettlementFinalizer settlementFinalizer;
 
     @MockBean S3Service s3Service;   // 임시 이미지 삭제(S3) 호출 무력화
 
@@ -67,6 +74,15 @@ class LessonBillingTest {
         return walletRepository.findByStudentId(STUDENT_ID).orElseThrow();
     }
 
+    /** 24h 보류가 지나 스케줄러가 정산을 확정하는 시점을 재현(건별 독립 트랜잭션). */
+    private void finalizeSettlement(Long id) {
+        settlementFinalizer.finalizeOne(lessonRepository.findById(id).orElseThrow());
+    }
+
+    private List<Settlement> settlements() {
+        return settlementRepository.findByTutorIdOrderByCreatedAtDesc(TUTOR_ID);
+    }
+
     @Test
     @DisplayName("시작 시 50코인 hold, 완료 시 전액 차감 + 강사 정산 생성")
     void startThenComplete() {
@@ -78,12 +94,19 @@ class LessonBillingTest {
 
         lessonService.completeLesson(lessonId, null);
 
-        // confirmDeduct: 총잔액도 50으로 확정
+        // 완료 직후: 24h 보류 — 코인은 홀드 그대로, 정산도 아직 없다.
+        assertThat(wallet().getBalance()).isEqualTo(100);
+        assertThat(wallet().getAvailableBalance()).isEqualTo(50);
+        assertThat(settlements()).isEmpty();
+
+        finalizeSettlement(lessonId);
+
+        // 보류 해제 후 confirmDeduct: 총잔액도 50으로 확정
         assertThat(wallet().getBalance()).isEqualTo(50);
         assertThat(wallet().getAvailableBalance()).isEqualTo(50);
 
         // 강사 정산 1건: 50코인 → 플랫폼 20%(10) / 강사 80%(40) → 4,000원
-        List<Settlement> settlements = settlementRepository.findByTutorIdOrderByCreatedAtDesc(TUTOR_ID);
+        List<Settlement> settlements = settlements();
         assertThat(settlements).hasSize(1);
         assertThat(settlements.get(0).getTutorCoin()).isEqualTo(40);
         assertThat(settlements.get(0).getTutorAmount()).isEqualTo(4000);
@@ -97,9 +120,10 @@ class LessonBillingTest {
     void earlyFinish_chargesFull() {
         lessonService.startLesson(lessonId, STUDENT_ID, TUTOR_ID);
         lessonService.completeLesson(lessonId, null);  // 바로 종료(조기)
+        finalizeSettlement(lessonId);
 
-        assertThat(wallet().getBalance()).isEqualTo(50);   // 전액 차감
-        assertThat(settlementRepository.findByTutorIdOrderByCreatedAtDesc(TUTOR_ID)).hasSize(1);
+        assertThat(wallet().getBalance()).isEqualTo(50);   // 조기 종료여도 전액 차감(환불 없음)
+        assertThat(settlements()).hasSize(1);
     }
 
     @Test
@@ -110,7 +134,7 @@ class LessonBillingTest {
 
         assertThat(wallet().getBalance()).isEqualTo(100);
         assertThat(wallet().getAvailableBalance()).isEqualTo(100);  // 반환됨
-        assertThat(settlementRepository.findByTutorIdOrderByCreatedAtDesc(TUTOR_ID)).isEmpty();
+        assertThat(settlements()).isEmpty();
         assertThat(lessonRepository.findById(lessonId).orElseThrow().getStatus())
                 .isEqualTo(LessonStatus.CANCELED);
     }
@@ -122,8 +146,17 @@ class LessonBillingTest {
         lessonService.completeLesson(lessonId, null);
         lessonService.completeLesson(lessonId, null);  // 재호출
 
+        finalizeSettlement(lessonId);
+
         assertThat(wallet().getBalance()).isEqualTo(50);  // 100→50, 두 번 차감 아님
-        assertThat(settlementRepository.findByTutorIdOrderByCreatedAtDesc(TUTOR_ID)).hasSize(1);
+        assertThat(settlements()).hasSize(1);
+
+        // 확정도 두 번 돌면 안 된다 — lesson_id UNIQUE에 걸려 거부되고,
+        // finalizeOne이 건별 트랜잭션이라 앞서 수행된 차감까지 함께 롤백된다.
+        assertThatThrownBy(() -> finalizeSettlement(lessonId))
+                .isInstanceOf(BusinessException.class);
+        assertThat(wallet().getBalance()).isEqualTo(50);  // 이중 차감 없음
+        assertThat(settlements()).hasSize(1);
     }
 
     @Test
@@ -153,10 +186,11 @@ class LessonBillingTest {
         assertThat(wallet().getAvailableBalance()).isEqualTo(30);
 
         lessonService.completeLesson(lessonId, null);
+        finalizeSettlement(lessonId);
 
         // 누적 70코인 확정 차감 (100→30)
         assertThat(wallet().getBalance()).isEqualTo(30);
-        var s = settlementRepository.findByTutorIdOrderByCreatedAtDesc(TUTOR_ID);
+        var s = settlements();
         assertThat(s).hasSize(1);
         assertThat(s.get(0).getTotalCoin()).isEqualTo(70);   // 50 + 20
         assertThat(s.get(0).getTutorCoin()).isEqualTo(56);   // 70 * 0.8
