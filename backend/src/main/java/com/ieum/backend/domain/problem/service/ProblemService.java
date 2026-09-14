@@ -57,8 +57,7 @@ public class ProblemService {
      * 트랜잭션은 실제 INSERT 시점(saveProblem → repository.save)에만 짧게 열려,
      * 외부 호출이 DB 커넥션을 오래 점유하지 않는다.
      *
-     * TODO: AI 분석이 실패하면 이미 저장된 이미지가 고아로 남는다.
-     *       ImageStorageService에 delete를 추가해 실패 시 정리 필요(별도 작업).
+     * 분석 실패 시엔 committed=false로 두고 catch에서 저장한 이미지를 정리한다(삭제 누락 방지).
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ProblemCreateResponse createProblem(List<MultipartFile> images,
@@ -72,7 +71,7 @@ public class ProblemService {
         // true가 된 뒤의 예외에서는 catch가 이미지를 삭제하면 안 된다(유령 URL 방지).
         boolean committed = false;
 
-        // 2~3. AI 분석 + 분기 처리. 실패하면 방금 저장한 이미지를 정리(고아 방지)
+        // 2~3. AI 분석 + 분기 처리. 실패하면 방금 저장한 이미지를 정리(삭제 누락 방지)
         try {
             AiAnalysisResult aiResult = geminiClient.analyze(images);
             List<AiAnalysisResult.DetectedProblem> detected = aiResult.getDetectedProblems();
@@ -126,7 +125,7 @@ public class ProblemService {
                 Problem problem = saveProblem(chosen, kept, List.of(),
                         request.getStudentId(), request.getSubject(), request.getStudentDescription());
                 committed = true; // 저장 성공 → 이후 예외에도 kept 이미지 보존
-                deleteUnkept(imageUrls, kept); // 다른 문제의 장은 고아 → 삭제
+                deleteUnkept(imageUrls, kept); // 다른 문제의 장은 안 쓰이므로 → 삭제
                 return ProblemCreateResponse.from(problem, chosen.isClassificationFailed());
             }
 
@@ -139,7 +138,7 @@ public class ProblemService {
         } catch (RuntimeException e) {
             // 저장(Problem)/캐시(선택 대기) 성공 이후의 예외라면 이미지가 실제로 묶여 있으므로
             // 절대 삭제하지 않는다 — 저장된 문제의 이미지를 지워 '유령 URL(404)'이 되는 버그 방지.
-            // 저장/캐시 전(분석 실패·감지 0건·과목 혼합·짧은 글 등)일 때만 고아 이미지를 정리한다.
+            // 저장/캐시 전(분석 실패·감지 0건·과목 혼합·짧은 글 등)일 때만 삭제되지 않은 이미지를 정리한다.
             if (!committed) {
                 imageStorageService.deleteAll(imageUrls);
             }
@@ -163,7 +162,7 @@ public class ProblemService {
         }
 
         // 다중 감지(선택) 경로는 항상 MULTI_PROBLEM이므로 pageTexts 없음.
-        // 선택한 문제가 있는 이미지만 저장하고, 나머지 장은 삭제(고아 방지).
+        // 선택한 문제가 있는 이미지만 저장하고, 나머지 장은 삭제(삭제 누락 방지).
         AiAnalysisResult.DetectedProblem chosen = entry.detected().get(idx);
         List<String> kept = keptImagesFor(entry.imageUrls(), chosen.getImageIndices());
         Problem problem = saveProblem(chosen, kept, List.of(),
